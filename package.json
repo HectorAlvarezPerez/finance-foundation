@@ -1,0 +1,39 @@
+{
+  "name": "finance-foundation",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:backend": "bash -lc 'cd apps/backend && uv run uvicorn app.main:app --reload'",
+    "dev:backend:local": "bash scripts/dev-backend.sh",
+    "dev:frontend": "npm --workspace apps/frontend run dev",
+    "just": "bash scripts/just.sh",
+    "up": "npm run just -- up",
+    "demo-up": "npm run just -- demo-up",
+    "demo:setup": "bash scripts/demo-setup.sh",
+    "demo:backend": "bash scripts/demo-backend.sh",
+    "demo:frontend": "bash scripts/demo-frontend.sh",
+    "demo:start": "npm run demo:setup && concurrently -k -n backend,frontend -c blue,green \"npm run demo:backend\" \"npm run demo:frontend\"",
+    "build:frontend": "npm --workspace apps/frontend run build",
+    "lint:frontend": "npm --workspace apps/frontend run lint",
+    "typecheck:frontend": "npm --workspace apps/frontend run typecheck",
+    "lint:backend": "bash -lc 'cd apps/backend && uv run ruff check .'",
+    "typecheck:backend": "bash -lc 'cd apps/backend && uv run pyright'",
+    "test:backend": "bash -lc 'cd apps/backend && uv run pytest'",
+    "test:e2e": "npm --workspace apps/frontend run test:e2e",
+    "contracts:check": "bash -lc 'npm run generate:contracts && git diff --exit-code -- packages/shared/openapi.json packages/shared/src/generated/api.ts'",
+    "precommit:install": "bash -lc 'uv run --project apps/backend pre-commit install'",
+    "precommit:run": "bash -lc 'uv run --project apps/backend pre-commit run --all-files'",
+    "db:revision": "bash -lc 'cd apps/backend && uv run alembic revision --autogenerate'",
+    "db:upgrade": "bash -lc 'cd apps/backend && uv run alembic upgrade head'",
+    "quality": "npm run contracts:check && npm run lint:frontend && npm run typecheck:frontend && npm run lint:backend && npm run typecheck:backend && npm run test:backend",
+    "generate:contracts": "bash -lc 'cd apps/backend && uv run python scripts/export_openapi.py && cd ../.. && openapi-typescript packages/shared/openapi.json -o packages/shared/src/generated/api.ts'"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "openapi-typescript": "^7.10.1"
+  }
+}

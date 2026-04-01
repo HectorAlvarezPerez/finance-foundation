@@ -1,0 +1,260 @@
+@import "tailwindcss";
+
+/* ─── Apple‑inspired design tokens ─────────────────────────── */
+:root {
+  --background: #f5f5f7;
+  --foreground: #1d1d1f;
+  --app-surface: #ffffff;
+  --app-panel: #ffffff;
+  --app-panel-strong: #fbfbfd;
+  --app-border: rgba(0, 0, 0, 0.08);
+  --app-ink: #1d1d1f;
+  --app-text: #1d1d1f;
+  --app-muted: #86868b;
+  --app-muted-surface: #f5f5f7;
+  --app-accent: #0071e3;
+  --app-accent-hover: #0077ed;
+  --app-accent-soft: rgba(0, 113, 227, 0.08);
+  --app-danger: #ff3b30;
+  --app-danger-soft: rgba(255, 59, 48, 0.08);
+  --app-success: #34c759;
+  --app-success-soft: rgba(52, 199, 89, 0.08);
+  --app-warning: #ff9f0a;
+  --app-warning-soft: rgba(255, 159, 10, 0.08);
+  --app-shadow: 0 1px 3px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --app-shadow-elevated: 0 2px 8px rgba(0, 0, 0, 0.06), 0 12px 40px rgba(0, 0, 0, 0.06);
+  --app-radius: 12px;
+  --app-radius-lg: 16px;
+  --app-radius-xl: 20px;
+  --app-glass: rgba(255, 255, 255, 0.72);
+  --app-glass-border: rgba(255, 255, 255, 0.5);
+  --app-transition: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --app-spring: 350ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+:root[data-theme="dark"] {
+  --background: #000000;
+  --foreground: #f5f5f7;
+  --app-surface: #1c1c1e;
+  --app-panel: #2c2c2e;
+  --app-panel-strong: #3a3a3c;
+  --app-border: rgba(255, 255, 255, 0.1);
+  --app-ink: #f5f5f7;
+  --app-text: #f5f5f7;
+  --app-muted: #98989d;
+  --app-muted-surface: rgba(255, 255, 255, 0.06);
+  --app-accent: #0a84ff;
+  --app-accent-hover: #409cff;
+  --app-accent-soft: rgba(10, 132, 255, 0.12);
+  --app-danger: #ff453a;
+  --app-danger-soft: rgba(255, 69, 58, 0.15);
+  --app-success: #30d158;
+  --app-success-soft: rgba(48, 209, 88, 0.15);
+  --app-warning: #ffd60a;
+  --app-warning-soft: rgba(255, 214, 10, 0.15);
+  --app-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.2);
+  --app-shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.35), 0 20px 60px rgba(0, 0, 0, 0.3);
+  --app-glass: rgba(44, 44, 46, 0.72);
+  --app-glass-border: rgba(255, 255, 255, 0.08);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/* ─── Base reset ───────────────────────────────────────────── */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background: var(--background);
+  color: var(--app-ink);
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition:
+    background-color var(--app-transition),
+    color var(--app-transition);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(0, 113, 227, 0.15);
+}
+
+:root[data-theme="dark"] ::selection {
+  background: rgba(10, 132, 255, 0.25);
+}
+
+/* ─── Layout ───────────────────────────────────────────────── */
+.app-shell-grid {
+  min-height: 100vh;
+}
+
+.page-container {
+  margin: 0 auto;
+  width: 100%;
+  max-width: 1200px;
+  padding: 1.25rem 1rem 6rem;
+}
+
+@media (min-width: 768px) {
+  .page-container {
+    padding: 2rem 2rem 2rem;
+  }
+}
+
+/* ─── Animations (Apple‑style easing) ──────────────────────── */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes progressFill {
+  from {
+    width: 0%;
+  }
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 12px var(--glow-color, rgba(0, 113, 227, 0.3));
+  }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 400ms cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.animate-slideUp {
+  animation: slideUp 450ms cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.animate-slideDown {
+  animation: slideDown 300ms cubic-bezier(0.25, 0.1, 0.25, 1) both;
+}
+
+.animate-scaleIn {
+  animation: scaleIn 350ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Staggered card entrance */
+.stagger-1 { animation-delay: 0ms; }
+.stagger-2 { animation-delay: 60ms; }
+.stagger-3 { animation-delay: 120ms; }
+.stagger-4 { animation-delay: 180ms; }
+.stagger-5 { animation-delay: 240ms; }
+.stagger-6 { animation-delay: 300ms; }
+
+/* ─── Skeleton shimmer ─────────────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--app-muted-surface) 25%,
+    color-mix(in srgb, var(--app-muted-surface) 60%, transparent) 50%,
+    var(--app-muted-surface) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: var(--app-radius);
+}
+
+/* ─── Scrollbar styling ────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--app-muted);
+  border-radius: 3px;
+  opacity: 0.4;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.7;
+}
+
+/* ─── Focus ring (Apple style) ─────────────────────────────── */
+:focus-visible {
+  outline: 3px solid var(--app-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: var(--app-accent);
+  box-shadow: 0 0 0 3px var(--app-accent-soft);
+}

@@ -1,0 +1,42 @@
+import type { components } from "./generated/api";
+
+export type Account = components["schemas"]["AccountRead"];
+export type AccountCreate = components["schemas"]["AccountCreate"];
+export type AccountUpdate = components["schemas"]["AccountUpdate"];
+
+export type AuthLoginRequest = components["schemas"]["AuthLoginRequest"];
+export type AuthProvidersRead = components["schemas"]["AuthProvidersRead"];
+export type AuthRegisterRequest = components["schemas"]["AuthRegisterRequest"];
+export type User = components["schemas"]["AuthUserRead"];
+
+export type Budget = components["schemas"]["BudgetRead"];
+export type BudgetCreate = components["schemas"]["BudgetCreate"];
+export type BudgetBulkCreate = components["schemas"]["BudgetBulkCreate"];
+export type BudgetBulkCreateResponse = components["schemas"]["BudgetBulkCreateResponse"];
+export type BudgetUpdate = components["schemas"]["BudgetUpdate"];
+
+export type Category = components["schemas"]["CategoryRead"];
+export type CategoryCreate = components["schemas"]["CategoryCreate"];
+export type CategoryUpdate = components["schemas"]["CategoryUpdate"];
+
+export type Transaction = components["schemas"]["TransactionRead"];
+export type TransactionCreate = components["schemas"]["TransactionCreate"];
+export type TransactionUpdate = components["schemas"]["TransactionUpdate"];
+
+export type Settings = components["schemas"]["SettingsRead"];
+export type SettingsUpdate = components["schemas"]["SettingsUpdate"];
+
+export type InsightsTopCategory = components["schemas"]["InsightsTopCategoryRead"];
+export type InsightsMonthlyBucket = components["schemas"]["InsightsMonthlyBucketRead"];
+export type InsightsAccountBalance = components["schemas"]["InsightsAccountBalanceRead"];
+export type InsightsSummary = components["schemas"]["InsightsSummaryRead"];
+
+export type PaginatedResponse<T> = {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type AccountType = components["schemas"]["AccountType"];
+export type CategoryType = components["schemas"]["CategoryType"];
