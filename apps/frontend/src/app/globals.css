@@ -26,6 +26,7 @@
   --app-radius: 12px;
   --app-radius-lg: 16px;
   --app-radius-xl: 20px;
+  --app-content-max-width: 1480px;
   --app-glass: rgba(255, 255, 255, 0.72);
   --app-glass-border: rgba(255, 255, 255, 0.5);
   --app-transition: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
@@ -110,7 +111,7 @@ textarea {
 .page-container {
   margin: 0 auto;
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--app-content-max-width);
   padding: 1.25rem 1rem 6rem;
 }
 

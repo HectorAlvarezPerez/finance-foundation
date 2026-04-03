@@ -78,7 +78,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app-shell-grid bg-[var(--background)]">
       {/* ─── Top navigation bar ─── */}
       <header className="sticky top-0 z-40 border-b border-[var(--app-border)] bg-[var(--app-glass)] backdrop-blur-xl">
-        <div className="mx-auto flex max-w-[1200px] flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex w-full max-w-[var(--app-content-max-width)] flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start sm:gap-6">
             <Link href="/app" className="flex min-w-0 items-center gap-2.5 text-lg font-semibold">
               <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--app-accent)]">
@@ -147,7 +147,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* ─── Mobile bottom navigation ─── */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--app-border)] bg-[var(--app-glass)] shadow-[0_-4px_20px_-12px_rgba(0,0,0,0.15)] backdrop-blur-xl md:hidden [padding-bottom:env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid max-w-[1200px] grid-cols-5 items-center gap-1 px-2 py-1.5">
+        <div className="mx-auto grid w-full max-w-[var(--app-content-max-width)] grid-cols-5 items-center gap-1 px-2 py-1.5">
           {mobilePrimaryItems.map((item) => {
             const Icon = item.icon;
             const isActive =
