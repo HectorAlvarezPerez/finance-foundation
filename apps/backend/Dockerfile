@@ -8,7 +8,7 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/.python-version ./
+COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/.python-version apps/backend/README.md ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY apps/backend/app ./app

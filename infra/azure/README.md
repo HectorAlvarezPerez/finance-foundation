@@ -111,6 +111,58 @@ az containerapp registry set \
 
 Ambos se disparan manualmente con `workflow_dispatch` y usan OIDC con `azure/login@v2`.
 
+## Deploy manual con Azure CLI
+
+Si el tenant no permite crear App Registrations o federated credentials en Microsoft Entra ID, puedes desplegar igualmente sin GitHub OIDC haciendo el build y update desde tu sesión local de Azure CLI.
+
+### Backend
+
+```bash
+ACR_NAME=financefoundationacr
+RESOURCE_GROUP=finance-foundation-rg
+BACKEND_APP=finance-foundation-backend
+BACKEND_IMAGE_NAME=finance-foundation-backend
+
+ACR_LOGIN_SERVER="$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)"
+IMAGE_TAG="$ACR_LOGIN_SERVER/$BACKEND_IMAGE_NAME:manual-$(date +%Y%m%d%H%M%S)"
+
+az acr build \
+  --registry "$ACR_NAME" \
+  --image "${BACKEND_IMAGE_NAME}:${IMAGE_TAG##*:}" \
+  --file apps/backend/Dockerfile \
+  .
+
+az containerapp update \
+  --name "$BACKEND_APP" \
+  --resource-group "$RESOURCE_GROUP" \
+  --image "$IMAGE_TAG"
+```
+
+### Frontend
+
+```bash
+ACR_NAME=financefoundationacr
+RESOURCE_GROUP=finance-foundation-rg
+FRONTEND_APP=finance-foundation-frontend
+FRONTEND_IMAGE_NAME=finance-foundation-frontend
+NEXT_PUBLIC_API_BASE_URL="https://finance-foundation-backend.kindplant-dd9a519a.spaincentral.azurecontainerapps.io/api/v1"
+
+ACR_LOGIN_SERVER="$(az acr show --name "$ACR_NAME" --query loginServer -o tsv)"
+IMAGE_TAG="$ACR_LOGIN_SERVER/$FRONTEND_IMAGE_NAME:manual-$(date +%Y%m%d%H%M%S)"
+
+az acr build \
+  --registry "$ACR_NAME" \
+  --image "${FRONTEND_IMAGE_NAME}:${IMAGE_TAG##*:}" \
+  --file apps/frontend/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL" \
+  .
+
+az containerapp update \
+  --name "$FRONTEND_APP" \
+  --resource-group "$RESOURCE_GROUP" \
+  --image "$IMAGE_TAG"
+```
+
 ## Requisito local
 
 Para ejecutar los scripts necesitas Azure CLI (`az`) y la extensión de Container Apps. Si no lo tienes instalado en tu máquina, puedes ejecutarlos desde Azure Cloud Shell.

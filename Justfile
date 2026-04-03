@@ -83,3 +83,16 @@ azure-bootstrap:
 # Configure GitHub Actions OIDC against Azure from env vars.
 azure-oidc:
   bash scripts/azure-setup-github-oidc.sh
+
+# Deploy the backend manually to Azure using the current az login session.
+deploy-backend-manual:
+  bash scripts/deploy-backend-manual.sh
+
+# Deploy the frontend manually to Azure using the current az login session.
+deploy-frontend-manual:
+  bash scripts/deploy-frontend-manual.sh
+
+# Deploy backend first and then frontend manually.
+deploy-manual:
+  bash scripts/deploy-backend-manual.sh
+  bash scripts/deploy-frontend-manual.sh
