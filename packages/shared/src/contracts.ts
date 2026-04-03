@@ -22,6 +22,17 @@ export type CategoryUpdate = components["schemas"]["CategoryUpdate"];
 export type Transaction = components["schemas"]["TransactionRead"];
 export type TransactionCreate = components["schemas"]["TransactionCreate"];
 export type TransactionUpdate = components["schemas"]["TransactionUpdate"];
+export type TransactionImportAnalysisResponse =
+  components["schemas"]["TransactionImportAnalysisResponse"];
+export type TransactionImportColumnMapping =
+  components["schemas"]["TransactionImportColumnMapping"];
+export type TransactionImportCommitRequest =
+  components["schemas"]["TransactionImportCommitRequest"];
+export type TransactionImportCommitResponse =
+  components["schemas"]["TransactionImportCommitResponse"];
+export type TransactionImportDraft = components["schemas"]["TransactionImportDraft"];
+export type TransactionImportPreviewResponse =
+  components["schemas"]["TransactionImportPreviewResponse"];
 
 export type Settings = components["schemas"]["SettingsRead"];
 export type SettingsUpdate = components["schemas"]["SettingsUpdate"];

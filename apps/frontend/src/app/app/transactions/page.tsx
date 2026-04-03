@@ -1,25 +1,39 @@
 "use client";
 
-import { FormEvent, Suspense, useMemo, useState } from "react";
+import { FormEvent, Suspense, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
-import { Copy, CreditCard, Pencil, Plus, Trash2, X } from "lucide-react";
+import {
+  AlertCircle,
+  Check,
+  Copy,
+  CreditCard,
+  FileSpreadsheet,
+  FileUp,
+  LoaderCircle,
+  Pencil,
+  Plus,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
 
 import { AmountValue } from "@/components/amount-value";
 import { CategoryBadge } from "@/components/category-badge";
 import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
+import { ActionMenu } from "@/components/ui/action-menu";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
 import { PaginationControls } from "@/components/ui/pagination-controls";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import { ActionMenu } from "@/components/ui/action-menu";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { apiRequest } from "@/lib/api";
 import { formatDate } from "@/lib/format";
 import type { Account, Category, PaginatedResponse, Transaction } from "@/lib/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 const fetcher = <T,>(url: string) => apiRequest<T>(url);
 
@@ -33,6 +47,45 @@ type TransactionFilters = {
 };
 
 type TransactionEditorMode = "create" | "edit" | "duplicate";
+
+type TransactionImportMapping = {
+  date: string;
+  amount: string;
+  description: string;
+  category: string;
+  notes: string;
+};
+
+type TransactionImportAnalysis = {
+  source_type: "csv" | "excel" | "pdf";
+  columns: string[];
+  sample_rows: Array<Record<string, string>>;
+  suggested_mapping: TransactionImportMapping;
+  total_rows: number;
+  message?: string | null;
+};
+
+type TransactionImportPreviewRow = {
+  id: string;
+  sourceRowNumber: number;
+  accountId: string;
+  categoryId: string;
+  categoryLabel: string;
+  date: string;
+  amount: string;
+  currency: string;
+  description: string;
+  notes: string;
+  validationErrors: string[];
+};
+
+type TransactionImportPreview = {
+  sourceType: "csv" | "excel" | "pdf";
+  accountId: string;
+  accountCurrency: string;
+  importedCount: number;
+  rows: TransactionImportPreviewRow[];
+};
 
 function parseCategoryType(
   value: string | null,
@@ -67,28 +120,73 @@ function TransactionsContent() {
   const pageSize = 20;
   const transactionQuery = buildTransactionQuery(filters, page, pageSize);
 
-  const { data: transData, mutate: mutateTrans } = useSWR<PaginatedResponse<Transaction>>(`/transactions?${transactionQuery}`, fetcher, { keepPreviousData: true });
-  const { data: accData } = useSWR<PaginatedResponse<Account>>("/accounts?limit=100&sort_by=name&sort_order=asc", fetcher);
-  const { data: catData } = useSWR<PaginatedResponse<Category>>("/categories?limit=100&sort_by=name&sort_order=asc", fetcher);
+  const { data: transData, mutate: mutateTrans } = useSWR<PaginatedResponse<Transaction>>(
+    `/transactions?${transactionQuery}`,
+    fetcher,
+    { keepPreviousData: true },
+  );
+  const { data: accData } = useSWR<PaginatedResponse<Account>>(
+    "/accounts?limit=100&sort_by=name&sort_order=asc",
+    fetcher,
+  );
+  const { data: catData } = useSWR<PaginatedResponse<Category>>(
+    "/categories?limit=100&sort_by=name&sort_order=asc",
+    fetcher,
+  );
 
   const transactions = transData?.items || [];
   const totalTransactions = transData?.total || 0;
   const accounts = accData?.items || [];
   const categories = catData?.items || [];
   const isLoading = !transData || !accData || !catData;
-  const error = null;
 
   const [form, setForm] = useState(defaultTransactionForm());
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editorMode, setEditorMode] = useState<TransactionEditorMode>("create");
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; ids: string[] }>({ open: false, ids: [] });
+  const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; ids: string[] }>({
+    open: false,
+    ids: [],
+  });
+
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importFile, setImportFile] = useState<File | null>(null);
+  const [importAccountId, setImportAccountId] = useState("");
+  const [importAnalysis, setImportAnalysis] = useState<TransactionImportAnalysis | null>(null);
+  const [importMapping, setImportMapping] = useState<TransactionImportMapping>(defaultImportMapping());
+  const [importPreview, setImportPreview] = useState<TransactionImportPreview | null>(null);
+  const [isAnalyzingImport, setIsAnalyzingImport] = useState(false);
+  const [isPreparingPreview, setIsPreparingPreview] = useState(false);
+  const [isConfirmingImport, setIsConfirmingImport] = useState(false);
+  const [importStep, setImportStep] = useState<1 | 2>(1);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const accountMap = new Map(accounts.map((account) => [account.id, account]));
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
   const selectedCount = selectedIds.length;
-  const allVisibleSelected = transactions.length > 0 && transactions.every((transaction) => selectedIds.includes(transaction.id));
+  const allVisibleSelected =
+    transactions.length > 0 &&
+    transactions.every((transaction) => selectedIds.includes(transaction.id));
+
+  const reviewStats = useMemo(() => {
+    if (!importPreview) {
+      return { readyCount: 0, reviewCount: 0 };
+    }
+
+    return importPreview.rows.reduce(
+      (acc, row) => {
+        if (row.validationErrors.length === 0) {
+          acc.readyCount += 1;
+        } else {
+          acc.reviewCount += 1;
+        }
+        return acc;
+      },
+      { readyCount: 0, reviewCount: 0 },
+    );
+  }, [importPreview]);
 
   const yearOptions = useMemo(() => {
     const currentYear = new Date().getFullYear();
@@ -143,7 +241,10 @@ function TransactionsContent() {
           method: "POST",
           body: JSON.stringify(payload),
         });
-        toast(editorMode === "duplicate" ? "Copia creada" : "Transacción creada", "success");
+        toast(
+          editorMode === "duplicate" ? "Copia creada" : "Transacción creada",
+          "success",
+        );
       }
 
       setForm((current) => defaultTransactionForm(current.currency, current.account_id));
@@ -161,6 +262,247 @@ function TransactionsContent() {
     setEditingTransactionId(null);
     setForm(defaultTransactionForm(form.currency, form.account_id));
     setIsDialogOpen(true);
+  }
+
+  function handleOpenImport() {
+    if (!accounts.length) {
+      toast("Necesitas al menos una cuenta antes de importar transacciones", "error");
+      return;
+    }
+
+    setIsImportDialogOpen(true);
+    setImportAccountId((current) => current || filters.account_id || accounts[0]?.id || "");
+  }
+
+  function resetImportDialog() {
+    setIsImportDialogOpen(false);
+    setImportFile(null);
+    setImportAnalysis(null);
+    setImportMapping(defaultImportMapping());
+    setIsAnalyzingImport(false);
+    setIsPreparingPreview(false);
+    setImportStep(1);
+    setIsDragging(false);
+  }
+
+  function handleFileDrop(droppedFile: File) {
+    const validExtensions = [".csv", ".xlsx", ".xlsm", ".xltx", ".xltm", ".pdf"];
+    const extension = droppedFile.name.slice(droppedFile.name.lastIndexOf(".")).toLowerCase();
+    if (!validExtensions.includes(extension)) {
+      toast("Formato no soportado. Usa CSV, Excel o PDF.", "error");
+      return;
+    }
+    void handleImportFileChange(droppedFile);
+  }
+
+  function removeImportFile() {
+    setImportFile(null);
+    setImportAnalysis(null);
+    setImportMapping(defaultImportMapping());
+    setImportStep(1);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function formatFileSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  async function handleImportFileChange(file: File | null) {
+    setImportFile(file);
+    setImportAnalysis(null);
+    setImportMapping(defaultImportMapping());
+
+    if (!file) {
+      return;
+    }
+
+    setIsAnalyzingImport(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const analysis = await apiRequest<TransactionImportAnalysis>("/transactions/import/analyze", {
+        method: "POST",
+        body: formData,
+      });
+      setImportAnalysis(analysis);
+      setImportMapping({
+        date: analysis.suggested_mapping.date || "",
+        amount: analysis.suggested_mapping.amount || "",
+        description: analysis.suggested_mapping.description || "",
+        category: analysis.suggested_mapping.category || "",
+        notes: analysis.suggested_mapping.notes || "",
+      });
+      if (analysis.message) {
+        toast(analysis.message, analysis.source_type === "pdf" ? "error" : "success");
+      }
+    } catch (requestError) {
+      toast(
+        requestError instanceof Error ? requestError.message : "No se pudo analizar el archivo",
+        "error",
+      );
+    } finally {
+      setIsAnalyzingImport(false);
+    }
+  }
+
+  async function handlePrepareImportPreview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!importFile) {
+      toast("Selecciona un archivo antes de continuar", "error");
+      return;
+    }
+
+    if (!importAccountId) {
+      toast("Selecciona la cuenta de destino para las transacciones importadas", "error");
+      return;
+    }
+
+    setIsPreparingPreview(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", importFile);
+      formData.append("account_id", importAccountId);
+      formData.append("mapping", JSON.stringify(importMapping));
+
+      const response = await apiRequest<{
+        source_type: "csv" | "excel" | "pdf";
+        account_id: string;
+        account_currency: string;
+        imported_count: number;
+        rows: Array<{
+          source_row_number: number;
+          account_id: string;
+          category_id: string | null;
+          category_label: string | null;
+          date: string | null;
+          amount: string | null;
+          currency: string;
+          description: string | null;
+          notes: string | null;
+          validation_errors: string[];
+        }>;
+      }>("/transactions/import/preview", {
+        method: "POST",
+        body: formData,
+      });
+
+      setImportPreview({
+        sourceType: response.source_type,
+        accountId: response.account_id,
+        accountCurrency: response.account_currency,
+        importedCount: response.imported_count,
+        rows: response.rows.map((row) =>
+          normalizeImportPreviewRow({
+            id: `import-${row.source_row_number}-${crypto.randomUUID()}`,
+            sourceRowNumber: row.source_row_number,
+            accountId: row.account_id,
+            categoryId: row.category_id ?? "",
+            categoryLabel: row.category_label ?? "",
+            date: row.date ?? "",
+            amount: row.amount ?? "",
+            currency: row.currency,
+            description: row.description ?? "",
+            notes: row.notes ?? "",
+            validationErrors: row.validation_errors,
+          }),
+        ),
+      });
+
+      resetImportDialog();
+      toast("Preview de importación preparado", "success");
+    } catch (requestError) {
+      toast(
+        requestError instanceof Error
+          ? requestError.message
+          : "No se pudo preparar la revisión de la importación",
+        "error",
+      );
+    } finally {
+      setIsPreparingPreview(false);
+    }
+  }
+
+  function updateImportRow(
+    rowId: string,
+    updater: (row: TransactionImportPreviewRow) => TransactionImportPreviewRow,
+  ) {
+    setImportPreview((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: current.rows.map((row) =>
+          row.id === rowId ? normalizeImportPreviewRow(updater(row)) : row,
+        ),
+      };
+    });
+  }
+
+  function discardImportRow(rowId: string) {
+    setImportPreview((current) => {
+      if (!current) {
+        return current;
+      }
+      return {
+        ...current,
+        rows: current.rows.filter((row) => row.id !== rowId),
+      };
+    });
+  }
+
+  async function handleConfirmImport() {
+    if (!importPreview) {
+      return;
+    }
+
+    const readyRows = importPreview.rows.filter((row) => row.validationErrors.length === 0);
+    if (!readyRows.length) {
+      toast("No hay filas listas para importar todavía", "error");
+      return;
+    }
+
+    setIsConfirmingImport(true);
+    try {
+      const payload = {
+        items: readyRows.map((row) => ({
+          source_row_number: row.sourceRowNumber,
+          account_id: row.accountId,
+          category_id: row.categoryId || null,
+          date: row.date,
+          amount: row.amount,
+          currency: row.currency,
+          description: row.description,
+          notes: row.notes || null,
+        })),
+      };
+
+      const response = await apiRequest<{ imported_count: number }>("/transactions/import/commit", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const remainingRows = importPreview.rows.filter((row) => row.validationErrors.length > 0);
+      setImportPreview(
+        remainingRows.length
+          ? { ...importPreview, rows: remainingRows, importedCount: remainingRows.length }
+          : null,
+      );
+      await mutateTrans();
+      toast(`${response.imported_count} transacciones añadidas`, "success");
+    } catch (requestError) {
+      toast(
+        requestError instanceof Error ? requestError.message : "No se pudieron importar las filas",
+        "error",
+      );
+    } finally {
+      setIsConfirmingImport(false);
+    }
   }
 
   function handleOpenEdit(transaction: Transaction) {
@@ -187,7 +529,9 @@ function TransactionsContent() {
 
   function toggleSelectAll() {
     setSelectedIds((current) =>
-      allVisibleSelected ? current.filter((id) => !transactions.some((transaction) => transaction.id === id)) : [...current, ...transactions.map((t) => t.id).filter(id => !current.includes(id))],
+      allVisibleSelected
+        ? current.filter((id) => !transactions.some((transaction) => transaction.id === id))
+        : [...current, ...transactions.map((t) => t.id).filter((id) => !current.includes(id))],
     );
   }
 
@@ -205,14 +549,18 @@ function TransactionsContent() {
         ),
       );
       setSelectedIds((current) => current.filter((id) => !ids.includes(id)));
-      toast(ids.length === 1 ? "Transacción eliminada" : `${ids.length} transacciones eliminadas`, "success");
+      toast(
+        ids.length === 1 ? "Transacción eliminada" : `${ids.length} transacciones eliminadas`,
+        "success",
+      );
       await mutateTrans();
     } catch (requestError) {
       toast(requestError instanceof Error ? requestError.message : "Error al eliminar", "error");
     }
   }
 
-  const inputClasses = "w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)] focus:shadow-[0_0_0_3px_var(--app-accent-soft)]";
+  const inputClasses =
+    "w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)] focus:shadow-[0_0_0_3px_var(--app-accent-soft)]";
 
   return (
     <div>
@@ -238,6 +586,14 @@ function TransactionsContent() {
                 Eliminar seleccionadas ({selectedCount})
               </button>
             ) : null}
+            <button
+              type="button"
+              onClick={handleOpenImport}
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
+            >
+              <FileUp className="h-4 w-4" />
+              Import transactions
+            </button>
             <button
               type="button"
               onClick={handleOpenCreate}
@@ -319,13 +675,51 @@ function TransactionsContent() {
               </select>
             </div>
             <div className="grid gap-4 sm:grid-cols-3">
-              <input required aria-label="Fecha de la transacción" type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} className={inputClasses} />
-              <input required aria-label="Importe de la transacción" value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} placeholder="48.90" className={inputClasses} />
-              <input required aria-label="Divisa de la transacción" value={form.currency} maxLength={3} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value.toUpperCase() }))} className={`${inputClasses} uppercase`} />
+              <input
+                required
+                aria-label="Fecha de la transacción"
+                type="date"
+                value={form.date}
+                onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
+                className={inputClasses}
+              />
+              <input
+                required
+                aria-label="Importe de la transacción"
+                value={form.amount}
+                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                placeholder="48.90"
+                className={inputClasses}
+              />
+              <input
+                required
+                aria-label="Divisa de la transacción"
+                value={form.currency}
+                maxLength={3}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, currency: event.target.value.toUpperCase() }))
+                }
+                className={`${inputClasses} uppercase`}
+              />
             </div>
-            <input required aria-label="Descripción de la transacción" value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} placeholder="Descripción" className={inputClasses} />
-            <textarea aria-label="Notas de la transacción" value={form.notes} onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))} rows={3} placeholder="Notas" className={inputClasses} />
-            {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}
+            <input
+              required
+              aria-label="Descripción de la transacción"
+              value={form.description}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, description: event.target.value }))
+              }
+              placeholder="Descripción"
+              className={inputClasses}
+            />
+            <textarea
+              aria-label="Notas de la transacción"
+              value={form.notes}
+              onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
+              rows={3}
+              placeholder="Notas"
+              className={inputClasses}
+            />
             <button
               type="submit"
               className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
@@ -339,7 +733,535 @@ function TransactionsContent() {
           </form>
         </Modal>
 
-        {/* ─── Filters ─── */}
+        <Modal
+          open={isImportDialogOpen}
+          onClose={resetImportDialog}
+          title="Importar transacciones"
+          description="Sube un archivo, revisa el mapeo y prepara las transacciones."
+        >
+          <form onSubmit={handlePrepareImportPreview}>
+            {/* ── Stepper ── */}
+            <div className="mb-8 flex items-center justify-center gap-0">
+              {[
+                { step: 1 as const, label: "Sube archivo" },
+                { step: 2 as const, label: "Mapea columnas" },
+              ].map(({ step, label }, idx) => {
+                const isActive = importStep === step;
+                const isCompleted = importStep > step;
+                return (
+                  <div key={step} className="flex items-center gap-0">
+                    <div className="flex items-center gap-2.5">
+                      <div
+                        className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
+                          isCompleted
+                            ? "bg-[var(--app-accent)] text-white shadow-[0_0_0_4px_var(--app-accent-soft)]"
+                            : isActive
+                              ? "bg-[var(--app-accent)] text-white shadow-[0_0_0_4px_var(--app-accent-soft)]"
+                              : "bg-[var(--app-muted-surface)] text-[var(--app-muted)]"
+                        }`}
+                      >
+                        {isCompleted ? <Check className="h-3.5 w-3.5" /> : step}
+                      </div>
+                      <span
+                        className={`text-sm font-medium transition-colors duration-300 ${
+                          isActive || isCompleted
+                            ? "text-[var(--app-foreground)]"
+                            : "text-[var(--app-muted)]"
+                        }`}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                    {idx < 1 ? (
+                      <div
+                        className={`mx-4 h-px w-12 transition-colors duration-300 ${
+                          isCompleted
+                            ? "bg-[var(--app-accent)]"
+                            : "bg-[var(--app-border)]"
+                        }`}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ── Step 1: Upload ── */}
+            {importStep === 1 ? (
+              <div className="animate-fadeIn space-y-5">
+                {/* Account selector */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-[var(--app-foreground)]">
+                    Cuenta de destino
+                  </label>
+                  <select
+                    required
+                    value={importAccountId}
+                    onChange={(event) => setImportAccountId(event.target.value)}
+                    className={inputClasses}
+                  >
+                    <option value="">Selecciona cuenta</option>
+                    {accounts.map((account) => (
+                      <option key={account.id} value={account.id}>
+                        {account.name} · {account.currency}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xlsm,.xltx,.xltm,.pdf"
+                  className="hidden"
+                  onChange={(event) => {
+                    const file = event.target.files?.[0];
+                    if (file) handleFileDrop(file);
+                  }}
+                />
+
+                {/* Drag-and-drop zone OR file chip */}
+                {!importFile ? (
+                  <div
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setIsDragging(false);
+                      const file = e.dataTransfer.files[0];
+                      if (file) handleFileDrop(file);
+                    }}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`group flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all duration-300 ${
+                      isDragging
+                        ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)] scale-[1.01]"
+                        : "border-[var(--app-border)] bg-[var(--app-muted-surface)] hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
+                    }`}
+                  >
+                    <div
+                      className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-300 ${
+                        isDragging
+                          ? "bg-[var(--app-accent)] text-white scale-110"
+                          : "bg-[var(--app-panel)] text-[var(--app-muted)] group-hover:bg-[var(--app-accent)] group-hover:text-white"
+                      }`}
+                    >
+                      <Upload className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-[var(--app-foreground)]">
+                        {isDragging
+                          ? "Suelta el archivo aquí"
+                          : "Arrastra tu archivo aquí"}
+                      </p>
+                      <p className="mt-1 text-xs text-[var(--app-muted)]">
+                        o haz clic para seleccionar
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                        CSV
+                      </span>
+                      <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                        Excel
+                      </span>
+                      <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                        PDF
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="animate-fadeIn">
+                    {/* File chip */}
+                    <div className="flex items-center gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-3">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--app-accent-soft)] text-[var(--app-accent)]">
+                        <FileSpreadsheet className="h-5 w-5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-[var(--app-foreground)]">
+                          {importFile.name}
+                        </p>
+                        <p className="text-xs text-[var(--app-muted)]">
+                          {formatFileSize(importFile.size)}
+                        </p>
+                      </div>
+                      {isAnalyzingImport ? (
+                        <div className="flex items-center gap-2 text-xs text-[var(--app-accent)]">
+                          <LoaderCircle className="h-4 w-4 animate-spin" />
+                          Analizando…
+                        </div>
+                      ) : importAnalysis ? (
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1.5 text-xs text-[var(--app-accent)]">
+                            <Check className="h-3.5 w-3.5" />
+                            {importAnalysis.total_rows} filas · {importAnalysis.source_type.toUpperCase()}
+                          </div>
+                        </div>
+                      ) : null}
+                      <button
+                        type="button"
+                        onClick={removeImportFile}
+                        className="flex-shrink-0 rounded-lg p-1.5 text-[var(--app-muted)] transition-all hover:bg-[var(--app-danger-soft)] hover:text-[var(--app-danger)]"
+                        aria-label="Quitar archivo"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+
+                    {importAnalysis?.message ? (
+                      <div className="mt-3 rounded-xl bg-[var(--app-danger-soft)] px-4 py-3 text-sm text-[var(--app-danger)]">
+                        {importAnalysis.message}
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+
+                {/* Next step button */}
+                {importAnalysis && importAnalysis.source_type !== "pdf" ? (
+                  <button
+                    type="button"
+                    onClick={() => setImportStep(2)}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--app-accent)] px-4 py-3 text-sm font-semibold text-white transition-all hover:brightness-110"
+                  >
+                    Siguiente: mapear columnas
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
+            {/* ── Step 2: Mapping + Preview ── */}
+            {importStep === 2 && importAnalysis ? (
+              <div className="animate-fadeIn space-y-5">
+                {/* Back button */}
+                <button
+                  type="button"
+                  onClick={() => setImportStep(1)}
+                  className="inline-flex items-center gap-1.5 text-sm text-[var(--app-muted)] transition-colors hover:text-[var(--app-foreground)]"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11 17l-5-5m0 0l5-5m-5 5h12" />
+                  </svg>
+                  Volver al archivo
+                </button>
+
+                {/* File summary */}
+                <div className="flex items-center gap-3 rounded-xl bg-[var(--app-muted-surface)] px-4 py-3">
+                  <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-[var(--app-accent)]" />
+                  <span className="truncate text-sm text-[var(--app-foreground)]">
+                    {importFile?.name}
+                  </span>
+                  <span className="text-xs text-[var(--app-muted)]">
+                    · {importAnalysis.total_rows} filas · {importAnalysis.source_type.toUpperCase()}
+                  </span>
+                </div>
+
+                {/* Mapping section */}
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-sm font-semibold text-[var(--app-foreground)]">Mapeo de columnas</p>
+                    <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                      Asigna cada campo a la columna correspondiente del archivo.
+                    </p>
+                  </div>
+                  {importAnalysis.columns.length ? (
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <ImportMappingSelect
+                        label="Fecha"
+                        value={importMapping.date}
+                        options={importAnalysis.columns}
+                        onChange={(value) =>
+                          setImportMapping((current) => ({ ...current, date: value }))
+                        }
+                      />
+                      <ImportMappingSelect
+                        label="Importe"
+                        value={importMapping.amount}
+                        options={importAnalysis.columns}
+                        onChange={(value) =>
+                          setImportMapping((current) => ({ ...current, amount: value }))
+                        }
+                      />
+                      <ImportMappingSelect
+                        label="Descripción"
+                        value={importMapping.description}
+                        options={importAnalysis.columns}
+                        onChange={(value) =>
+                          setImportMapping((current) => ({ ...current, description: value }))
+                        }
+                      />
+                      <ImportMappingSelect
+                        label="Categoría"
+                        value={importMapping.category}
+                        options={importAnalysis.columns}
+                        onChange={(value) =>
+                          setImportMapping((current) => ({ ...current, category: value }))
+                        }
+                      />
+                      <ImportMappingSelect
+                        label="Notas"
+                        value={importMapping.notes}
+                        options={importAnalysis.columns}
+                        onChange={(value) =>
+                          setImportMapping((current) => ({ ...current, notes: value }))
+                        }
+                      />
+                    </div>
+                  ) : null}
+                </div>
+
+                {/* Sample data preview */}
+                {importAnalysis.sample_rows.length ? (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold text-[var(--app-foreground)]">Vista previa</p>
+                      <span className="text-xs text-[var(--app-muted)]">
+                        {Math.min(importAnalysis.sample_rows.length, 3)} filas de ejemplo
+                      </span>
+                    </div>
+                    <div className="overflow-x-auto rounded-xl border border-[var(--app-border)]">
+                      <table className="min-w-full text-left text-xs">
+                        <thead className="bg-[var(--app-muted-surface)] text-[var(--app-muted)]">
+                          <tr>
+                            {importAnalysis.columns.map((column) => (
+                              <th key={column} className="px-4 py-2.5 font-medium">
+                                {column}
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {importAnalysis.sample_rows.slice(0, 3).map((row, index) => (
+                            <tr key={index} className="border-t border-[var(--app-border)] align-top">
+                              {importAnalysis.columns.map((column) => (
+                                <td key={column} className="min-w-[140px] px-4 py-2.5 text-[var(--app-foreground)]">
+                                  {row[column] || "—"}
+                                </td>
+                              ))}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={isPreparingPreview}
+                  className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--app-accent)] px-4 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isPreparingPreview ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Preparar revisión
+                </button>
+              </div>
+            ) : null}
+          </form>
+        </Modal>
+
+        {importPreview ? (
+          <Card className="animate-slideUp border-[var(--app-accent-soft)]">
+            <CardHeader className="gap-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="space-y-1">
+                  <CardTitle>Revisión temporal de importación</CardTitle>
+                  <p className="text-sm text-[var(--app-muted)]">
+                    Las filas nuevas todavía no se han guardado. Revísalas, edítalas o descarta
+                    las que no quieras importar.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="border-[var(--app-border)] bg-[var(--app-muted-surface)] text-[var(--app-muted)]">
+                    {reviewStats.readyCount} listas
+                  </Badge>
+                  {reviewStats.reviewCount ? (
+                    <Badge className="border-transparent bg-[var(--app-danger-soft)] text-[var(--app-danger)]">
+                      {reviewStats.reviewCount} por revisar
+                    </Badge>
+                  ) : null}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmImport()}
+                  disabled={!reviewStats.readyCount || isConfirmingImport}
+                  className="inline-flex items-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isConfirmingImport ? (
+                    <LoaderCircle className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Check className="h-4 w-4" />
+                  )}
+                  Importar listas
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setImportPreview(null)}
+                  className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-danger)] hover:text-[var(--app-danger)]"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Descartar revisión
+                </button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="rounded-xl bg-[var(--app-muted-surface)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                Cuenta de destino:{" "}
+                <span className="font-medium text-[var(--app-foreground)]">
+                  {accountMap.get(importPreview.accountId)?.name ?? "Cuenta seleccionada"}
+                </span>
+              </div>
+
+              <div className="space-y-3 md:hidden">
+                {importPreview.rows.map((row) => (
+                  <ImportReviewCard
+                    key={row.id}
+                    row={row}
+                    categories={categories}
+                    onChange={updateImportRow}
+                    onDiscard={discardImportRow}
+                  />
+                ))}
+              </div>
+
+              <div className="hidden md:block">
+                <Table className="table-fixed">
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[10%]">Fila</TableHead>
+                      <TableHead className="w-[14%]">Fecha</TableHead>
+                      <TableHead className="w-[18%]">Importe</TableHead>
+                      <TableHead className="w-[24%]">Descripción</TableHead>
+                      <TableHead className="w-[16%]">Categoría</TableHead>
+                      <TableHead className="w-[12%]">Estado</TableHead>
+                      <TableHead className="w-[6%] text-right">Acción</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {importPreview.rows.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell className="text-xs text-[var(--app-muted)]">
+                          #{row.sourceRowNumber}
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            type="date"
+                            value={row.date}
+                            onChange={(event) =>
+                              updateImportRow(row.id, (current) => ({
+                                ...current,
+                                date: event.target.value,
+                              }))
+                            }
+                            className="h-9 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-2">
+                              <input
+                                value={row.amount}
+                                onChange={(event) =>
+                                  updateImportRow(row.id, (current) => ({
+                                    ...current,
+                                    amount: event.target.value,
+                                  }))
+                                }
+                                className="h-9 w-full bg-transparent text-sm outline-none"
+                              />
+                              <span className="text-xs text-[var(--app-muted)]">{row.currency}</span>
+                            </div>
+                            <textarea
+                              value={row.notes}
+                              onChange={(event) =>
+                                updateImportRow(row.id, (current) => ({
+                                  ...current,
+                                  notes: event.target.value,
+                                }))
+                              }
+                              rows={2}
+                              placeholder="Notas"
+                              className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-2 text-xs outline-none transition-all focus:border-[var(--app-accent)]"
+                            />
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <input
+                            value={row.description}
+                            onChange={(event) =>
+                              updateImportRow(row.id, (current) => ({
+                                ...current,
+                                description: event.target.value,
+                              }))
+                            }
+                            className="h-9 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="space-y-1">
+                            <select
+                              value={row.categoryId}
+                              onChange={(event) =>
+                                updateImportRow(row.id, (current) => ({
+                                  ...current,
+                                  categoryId: event.target.value,
+                                }))
+                              }
+                              className="h-9 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+                            >
+                              <option value="">Sin categoría</option>
+                              {categories.map((category) => (
+                                <option key={category.id} value={category.id}>
+                                  {category.name}
+                                </option>
+                              ))}
+                            </select>
+                            {!row.categoryId && row.categoryLabel ? (
+                              <p className="text-xs text-[var(--app-muted)]">
+                                Sugerencia original: {row.categoryLabel}
+                              </p>
+                            ) : null}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <ImportStatusCell row={row} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => discardImportRow(row.id)}
+                            className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--app-danger)] transition-all hover:bg-[var(--app-danger-soft)]"
+                            aria-label={`Descartar fila ${row.sourceRowNumber}`}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
+
         <div className="animate-fadeIn overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)]">
           <div className="flex items-stretch">
             <div className="flex shrink-0 items-center border-r border-[var(--app-border)] bg-[var(--app-muted-surface)] px-4 text-xs font-semibold text-[var(--app-muted)]">
@@ -347,11 +1269,43 @@ function TransactionsContent() {
             </div>
             <div className="min-w-0 flex-1 p-2">
               <div className="flex flex-nowrap items-center gap-1 overflow-x-auto pb-1">
-                <FilterSelect value={filters.account_id} onChange={(v) => updateFilter("account_id", v)} placeholder="Cuenta" options={accounts.map((a) => ({ value: a.id, label: a.name }))} />
-                <FilterSelect value={filters.category_id} onChange={(v) => updateFilter("category_id", v)} placeholder="Categoría" options={categories.map((c) => ({ value: c.id, label: c.name }))} />
-                <FilterSelect value={filters.category_type} onChange={(v) => updateFilter("category_type", v)} placeholder="Tipo" options={[{ value: "expense", label: "Gasto" }, { value: "income", label: "Ingreso" }, { value: "transfer", label: "Transferencia" }]} minWidth="92px" />
-                <FilterSelect value={filters.year} onChange={(v) => updateFilter("year", v)} placeholder="Año" options={yearOptions.map((y) => ({ value: y, label: y }))} minWidth="86px" />
-                <FilterSelect value={filters.month} onChange={(v) => updateFilter("month", v)} placeholder="Mes" options={monthOptions.map((m) => ({ value: m.value, label: m.label }))} minWidth="86px" />
+                <FilterSelect
+                  value={filters.account_id}
+                  onChange={(v) => updateFilter("account_id", v)}
+                  placeholder="Cuenta"
+                  options={accounts.map((a) => ({ value: a.id, label: a.name }))}
+                />
+                <FilterSelect
+                  value={filters.category_id}
+                  onChange={(v) => updateFilter("category_id", v)}
+                  placeholder="Categoría"
+                  options={categories.map((c) => ({ value: c.id, label: c.name }))}
+                />
+                <FilterSelect
+                  value={filters.category_type}
+                  onChange={(v) => updateFilter("category_type", v)}
+                  placeholder="Tipo"
+                  options={[
+                    { value: "expense", label: "Gasto" },
+                    { value: "income", label: "Ingreso" },
+                    { value: "transfer", label: "Transferencia" },
+                  ]}
+                  minWidth="92px"
+                />
+                <FilterSelect
+                  value={filters.year}
+                  onChange={(v) => updateFilter("year", v)}
+                  placeholder="Año"
+                  options={yearOptions.map((y) => ({ value: y, label: y }))}
+                  minWidth="86px"
+                />
+                <FilterSelect
+                  value={filters.month}
+                  onChange={(v) => updateFilter("month", v)}
+                  placeholder="Mes"
+                  options={monthOptions.map((m) => ({ value: m.value, label: m.label }))}
+                  minWidth="86px"
+                />
                 <div className="min-w-[150px] shrink-0">
                   <input
                     value={filters.search}
@@ -376,7 +1330,6 @@ function TransactionsContent() {
           </div>
         </div>
 
-        {/* ─── Transactions list ─── */}
         {isLoading ? (
           <ListSkeleton rows={6} />
         ) : (
@@ -387,7 +1340,6 @@ function TransactionsContent() {
             <CardContent>
               {transactions.length ? (
                 <>
-                  {/* Mobile cards */}
                   <div className="space-y-3 md:hidden">
                     {transactions.map((transaction) => (
                       <article
@@ -420,15 +1372,31 @@ function TransactionsContent() {
                               label={transaction.description}
                               ariaLabel={`Acciones de transacción ${transaction.description}`}
                               actions={[
-                                { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: () => handleOpenEdit(transaction) },
-                                { label: "Duplicar", icon: <Copy className="h-4 w-4" />, onClick: () => handleOpenDuplicate(transaction) },
-                                { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: () => setConfirmDelete({ open: true, ids: [transaction.id] }), danger: true },
+                                {
+                                  label: "Editar",
+                                  icon: <Pencil className="h-4 w-4" />,
+                                  onClick: () => handleOpenEdit(transaction),
+                                },
+                                {
+                                  label: "Duplicar",
+                                  icon: <Copy className="h-4 w-4" />,
+                                  onClick: () => handleOpenDuplicate(transaction),
+                                },
+                                {
+                                  label: "Eliminar",
+                                  icon: <Trash2 className="h-4 w-4" />,
+                                  onClick: () =>
+                                    setConfirmDelete({ open: true, ids: [transaction.id] }),
+                                  danger: true,
+                                },
                               ]}
                             />
                           </div>
                         </div>
                         <div className="mt-3 flex flex-wrap items-center gap-2">
-                          <span className="text-xs text-[var(--app-muted)]">{formatDate(transaction.date)}</span>
+                          <span className="text-xs text-[var(--app-muted)]">
+                            {formatDate(transaction.date)}
+                          </span>
                         </div>
                         {transaction.notes ? (
                           <p className="mt-3 text-xs text-[var(--app-muted)]">{transaction.notes}</p>
@@ -437,13 +1405,17 @@ function TransactionsContent() {
                     ))}
                   </div>
 
-                  {/* Desktop table */}
                   <div className="hidden md:block">
                     <Table className="table-fixed">
                       <TableHeader>
                         <TableRow>
                           <TableHead className="w-12">
-                            <input type="checkbox" checked={allVisibleSelected} onChange={toggleSelectAll} aria-label="Seleccionar todas" />
+                            <input
+                              type="checkbox"
+                              checked={allVisibleSelected}
+                              onChange={toggleSelectAll}
+                              aria-label="Seleccionar todas"
+                            />
                           </TableHead>
                           <TableHead className="w-[34%]">Descripción</TableHead>
                           <TableHead className="w-[18%]">Cuenta</TableHead>
@@ -456,19 +1428,32 @@ function TransactionsContent() {
                         {transactions.map((transaction) => (
                           <TableRow key={transaction.id}>
                             <TableCell>
-                              <input type="checkbox" checked={selectedIds.includes(transaction.id)} onChange={() => toggleSelection(transaction.id)} aria-label={`Seleccionar ${transaction.description}`} />
+                              <input
+                                type="checkbox"
+                                checked={selectedIds.includes(transaction.id)}
+                                onChange={() => toggleSelection(transaction.id)}
+                                aria-label={`Seleccionar ${transaction.description}`}
+                              />
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1 overflow-hidden">
                                 <p className="truncate font-medium">{transaction.description}</p>
                                 {transaction.notes ? (
-                                  <p className="truncate text-xs text-[var(--app-muted)]">{transaction.notes}</p>
+                                  <p className="truncate text-xs text-[var(--app-muted)]">
+                                    {transaction.notes}
+                                  </p>
                                 ) : null}
                               </div>
                             </TableCell>
-                            <TableCell className="truncate">{accountMap.get(transaction.account_id)?.name ?? "Cuenta desconocida"}</TableCell>
-                            <TableCell><CategoryBadge category={categoryMap.get(transaction.category_id ?? "")} /></TableCell>
-                            <TableCell className="whitespace-nowrap">{formatDate(transaction.date)}</TableCell>
+                            <TableCell className="truncate">
+                              {accountMap.get(transaction.account_id)?.name ?? "Cuenta desconocida"}
+                            </TableCell>
+                            <TableCell>
+                              <CategoryBadge category={categoryMap.get(transaction.category_id ?? "")} />
+                            </TableCell>
+                            <TableCell className="whitespace-nowrap">
+                              {formatDate(transaction.date)}
+                            </TableCell>
                             <TableCell className="text-right">
                               <div className="flex items-center justify-end gap-2">
                                 <AmountValue amount={transaction.amount} currency={transaction.currency} />
@@ -476,9 +1461,23 @@ function TransactionsContent() {
                                   label={transaction.description}
                                   ariaLabel={`Acciones de transacción ${transaction.description}`}
                                   actions={[
-                                    { label: "Editar", icon: <Pencil className="h-4 w-4" />, onClick: () => handleOpenEdit(transaction) },
-                                    { label: "Duplicar", icon: <Copy className="h-4 w-4" />, onClick: () => handleOpenDuplicate(transaction) },
-                                    { label: "Eliminar", icon: <Trash2 className="h-4 w-4" />, onClick: () => setConfirmDelete({ open: true, ids: [transaction.id] }), danger: true },
+                                    {
+                                      label: "Editar",
+                                      icon: <Pencil className="h-4 w-4" />,
+                                      onClick: () => handleOpenEdit(transaction),
+                                    },
+                                    {
+                                      label: "Duplicar",
+                                      icon: <Copy className="h-4 w-4" />,
+                                      onClick: () => handleOpenDuplicate(transaction),
+                                    },
+                                    {
+                                      label: "Eliminar",
+                                      icon: <Trash2 className="h-4 w-4" />,
+                                      onClick: () =>
+                                        setConfirmDelete({ open: true, ids: [transaction.id] }),
+                                      danger: true,
+                                    },
                                   ]}
                                 />
                               </div>
@@ -490,7 +1489,12 @@ function TransactionsContent() {
                   </div>
 
                   <div className="mt-6">
-                    <PaginationControls page={page} pageSize={pageSize} total={totalTransactions} onPageChange={handlePageChange} />
+                    <PaginationControls
+                      page={page}
+                      pageSize={pageSize}
+                      total={totalTransactions}
+                      onPageChange={handlePageChange}
+                    />
                   </div>
                 </>
               ) : (
@@ -507,6 +1511,152 @@ function TransactionsContent() {
           </Card>
         )}
       </div>
+    </div>
+  );
+}
+
+function ImportMappingSelect({
+  label,
+  value,
+  options,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-2">
+      <span className="text-sm font-medium text-[var(--app-foreground)]">{label}</span>
+      <select
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+      >
+        <option value="">No mapear</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function ImportReviewCard({
+  row,
+  categories,
+  onChange,
+  onDiscard,
+}: {
+  row: TransactionImportPreviewRow;
+  categories: Category[];
+  onChange: (
+    rowId: string,
+    updater: (row: TransactionImportPreviewRow) => TransactionImportPreviewRow,
+  ) => void;
+  onDiscard: (rowId: string) => void;
+}) {
+  return (
+    <article className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="text-xs text-[var(--app-muted)]">Fila #{row.sourceRowNumber}</p>
+          <ImportStatusCell row={row} />
+        </div>
+        <button
+          type="button"
+          onClick={() => onDiscard(row.id)}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-[var(--app-danger)] transition-all hover:bg-[var(--app-danger-soft)]"
+          aria-label={`Descartar fila ${row.sourceRowNumber}`}
+        >
+          <Trash2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      <div className="mt-3 grid gap-3">
+        <input
+          type="date"
+          value={row.date}
+          onChange={(event) =>
+            onChange(row.id, (current) => ({ ...current, date: event.target.value }))
+          }
+          className="h-10 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+        />
+        <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3">
+          <input
+            value={row.amount}
+            onChange={(event) =>
+              onChange(row.id, (current) => ({ ...current, amount: event.target.value }))
+            }
+            className="h-10 w-full bg-transparent text-sm outline-none"
+          />
+          <span className="text-xs text-[var(--app-muted)]">{row.currency}</span>
+        </div>
+        <input
+          value={row.description}
+          onChange={(event) =>
+            onChange(row.id, (current) => ({ ...current, description: event.target.value }))
+          }
+          placeholder="Descripción"
+          className="h-10 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+        />
+        <select
+          value={row.categoryId}
+          onChange={(event) =>
+            onChange(row.id, (current) => ({ ...current, categoryId: event.target.value }))
+          }
+          className="h-10 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+        >
+          <option value="">Sin categoría</option>
+          {categories.map((category) => (
+            <option key={category.id} value={category.id}>
+              {category.name}
+            </option>
+          ))}
+        </select>
+        {!row.categoryId && row.categoryLabel ? (
+          <p className="text-xs text-[var(--app-muted)]">
+            Sugerencia original: {row.categoryLabel}
+          </p>
+        ) : null}
+        <textarea
+          value={row.notes}
+          onChange={(event) =>
+            onChange(row.id, (current) => ({ ...current, notes: event.target.value }))
+          }
+          rows={2}
+          placeholder="Notas"
+          className="w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+        />
+      </div>
+    </article>
+  );
+}
+
+function ImportStatusCell({ row }: { row: TransactionImportPreviewRow }) {
+  if (row.validationErrors.length === 0) {
+    return (
+      <div className="inline-flex items-center gap-2 rounded-full bg-[var(--app-success-soft)] px-3 py-1 text-xs font-medium text-[var(--app-success)]">
+        <Check className="h-3.5 w-3.5" />
+        Lista para importar
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="inline-flex items-center gap-2 rounded-full bg-[var(--app-danger-soft)] px-3 py-1 text-xs font-medium text-[var(--app-danger)]">
+        <AlertCircle className="h-3.5 w-3.5" />
+        Revisar
+      </div>
+      <ul className="space-y-1 text-xs text-[var(--app-danger)]">
+        {row.validationErrors.map((error) => (
+          <li key={error}>{error}</li>
+        ))}
+      </ul>
     </div>
   );
 }
@@ -533,7 +1683,9 @@ function FilterSelect({
       >
         <option value="">{placeholder}</option>
         {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>{opt.label}</option>
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
         ))}
       </select>
     </div>
@@ -564,11 +1716,54 @@ function defaultTransactionForm(currency = "EUR", accountId = "") {
   };
 }
 
+function defaultImportMapping(): TransactionImportMapping {
+  return {
+    date: "",
+    amount: "",
+    description: "",
+    category: "",
+    notes: "",
+  };
+}
+
+function normalizeImportPreviewRow(row: TransactionImportPreviewRow): TransactionImportPreviewRow {
+  return {
+    ...row,
+    date: row.date.trim(),
+    amount: row.amount.trim(),
+    description: row.description.trim(),
+    notes: row.notes.trim(),
+    validationErrors: getImportRowValidationErrors(row),
+  };
+}
+
+function getImportRowValidationErrors(row: TransactionImportPreviewRow): string[] {
+  const errors: string[] = [];
+  if (!row.date || Number.isNaN(Date.parse(row.date))) {
+    errors.push("Revisa la fecha");
+  }
+  if (!row.amount || Number.isNaN(Number(row.amount.replace(",", ".")))) {
+    errors.push("Revisa el importe");
+  }
+  if (!row.description.trim()) {
+    errors.push("Revisa la descripción");
+  }
+  return errors;
+}
+
 const monthOptions = [
-  { value: "1", label: "Enero" }, { value: "2", label: "Febrero" }, { value: "3", label: "Marzo" },
-  { value: "4", label: "Abril" }, { value: "5", label: "Mayo" }, { value: "6", label: "Junio" },
-  { value: "7", label: "Julio" }, { value: "8", label: "Agosto" }, { value: "9", label: "Septiembre" },
-  { value: "10", label: "Octubre" }, { value: "11", label: "Noviembre" }, { value: "12", label: "Diciembre" },
+  { value: "1", label: "Enero" },
+  { value: "2", label: "Febrero" },
+  { value: "3", label: "Marzo" },
+  { value: "4", label: "Abril" },
+  { value: "5", label: "Mayo" },
+  { value: "6", label: "Junio" },
+  { value: "7", label: "Julio" },
+  { value: "8", label: "Agosto" },
+  { value: "9", label: "Septiembre" },
+  { value: "10", label: "Octubre" },
+  { value: "11", label: "Noviembre" },
+  { value: "12", label: "Diciembre" },
 ];
 
 function buildTransactionQuery(filters: TransactionFilters, page: number, pageSize: number) {

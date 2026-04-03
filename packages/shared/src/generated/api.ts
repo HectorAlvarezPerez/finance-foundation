@@ -356,6 +356,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/transactions/import/analyze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Analyze Transaction Import */
+        post: operations["analyze_transaction_import_api_v1_transactions_import_analyze_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transactions/import/commit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Commit Transaction Import */
+        post: operations["commit_transaction_import_api_v1_transactions_import_commit_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/transactions/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Preview Transaction Import */
+        post: operations["preview_transaction_import_api_v1_transactions_import_preview_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions/{transaction_id}": {
         parameters: {
             query?: never;
@@ -500,6 +551,23 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** Body_analyze_transaction_import_api_v1_transactions_import_analyze_post */
+        Body_analyze_transaction_import_api_v1_transactions_import_analyze_post: {
+            /** File */
+            file: string;
+        };
+        /** Body_preview_transaction_import_api_v1_transactions_import_preview_post */
+        Body_preview_transaction_import_api_v1_transactions_import_preview_post: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** File */
+            file: string;
+            /** Mapping */
+            mapping: string;
         };
         /** BudgetBulkCreate */
         BudgetBulkCreate: {
@@ -778,6 +846,112 @@ export interface components {
             description: string;
             /** Notes */
             notes?: string | null;
+        };
+        /** TransactionImportAnalysisResponse */
+        TransactionImportAnalysisResponse: {
+            /** Columns */
+            columns: string[];
+            /** Message */
+            message?: string | null;
+            /** Sample Rows */
+            sample_rows: {
+                [key: string]: string;
+            }[];
+            /** Source Type */
+            source_type: string;
+            suggested_mapping: components["schemas"]["TransactionImportColumnMapping"];
+            /** Total Rows */
+            total_rows: number;
+        };
+        /** TransactionImportColumnMapping */
+        TransactionImportColumnMapping: {
+            /** Amount */
+            amount?: string | null;
+            /** Category */
+            category?: string | null;
+            /** Date */
+            date?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Notes */
+            notes?: string | null;
+        };
+        /** TransactionImportCommitItem */
+        TransactionImportCommitItem: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Amount */
+            amount: number | string;
+            /** Category Id */
+            category_id?: string | null;
+            /** Currency */
+            currency: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Description */
+            description: string;
+            /** Notes */
+            notes?: string | null;
+            /** Source Row Number */
+            source_row_number?: number | null;
+        };
+        /** TransactionImportCommitRequest */
+        TransactionImportCommitRequest: {
+            /** Items */
+            items: components["schemas"]["TransactionImportCommitItem"][];
+        };
+        /** TransactionImportCommitResponse */
+        TransactionImportCommitResponse: {
+            /** Imported Count */
+            imported_count: number;
+        };
+        /** TransactionImportDraft */
+        TransactionImportDraft: {
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Amount */
+            amount?: string | null;
+            /** Category Id */
+            category_id?: string | null;
+            /** Category Label */
+            category_label?: string | null;
+            /** Currency */
+            currency: string;
+            /** Date */
+            date?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Notes */
+            notes?: string | null;
+            /** Source Row Number */
+            source_row_number: number;
+            /** Validation Errors */
+            validation_errors?: string[];
+        };
+        /** TransactionImportPreviewResponse */
+        TransactionImportPreviewResponse: {
+            /** Account Currency */
+            account_currency: string;
+            /**
+             * Account Id
+             * Format: uuid
+             */
+            account_id: string;
+            /** Imported Count */
+            imported_count: number;
+            /** Rows */
+            rows: components["schemas"]["TransactionImportDraft"][];
+            /** Source Type */
+            source_type: string;
         };
         /** TransactionListResponse */
         TransactionListResponse: {
@@ -1945,6 +2119,113 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TransactionRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    analyze_transaction_import_api_v1_transactions_import_analyze_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_analyze_transaction_import_api_v1_transactions_import_analyze_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionImportAnalysisResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    commit_transaction_import_api_v1_transactions_import_commit_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransactionImportCommitRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionImportCommitResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_transaction_import_api_v1_transactions_import_preview_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_preview_transaction_import_api_v1_transactions_import_preview_post"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TransactionImportPreviewResponse"];
                 };
             };
             /** @description Validation Error */

@@ -9,12 +9,14 @@ export function Modal({
   description,
   onClose,
   children,
+  dialogClassName,
 }: {
   open: boolean;
   title: string;
   description?: string;
   onClose: () => void;
   children: React.ReactNode;
+  dialogClassName?: string;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
@@ -78,13 +80,13 @@ export function Modal({
 
   return (
     <div
-      className="animate-fadeIn fixed inset-0 z-[60] flex items-center justify-center bg-black/40 px-4 py-6 backdrop-blur-sm"
+      className="animate-fadeIn fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-6 backdrop-blur-sm sm:items-center"
       onClick={onClose}
       role="presentation"
     >
       <div
         ref={dialogRef}
-        className="animate-scaleIn w-full max-w-lg rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[var(--app-shadow-elevated)]"
+        className={`animate-scaleIn flex max-h-[calc(100dvh-3rem)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[var(--app-shadow-elevated)] ${dialogClassName ?? ""}`}
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -107,7 +109,7 @@ export function Modal({
             <X className="h-4 w-4" />
           </button>
         </div>
-        <div className="px-6 py-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </div>
     </div>
   );

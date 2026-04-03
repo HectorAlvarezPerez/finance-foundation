@@ -16,6 +16,10 @@ export class ApiError extends Error {
 
 export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { headers, skipJson, ...rest } = options;
+  const requestHeaders = new Headers(headers);
+  if (!(rest.body instanceof FormData) && !requestHeaders.has("Content-Type")) {
+    requestHeaders.set("Content-Type", "application/json");
+  }
   let response: Response;
 
   try {
@@ -23,10 +27,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       ...rest,
       cache: rest.cache ?? "no-store",
       credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        ...headers,
-      },
+      headers: requestHeaders,
     });
   } catch (error) {
     throw new ApiError(getNetworkErrorMessage(error), 0);
