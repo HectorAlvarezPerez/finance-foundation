@@ -9,7 +9,7 @@ def main() -> None:
     output_path = root_dir / "packages" / "shared" / "openapi.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
-        json.dumps(app.openapi(), indent=2, sort_keys=True),
+        f"{json.dumps(app.openapi(), indent=2, sort_keys=True)}\n",
         encoding="utf-8",
     )
 

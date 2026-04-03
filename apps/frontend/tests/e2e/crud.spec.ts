@@ -115,6 +115,7 @@ test.describe("CRUD principal", () => {
     await page.getByLabel("Descripción de la transacción").fill(transactionName);
     await page.getByLabel("Notas de la transacción").fill("Creada desde Playwright");
     await page.getByRole("button", { name: "Crear transacción" }).click();
+    await page.getByPlaceholder("Buscar").fill(transactionName);
     const transactionRow = page.getByRole("row", { name: new RegExp(transactionName) });
     await expect(transactionRow).toBeVisible();
 
@@ -122,6 +123,7 @@ test.describe("CRUD principal", () => {
     await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Editar" }).click();
     await page.getByLabel("Descripción de la transacción").fill(transactionNameUpdated);
     await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByPlaceholder("Buscar").fill(transactionNameUpdated);
     const updatedTransactionRow = page.getByRole("row", { name: new RegExp(transactionNameUpdated) });
     await expect(updatedTransactionRow).toBeVisible();
 
