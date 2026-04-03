@@ -2,7 +2,7 @@ import uuid
 from datetime import date
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, Query, Response, status
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
 
 from app.api.deps import CurrentUserId, DBSession
 from app.models.enums import CategoryType
@@ -11,13 +11,21 @@ from app.repositories.category_repository import CategoryRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transactions import (
     TransactionCreate,
+    TransactionImportAnalysisResponse,
+    TransactionImportCommitRequest,
+    TransactionImportCommitResponse,
+    TransactionImportPreviewResponse,
     TransactionListResponse,
     TransactionRead,
     TransactionUpdate,
 )
+from app.services.transaction_import_service import TransactionImportService
 from app.services.transaction_service import TransactionService
 
 router = APIRouter(prefix="/transactions", tags=["transactions"])
+IMPORT_FILE_PARAM = File(...)
+IMPORT_ACCOUNT_ID_PARAM = Form(...)
+IMPORT_MAPPING_PARAM = Form(...)
 
 
 def get_transaction_service(db: DBSession) -> TransactionService:
@@ -30,6 +38,20 @@ def get_transaction_service(db: DBSession) -> TransactionService:
 
 
 TransactionServiceDep = Annotated[TransactionService, Depends(get_transaction_service)]
+
+
+def get_transaction_import_service(db: DBSession) -> TransactionImportService:
+    return TransactionImportService(
+        TransactionRepository(db),
+        AccountRepository(db),
+        CategoryRepository(db),
+        db,
+    )
+
+
+TransactionImportServiceDep = Annotated[
+    TransactionImportService, Depends(get_transaction_import_service)
+]
 
 
 @router.get("", response_model=TransactionListResponse)
@@ -70,6 +92,48 @@ def create_transaction(
 ) -> TransactionRead:
     transaction = service.create_transaction(user_id=user_id, payload=payload)
     return TransactionRead.model_validate(transaction)
+
+
+@router.post(
+    "/import/analyze",
+    response_model=TransactionImportAnalysisResponse,
+)
+async def analyze_transaction_import(
+    service: TransactionImportServiceDep,
+    file: UploadFile = IMPORT_FILE_PARAM,
+) -> TransactionImportAnalysisResponse:
+    return await service.analyze_file(file=file)
+
+
+@router.post(
+    "/import/preview",
+    response_model=TransactionImportPreviewResponse,
+)
+async def preview_transaction_import(
+    user_id: CurrentUserId,
+    service: TransactionImportServiceDep,
+    account_id: uuid.UUID = IMPORT_ACCOUNT_ID_PARAM,
+    mapping: str = IMPORT_MAPPING_PARAM,
+    file: UploadFile = IMPORT_FILE_PARAM,
+) -> TransactionImportPreviewResponse:
+    return await service.build_preview(
+        user_id=user_id,
+        account_id=account_id,
+        file=file,
+        mapping_json=mapping,
+    )
+
+
+@router.post(
+    "/import/commit",
+    response_model=TransactionImportCommitResponse,
+)
+def commit_transaction_import(
+    payload: TransactionImportCommitRequest,
+    user_id: CurrentUserId,
+    service: TransactionImportServiceDep,
+) -> TransactionImportCommitResponse:
+    return service.commit_import(user_id=user_id, payload=payload)
 
 
 @router.get("/{transaction_id}", response_model=TransactionRead)

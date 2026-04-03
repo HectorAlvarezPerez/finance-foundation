@@ -54,3 +54,53 @@ class TransactionListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class TransactionImportColumnMapping(BaseModel):
+    date: str | None = None
+    amount: str | None = None
+    description: str | None = None
+    category: str | None = None
+    notes: str | None = None
+
+
+class TransactionImportAnalysisResponse(BaseModel):
+    source_type: str
+    columns: list[str]
+    sample_rows: list[dict[str, str]]
+    suggested_mapping: TransactionImportColumnMapping
+    total_rows: int
+    message: str | None = None
+
+
+class TransactionImportDraft(BaseModel):
+    source_row_number: int
+    account_id: uuid.UUID
+    category_id: uuid.UUID | None = None
+    category_label: str | None = None
+    date: date_value | None = None
+    amount: Decimal | None = Field(default=None, decimal_places=2, max_digits=12)
+    currency: str = Field(min_length=3, max_length=3)
+    description: str | None = Field(default=None, min_length=1, max_length=512)
+    notes: str | None = None
+    validation_errors: list[str] = Field(default_factory=list)
+
+
+class TransactionImportPreviewResponse(BaseModel):
+    source_type: str
+    account_id: uuid.UUID
+    account_currency: str
+    imported_count: int
+    rows: list[TransactionImportDraft]
+
+
+class TransactionImportCommitItem(TransactionBase):
+    source_row_number: int | None = None
+
+
+class TransactionImportCommitRequest(BaseModel):
+    items: list[TransactionImportCommitItem] = Field(min_length=1, max_length=500)
+
+
+class TransactionImportCommitResponse(BaseModel):
+    imported_count: int

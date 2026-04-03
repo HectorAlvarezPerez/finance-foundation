@@ -26,6 +26,12 @@ export type {
   SettingsUpdate,
   Transaction,
   TransactionCreate,
+  TransactionImportAnalysisResponse,
+  TransactionImportColumnMapping,
+  TransactionImportCommitRequest,
+  TransactionImportCommitResponse,
+  TransactionImportDraft,
+  TransactionImportPreviewResponse,
   TransactionUpdate,
   User,
 } from "@finance-foundation/shared";
