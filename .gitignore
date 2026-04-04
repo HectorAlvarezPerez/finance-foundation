@@ -31,3 +31,4 @@ test-results/
 output/playwright/*
 !output/playwright/desktop.json
 !output/playwright/mobile.json
+apps/backend/tmp/

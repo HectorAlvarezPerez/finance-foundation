@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     entra_metadata_url: str | None = None
     entra_redirect_uri: str = "http://localhost:8000/api/v1/auth/entra/callback"
     entra_google_domain_hint: str | None = "google.com"
+    azure_document_intelligence_endpoint: str | None = None
+    azure_document_intelligence_api_key: str | None = None
+    azure_document_intelligence_model_id: str = "prebuilt-layout"
+    azure_openai_endpoint: str | None = None
+    azure_openai_api_key: str | None = None
+    azure_openai_pdf_parser_deployment: str | None = None
+    azure_openai_api_version: str = "2025-03-01-preview"
 
     @property
     def frontend_origins(self) -> list[str]:
@@ -66,6 +73,23 @@ class Settings(BaseSettings):
                 self.google_oauth_redirect_uri,
                 self.google_oauth_metadata_url,
             ]
+        )
+
+    @property
+    def azure_document_intelligence_enabled(self) -> bool:
+        return bool(
+            self.azure_document_intelligence_endpoint
+            and self.azure_document_intelligence_api_key
+            and self.azure_document_intelligence_model_id
+        )
+
+    @property
+    def azure_openai_pdf_parser_enabled(self) -> bool:
+        return bool(
+            self.azure_openai_endpoint
+            and self.azure_openai_api_key
+            and self.azure_openai_pdf_parser_deployment
+            and self.azure_openai_api_version
         )
 
     model_config = SettingsConfigDict(

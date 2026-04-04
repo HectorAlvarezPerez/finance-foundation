@@ -337,7 +337,7 @@ function TransactionsContent() {
         notes: analysis.suggested_mapping.notes || "",
       });
       if (analysis.message) {
-        toast(analysis.message, analysis.source_type === "pdf" ? "error" : "success");
+        toast(analysis.message, "success");
       }
     } catch (requestError) {
       toast(
@@ -738,8 +738,9 @@ function TransactionsContent() {
           onClose={resetImportDialog}
           title="Importar transacciones"
           description="Sube un archivo, revisa el mapeo y prepara las transacciones."
+          dialogClassName="w-[min(96vw,1200px)] max-w-none"
         >
-          <form onSubmit={handlePrepareImportPreview}>
+          <form className="px-1 sm:px-2" onSubmit={handlePrepareImportPreview}>
             {/* ── Stepper ── */}
             <div className="mb-8 flex items-center justify-center gap-0">
               {[
@@ -917,16 +918,11 @@ function TransactionsContent() {
                       </button>
                     </div>
 
-                    {importAnalysis?.message ? (
-                      <div className="mt-3 rounded-xl bg-[var(--app-danger-soft)] px-4 py-3 text-sm text-[var(--app-danger)]">
-                        {importAnalysis.message}
-                      </div>
-                    ) : null}
                   </div>
                 )}
 
                 {/* Next step button */}
-                {importAnalysis && importAnalysis.source_type !== "pdf" ? (
+                {importAnalysis && importAnalysis.sample_rows.length ? (
                   <button
                     type="button"
                     onClick={() => setImportStep(2)}
@@ -967,95 +963,104 @@ function TransactionsContent() {
                   </span>
                 </div>
 
-                {/* Mapping section */}
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold text-[var(--app-foreground)]">Mapeo de columnas</p>
-                    <p className="mt-0.5 text-xs text-[var(--app-muted)]">
-                      Asigna cada campo a la columna correspondiente del archivo.
-                    </p>
+                <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)] xl:items-start">
+                  {/* Mapping section */}
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-sm font-semibold text-[var(--app-foreground)]">Mapeo de columnas</p>
+                      <p className="mt-0.5 text-xs text-[var(--app-muted)]">
+                        {importAnalysis.source_type === "pdf"
+                          ? "Leemos el PDF con OCR y proponemos los campos base. Podrás corregir cualquier fila en el paso de revisión."
+                          : "Asigna cada campo a la columna correspondiente del archivo."}
+                      </p>
+                    </div>
+                    {importAnalysis.columns.length ? (
+                      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                        <ImportMappingSelect
+                          label="Fecha"
+                          value={importMapping.date}
+                          options={importAnalysis.columns}
+                          disabled={importAnalysis.source_type === "pdf"}
+                          onChange={(value) =>
+                            setImportMapping((current) => ({ ...current, date: value }))
+                          }
+                        />
+                        <ImportMappingSelect
+                          label="Importe"
+                          value={importMapping.amount}
+                          options={importAnalysis.columns}
+                          disabled={importAnalysis.source_type === "pdf"}
+                          onChange={(value) =>
+                            setImportMapping((current) => ({ ...current, amount: value }))
+                          }
+                        />
+                        <ImportMappingSelect
+                          label="Descripción"
+                          value={importMapping.description}
+                          options={importAnalysis.columns}
+                          disabled={importAnalysis.source_type === "pdf"}
+                          onChange={(value) =>
+                            setImportMapping((current) => ({ ...current, description: value }))
+                          }
+                        />
+                        <ImportMappingSelect
+                          label="Categoría"
+                          value={importMapping.category}
+                          options={importAnalysis.columns}
+                          disabled={importAnalysis.source_type === "pdf"}
+                          onChange={(value) =>
+                            setImportMapping((current) => ({ ...current, category: value }))
+                          }
+                        />
+                        <ImportMappingSelect
+                          label="Notas"
+                          value={importMapping.notes}
+                          options={importAnalysis.columns}
+                          disabled={importAnalysis.source_type === "pdf"}
+                          onChange={(value) =>
+                            setImportMapping((current) => ({ ...current, notes: value }))
+                          }
+                        />
+                      </div>
+                    ) : null}
                   </div>
-                  {importAnalysis.columns.length ? (
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <ImportMappingSelect
-                        label="Fecha"
-                        value={importMapping.date}
-                        options={importAnalysis.columns}
-                        onChange={(value) =>
-                          setImportMapping((current) => ({ ...current, date: value }))
-                        }
-                      />
-                      <ImportMappingSelect
-                        label="Importe"
-                        value={importMapping.amount}
-                        options={importAnalysis.columns}
-                        onChange={(value) =>
-                          setImportMapping((current) => ({ ...current, amount: value }))
-                        }
-                      />
-                      <ImportMappingSelect
-                        label="Descripción"
-                        value={importMapping.description}
-                        options={importAnalysis.columns}
-                        onChange={(value) =>
-                          setImportMapping((current) => ({ ...current, description: value }))
-                        }
-                      />
-                      <ImportMappingSelect
-                        label="Categoría"
-                        value={importMapping.category}
-                        options={importAnalysis.columns}
-                        onChange={(value) =>
-                          setImportMapping((current) => ({ ...current, category: value }))
-                        }
-                      />
-                      <ImportMappingSelect
-                        label="Notas"
-                        value={importMapping.notes}
-                        options={importAnalysis.columns}
-                        onChange={(value) =>
-                          setImportMapping((current) => ({ ...current, notes: value }))
-                        }
-                      />
+
+                  {/* Sample data preview */}
+                  {importAnalysis.sample_rows.length ? (
+                    <div className="space-y-3 xl:min-w-0">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-semibold text-[var(--app-foreground)]">Vista previa</p>
+                        <span className="text-xs text-[var(--app-muted)]">
+                          {Math.min(importAnalysis.sample_rows.length, 3)} filas de ejemplo
+                        </span>
+                      </div>
+                      <div className="overflow-x-auto rounded-xl border border-[var(--app-border)]">
+                        <table className="min-w-full text-left text-xs">
+                          <thead className="bg-[var(--app-muted-surface)] text-[var(--app-muted)]">
+                            <tr>
+                              {importAnalysis.columns.map((column) => (
+                                <th key={column} className="px-4 py-2.5 font-medium">
+                                  {column}
+                                </th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {importAnalysis.sample_rows.slice(0, 3).map((row, index) => (
+                              <tr key={index} className="border-t border-[var(--app-border)] align-top">
+                                {importAnalysis.columns.map((column) => (
+                                  <td key={column} className="min-w-[140px] px-4 py-2.5 text-[var(--app-foreground)]">
+                                    {row[column] || "—"}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
                   ) : null}
                 </div>
-
-                {/* Sample data preview */}
-                {importAnalysis.sample_rows.length ? (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold text-[var(--app-foreground)]">Vista previa</p>
-                      <span className="text-xs text-[var(--app-muted)]">
-                        {Math.min(importAnalysis.sample_rows.length, 3)} filas de ejemplo
-                      </span>
-                    </div>
-                    <div className="overflow-x-auto rounded-xl border border-[var(--app-border)]">
-                      <table className="min-w-full text-left text-xs">
-                        <thead className="bg-[var(--app-muted-surface)] text-[var(--app-muted)]">
-                          <tr>
-                            {importAnalysis.columns.map((column) => (
-                              <th key={column} className="px-4 py-2.5 font-medium">
-                                {column}
-                              </th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {importAnalysis.sample_rows.slice(0, 3).map((row, index) => (
-                            <tr key={index} className="border-t border-[var(--app-border)] align-top">
-                              {importAnalysis.columns.map((column) => (
-                                <td key={column} className="min-w-[140px] px-4 py-2.5 text-[var(--app-foreground)]">
-                                  {row[column] || "—"}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : null}
 
                 {/* Submit button */}
                 <button
@@ -1519,11 +1524,13 @@ function ImportMappingSelect({
   label,
   value,
   options,
+  disabled = false,
   onChange,
 }: {
   label: string;
   value: string;
   options: string[];
+  disabled?: boolean;
   onChange: (value: string) => void;
 }) {
   return (
@@ -1531,8 +1538,9 @@ function ImportMappingSelect({
       <span className="text-sm font-medium text-[var(--app-foreground)]">{label}</span>
       <select
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
-        className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+        className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 text-sm outline-none transition-all focus:border-[var(--app-accent)] disabled:cursor-not-allowed disabled:opacity-70"
       >
         <option value="">No mapear</option>
         {options.map((option) => (

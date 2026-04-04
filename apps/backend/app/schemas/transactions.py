@@ -104,3 +104,13 @@ class TransactionImportCommitRequest(BaseModel):
 
 class TransactionImportCommitResponse(BaseModel):
     imported_count: int
+
+
+class PdfParsedTransaction(BaseModel):
+    date: str = Field(min_length=1)
+    description: str = Field(min_length=1, max_length=512)
+    amount: str = Field(min_length=1)
+
+
+class PdfParsedTransactionsResponse(BaseModel):
+    transactions: list[PdfParsedTransaction] = Field(default_factory=list)
