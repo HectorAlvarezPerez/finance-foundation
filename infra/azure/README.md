@@ -46,6 +46,8 @@ Configura estos secrets en GitHub Actions, idealmente en el environment `product
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
+- `AZURE_DOCUMENT_INTELLIGENCE_API_KEY`
+- `AZURE_OPENAI_API_KEY`
 
 ### Repository variables
 
@@ -54,6 +56,11 @@ Configura estos secrets en GitHub Actions, idealmente en el environment `product
 - `AZURE_BACKEND_CONTAINER_APP_NAME`
 - `AZURE_FRONTEND_CONTAINER_APP_NAME`
 - `NEXT_PUBLIC_API_BASE_URL_PROD`
+- `AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT`
+- `AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID`
+- `AZURE_OPENAI_ENDPOINT`
+- `AZURE_OPENAI_PDF_PARSER_DEPLOYMENT`
+- `AZURE_OPENAI_API_VERSION`
 
 ## Entorno del backend
 
@@ -64,6 +71,7 @@ Notas:
 - usa `ALLOW_DEV_USER_HEADER=false` en producción
 - si frontend y backend viven bajo el mismo dominio raíz, `SESSION_COOKIE_SAMESITE=lax` suele ser suficiente
 - si acabas sirviendo frontend y backend desde sites distintos, cambia a `SESSION_COOKIE_SAMESITE=none`
+- si activas importación PDF con OCR/LLM, configura también los env vars de Azure Document Intelligence y Azure OpenAI
 
 ## Entorno del frontend
 
@@ -110,6 +118,11 @@ az containerapp registry set \
 - [frontend-deploy.yml](/home/hector/Escritorio/GitHub/finance-foundation/.github/workflows/frontend-deploy.yml)
 
 Ambos se disparan manualmente con `workflow_dispatch` y usan OIDC con `azure/login@v2`.
+
+El workflow de backend también:
+
+- sincroniza los secrets del backend en la Container App
+- actualiza los env vars de OCR y fallback LLM si están definidos en GitHub
 
 ## Deploy manual con Azure CLI
 
