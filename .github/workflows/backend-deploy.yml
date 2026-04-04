@@ -12,6 +12,13 @@ env:
   AZURE_CONTAINER_REGISTRY_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}
   AZURE_BACKEND_CONTAINER_APP_NAME: ${{ vars.AZURE_BACKEND_CONTAINER_APP_NAME }}
   BACKEND_IMAGE_NAME: finance-foundation-backend
+  AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT: ${{ vars.AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT }}
+  AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID: ${{ vars.AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID }}
+  AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+  AZURE_OPENAI_PDF_PARSER_DEPLOYMENT: ${{ vars.AZURE_OPENAI_PDF_PARSER_DEPLOYMENT }}
+  AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
+  AZURE_DOCUMENT_INTELLIGENCE_API_KEY: ${{ secrets.AZURE_DOCUMENT_INTELLIGENCE_API_KEY }}
+  AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
 
 jobs:
   deploy-backend:
@@ -47,10 +54,55 @@ jobs:
               --file apps/backend/Dockerfile \
               .
 
-            az containerapp update \
-              --name "$AZURE_BACKEND_CONTAINER_APP_NAME" \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
+            SECRET_ARGS=()
+            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY:-}" ]; then
+              SECRET_ARGS+=("docintel-key=${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}")
+            fi
+            if [ -n "${AZURE_OPENAI_API_KEY:-}" ]; then
+              SECRET_ARGS+=("openai-key=${AZURE_OPENAI_API_KEY}")
+            fi
+
+            if [ "${#SECRET_ARGS[@]}" -gt 0 ]; then
+              az containerapp secret set \
+                --name "$AZURE_BACKEND_CONTAINER_APP_NAME" \
+                --resource-group "$AZURE_RESOURCE_GROUP" \
+                --secrets "${SECRET_ARGS[@]}"
+            fi
+
+            ENV_ARGS=()
+            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT:-}" ]; then
+              ENV_ARGS+=("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}")
+            fi
+            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID:-}" ]; then
+              ENV_ARGS+=("AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID=${AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID}")
+            fi
+            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY:-}" ]; then
+              ENV_ARGS+=("AZURE_DOCUMENT_INTELLIGENCE_API_KEY=secretref:docintel-key")
+            fi
+            if [ -n "${AZURE_OPENAI_ENDPOINT:-}" ]; then
+              ENV_ARGS+=("AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}")
+            fi
+            if [ -n "${AZURE_OPENAI_PDF_PARSER_DEPLOYMENT:-}" ]; then
+              ENV_ARGS+=("AZURE_OPENAI_PDF_PARSER_DEPLOYMENT=${AZURE_OPENAI_PDF_PARSER_DEPLOYMENT}")
+            fi
+            if [ -n "${AZURE_OPENAI_API_VERSION:-}" ]; then
+              ENV_ARGS+=("AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}")
+            fi
+            if [ -n "${AZURE_OPENAI_API_KEY:-}" ]; then
+              ENV_ARGS+=("AZURE_OPENAI_API_KEY=secretref:openai-key")
+            fi
+
+            UPDATE_ARGS=(
+              --name "$AZURE_BACKEND_CONTAINER_APP_NAME"
+              --resource-group "$AZURE_RESOURCE_GROUP"
               --image "$IMAGE_TAG"
+            )
+
+            if [ "${#ENV_ARGS[@]}" -gt 0 ]; then
+              UPDATE_ARGS+=(--set-env-vars "${ENV_ARGS[@]}")
+            fi
+
+            az containerapp update "${UPDATE_ARGS[@]}"
 
             BACKEND_FQDN="$(az containerapp show \
               --name "$AZURE_BACKEND_CONTAINER_APP_NAME" \
