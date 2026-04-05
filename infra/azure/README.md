@@ -60,7 +60,9 @@ Configura estos secrets en GitHub Actions, idealmente en el environment `product
 - `AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID`
 - `AZURE_OPENAI_ENDPOINT`
 - `AZURE_OPENAI_PDF_PARSER_DEPLOYMENT`
+- `AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT`
 - `AZURE_OPENAI_API_VERSION`
+- `CLASSIFICATION_DEBUG`
 
 ## Entorno del backend
 
@@ -71,7 +73,8 @@ Notas:
 - usa `ALLOW_DEV_USER_HEADER=false` en producción
 - si frontend y backend viven bajo el mismo dominio raíz, `SESSION_COOKIE_SAMESITE=lax` suele ser suficiente
 - si acabas sirviendo frontend y backend desde sites distintos, cambia a `SESSION_COOKIE_SAMESITE=none`
-- si activas importación PDF con OCR/LLM, configura también los env vars de Azure Document Intelligence y Azure OpenAI
+- si activas importación PDF con OCR/LLM o la clasificación asistida de categorías, configura también los env vars de Azure Document Intelligence y Azure OpenAI
+- activa `CLASSIFICATION_DEBUG=true` sólo en desarrollo si quieres ver en backend y preview el motivo de clasificación por fila
 
 ## Entorno del frontend
 
@@ -122,7 +125,7 @@ Ambos se disparan manualmente con `workflow_dispatch` y usan OIDC con `azure/log
 El workflow de backend también:
 
 - sincroniza los secrets del backend en la Container App
-- actualiza los env vars de OCR y fallback LLM si están definidos en GitHub
+- actualiza los env vars de OCR, fallback LLM y clasificación asistida si están definidos en GitHub
 
 ## Deploy manual con Azure CLI
 

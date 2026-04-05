@@ -71,6 +71,9 @@ type TransactionImportPreviewRow = {
   accountId: string;
   categoryId: string;
   categoryLabel: string;
+  categorySuggestionLabel: string;
+  categorySuggestionSource: string;
+  categoryIsSuggested: boolean;
   date: string;
   amount: string;
   currency: string;
@@ -379,6 +382,9 @@ function TransactionsContent() {
           account_id: string;
           category_id: string | null;
           category_label: string | null;
+          category_suggestion_label: string | null;
+          category_suggestion_source: string | null;
+          category_is_suggested: boolean;
           date: string | null;
           amount: string | null;
           currency: string;
@@ -403,6 +409,9 @@ function TransactionsContent() {
             accountId: row.account_id,
             categoryId: row.category_id ?? "",
             categoryLabel: row.category_label ?? "",
+            categorySuggestionLabel: row.category_suggestion_label ?? "",
+            categorySuggestionSource: row.category_suggestion_source ?? "",
+            categoryIsSuggested: row.category_is_suggested,
             date: row.date ?? "",
             amount: row.amount ?? "",
             currency: row.currency,
@@ -1063,6 +1072,16 @@ function TransactionsContent() {
                 </div>
 
                 {/* Submit button */}
+                {isPreparingPreview ? (
+                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                    <span className="font-medium text-[var(--app-foreground)]">
+                      Classifying transactions by category
+                    </span>
+                    <span className="block text-xs">
+                      Estamos preparando la revisión y dejando cada sugerencia editable antes de confirmar.
+                    </span>
+                  </div>
+                ) : null}
                 <button
                   type="submit"
                   disabled={isPreparingPreview}
@@ -1073,7 +1092,7 @@ function TransactionsContent() {
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  Preparar revisión
+                  {isPreparingPreview ? "Classifying transactions by category" : "Preparar revisión"}
                 </button>
               </div>
             ) : null}
@@ -1088,7 +1107,8 @@ function TransactionsContent() {
                   <CardTitle>Revisión temporal de importación</CardTitle>
                   <p className="text-sm text-[var(--app-muted)]">
                     Las filas nuevas todavía no se han guardado. Revísalas, edítalas o descarta
-                    las que no quieras importar.
+                    las que no quieras importar. Si ves una categoría sugerida, puedes cambiarla
+                    o dejarla vacía antes de confirmar.
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -1238,11 +1258,7 @@ function TransactionsContent() {
                                 </option>
                               ))}
                             </select>
-                            {!row.categoryId && row.categoryLabel ? (
-                              <p className="text-xs text-[var(--app-muted)]">
-                                Sugerencia original: {row.categoryLabel}
-                              </p>
-                            ) : null}
+                            <ImportCategoryHint row={row} />
                           </div>
                         </TableCell>
                         <TableCell>
@@ -1625,11 +1641,7 @@ function ImportReviewCard({
             </option>
           ))}
         </select>
-        {!row.categoryId && row.categoryLabel ? (
-          <p className="text-xs text-[var(--app-muted)]">
-            Sugerencia original: {row.categoryLabel}
-          </p>
-        ) : null}
+        <ImportCategoryHint row={row} />
         <textarea
           value={row.notes}
           onChange={(event) =>
@@ -1642,6 +1654,29 @@ function ImportReviewCard({
       </div>
     </article>
   );
+}
+
+function ImportCategoryHint({ row }: { row: TransactionImportPreviewRow }) {
+  const sourceLabel = formatCategorySuggestionSource(row.categorySuggestionSource);
+
+  if (row.categoryIsSuggested && row.categorySuggestionLabel) {
+    return (
+      <p className="text-xs text-[var(--app-muted)]">
+        Categoría sugerida por {sourceLabel}: {row.categorySuggestionLabel}. Puedes cambiarla o
+        dejarla vacía.
+      </p>
+    );
+  }
+
+  if (!row.categoryId && row.categoryLabel) {
+    return (
+      <p className="text-xs text-[var(--app-muted)]">
+        Categoría original del archivo: {row.categoryLabel}. Puedes asignarla o dejarla vacía.
+      </p>
+    );
+  }
+
+  return null;
 }
 
 function ImportStatusCell({ row }: { row: TransactionImportPreviewRow }) {
@@ -1743,6 +1778,19 @@ function normalizeImportPreviewRow(row: TransactionImportPreviewRow): Transactio
     notes: row.notes.trim(),
     validationErrors: getImportRowValidationErrors(row),
   };
+}
+
+function formatCategorySuggestionSource(source: string) {
+  switch (source) {
+    case "history":
+      return "historial";
+    case "pattern":
+      return "patrones repetidos";
+    case "assisted":
+      return "IA";
+    default:
+      return "el sistema";
+  }
 }
 
 function getImportRowValidationErrors(row: TransactionImportPreviewRow): string[] {

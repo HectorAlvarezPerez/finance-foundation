@@ -3,9 +3,11 @@ from __future__ import annotations
 import csv
 import io
 import json
+import logging
 import re
 import unicodedata
 import uuid
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
@@ -16,12 +18,15 @@ from fastapi import HTTPException, UploadFile, status
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.account import Account
 from app.models.category import Category
 from app.repositories.account_repository import AccountRepository
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transactions import (
+    TransactionCategoryAssistantDraft,
+    TransactionCategoryAssistantSuggestion,
     TransactionCreate,
     TransactionImportAnalysisResponse,
     TransactionImportColumnMapping,
@@ -34,6 +39,9 @@ from app.services.azure_document_intelligence_ocr_service import (
     AzureDocumentIntelligenceOcrService,
 )
 from app.services.azure_openai_pdf_parser_service import AzureOpenAIPdfParserService
+from app.services.azure_openai_transaction_category_service import (
+    AzureOpenAITransactionCategoryService,
+)
 
 SUPPORTED_IMPORT_TYPES = {"csv", "xlsx", "xlsm", "xltx", "xltm", "pdf"}
 REQUIRED_IMPORT_FIELDS = ("date", "amount", "description")
@@ -66,6 +74,29 @@ FIELD_ALIASES = {
     "notes": {"notes", "note", "nota", "comment", "comments", "memo", "reference"},
 }
 
+DESCRIPTION_STOPWORDS = {
+    "card",
+    "compra",
+    "debito",
+    "debit",
+    "pago",
+    "payment",
+    "pos",
+    "purchase",
+    "ref",
+    "reference",
+    "sepa",
+    "tarjeta",
+    "transfer",
+    "transferencia",
+    "trx",
+    "visa",
+}
+
+ASSISTED_CLASSIFICATION_CONFIDENCE_THRESHOLD = 0.5
+
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class ParsedImportFile:
@@ -73,6 +104,23 @@ class ParsedImportFile:
     columns: list[str]
     rows: list[dict[str, str]]
     message: str | None = None
+
+
+@dataclass
+class CategorySuggestion:
+    source_row_number: int
+    category_id: uuid.UUID
+    label: str
+    source: str
+    confidence: float | None
+    reason: str
+    model: str | None = None
+
+
+@dataclass
+class CategoryHistoryIndex:
+    exact_matches: dict[str, Counter[uuid.UUID]]
+    merchant_patterns: dict[str, Counter[uuid.UUID]]
 
 
 class TransactionImportService:
@@ -84,6 +132,7 @@ class TransactionImportService:
         db: Session,
         document_ocr_service: AzureDocumentIntelligenceOcrService | None = None,
         pdf_llm_parser_service: AzureOpenAIPdfParserService | None = None,
+        category_classifier_service: AzureOpenAITransactionCategoryService | None = None,
     ) -> None:
         self.repository = repository
         self.account_repository = account_repository
@@ -91,6 +140,9 @@ class TransactionImportService:
         self.db = db
         self.document_ocr_service = document_ocr_service or AzureDocumentIntelligenceOcrService()
         self.pdf_llm_parser_service = pdf_llm_parser_service or AzureOpenAIPdfParserService()
+        self.category_classifier_service = (
+            category_classifier_service or AzureOpenAITransactionCategoryService()
+        )
 
     async def analyze_file(self, *, file: UploadFile) -> TransactionImportAnalysisResponse:
         parsed = await self._parse_upload(file)
@@ -136,6 +188,11 @@ class TransactionImportService:
             )
             for index, raw_row in enumerate(parsed.rows)
         ]
+        rows = self._classify_drafts(
+            user_id=user_id,
+            rows=rows,
+            categories=categories,
+        )
 
         return TransactionImportPreviewResponse(
             source_type=parsed.source_type,
@@ -391,6 +448,378 @@ class TransactionImportService:
             validation_errors=validation_errors,
         )
 
+    def _classify_drafts(
+        self,
+        *,
+        user_id: uuid.UUID,
+        rows: list[TransactionImportDraft],
+        categories: list[Category],
+    ) -> list[TransactionImportDraft]:
+        if not rows:
+            return rows
+
+        category_map = {category.id: category for category in categories}
+        history = self._build_category_history_index(
+            user_id=user_id,
+            category_map=category_map,
+        )
+
+        classified_rows: list[TransactionImportDraft] = []
+        assisted_candidates: list[TransactionImportDraft] = []
+
+        for row in rows:
+            if row.category_id is not None:
+                final_row = self._attach_classification_debug(
+                    row=row,
+                    reason="Category came explicitly from the imported file",
+                    model=None,
+                )
+                classified_rows.append(final_row)
+                continue
+
+            suggestion = self._suggest_category_from_history(
+                row=row,
+                history=history,
+                category_map=category_map,
+            )
+            if suggestion is not None:
+                final_row = self._apply_category_suggestion(row=row, suggestion=suggestion)
+                classified_rows.append(final_row)
+                continue
+
+            final_row = self._attach_classification_debug(
+                row=row,
+                reason=(
+                    "No confident match from history or repeated patterns"
+                    if self.category_classifier_service.enabled
+                    else (
+                        "No confident match from history or repeated patterns, "
+                        "and assisted layer is disabled"
+                    )
+                ),
+                model=self.category_classifier_service.model_name
+                if self.category_classifier_service.enabled
+                else None,
+            )
+            classified_rows.append(final_row)
+            if self._can_use_assisted_classification(row=row):
+                assisted_candidates.append(final_row)
+
+        if not assisted_candidates:
+            for row in classified_rows:
+                self._log_classification_event(row=row)
+            return classified_rows
+
+        assisted_suggestions = self._suggest_categories_with_assisted_layer(
+            rows=assisted_candidates,
+            categories=categories,
+            category_map=category_map,
+        )
+        if not assisted_suggestions:
+            for row in classified_rows:
+                if row.category_id is None:
+                    self._log_classification_event(row=row)
+            return classified_rows
+
+        suggestion_by_row = {
+            suggestion.source_row_number: suggestion for suggestion in assisted_suggestions
+        }
+        final_rows: list[TransactionImportDraft] = []
+        for row in classified_rows:
+            if row.category_id is None and row.source_row_number in suggestion_by_row:
+                final_row = self._apply_category_suggestion(
+                    row=row,
+                    suggestion=suggestion_by_row[row.source_row_number],
+                )
+            else:
+                final_row = row
+            self._log_classification_event(row=final_row)
+            final_rows.append(final_row)
+        return final_rows
+
+    def _build_category_history_index(
+        self,
+        *,
+        user_id: uuid.UUID,
+        category_map: dict[uuid.UUID, Category],
+    ) -> CategoryHistoryIndex:
+        exact_matches: dict[str, Counter[uuid.UUID]] = defaultdict(Counter)
+        merchant_patterns: dict[str, Counter[uuid.UUID]] = defaultdict(Counter)
+
+        transactions = self.repository.list_all_for_user(
+            user_id=user_id,
+            sort_by="date",
+            sort_order="desc",
+        )
+        for transaction in transactions:
+            category_id = transaction.category_id
+            if category_id is None or category_id not in category_map:
+                continue
+
+            description_key = self._normalize_description_key(transaction.description)
+            if description_key:
+                exact_matches[description_key][category_id] += 1
+
+            merchant_key = self._merchant_pattern_key(transaction.description)
+            if merchant_key:
+                merchant_patterns[merchant_key][category_id] += 1
+
+        return CategoryHistoryIndex(
+            exact_matches=dict(exact_matches),
+            merchant_patterns=dict(merchant_patterns),
+        )
+
+    def _suggest_category_from_history(
+        self,
+        *,
+        row: TransactionImportDraft,
+        history: CategoryHistoryIndex,
+        category_map: dict[uuid.UUID, Category],
+    ) -> CategorySuggestion | None:
+        description = row.description or ""
+        exact_key = self._normalize_description_key(description)
+        merchant_key = self._merchant_pattern_key(description)
+        allowed_category_ids = self._compatible_category_ids(
+            amount=row.amount,
+            category_map=category_map,
+        )
+
+        suggestion = self._pick_category_from_counter(
+            source_row_number=row.source_row_number,
+            counter=history.exact_matches.get(exact_key),
+            category_map=category_map,
+            allowed_category_ids=allowed_category_ids,
+            min_ratio=0.75,
+            source="history",
+        )
+        if suggestion is not None:
+            return suggestion
+
+        return self._pick_category_from_counter(
+            source_row_number=row.source_row_number,
+            counter=history.merchant_patterns.get(merchant_key),
+            category_map=category_map,
+            allowed_category_ids=allowed_category_ids,
+            min_ratio=0.75,
+            source="pattern",
+        )
+
+    def _pick_category_from_counter(
+        self,
+        *,
+        source_row_number: int,
+        counter: Counter[uuid.UUID] | None,
+        category_map: dict[uuid.UUID, Category],
+        allowed_category_ids: set[uuid.UUID],
+        min_ratio: float,
+        source: str,
+    ) -> CategorySuggestion | None:
+        if counter is None:
+            return None
+
+        compatible_counts = {
+            category_id: count
+            for category_id, count in counter.items()
+            if category_id in allowed_category_ids
+        }
+        if not compatible_counts:
+            return None
+
+        ranked = sorted(
+            compatible_counts.items(),
+            key=lambda item: (-item[1], str(item[0])),
+        )
+        top_category_id, top_count = ranked[0]
+        if len(ranked) > 1 and ranked[1][1] == top_count:
+            return None
+
+        total = sum(compatible_counts.values())
+        ratio = top_count / total if total else 0
+        if ratio < min_ratio:
+            return None
+
+        category = category_map.get(top_category_id)
+        if category is None:
+            return None
+
+        confidence = round(min(0.99, 0.72 + (ratio * 0.18) + min(total, 4) * 0.03), 2)
+        return CategorySuggestion(
+            source_row_number=source_row_number,
+            category_id=top_category_id,
+            label=category.name,
+            source=source,
+            confidence=confidence,
+            reason=(
+                "Matched exact transaction history"
+                if source == "history"
+                else "Matched repeated merchant pattern"
+            ),
+        )
+
+    def _compatible_category_ids(
+        self,
+        *,
+        amount: Decimal | None,
+        category_map: dict[uuid.UUID, Category],
+    ) -> set[uuid.UUID]:
+        if amount is None:
+            return set(category_map.keys())
+
+        if amount > 0:
+            preferred_type = "income"
+        elif amount < 0:
+            preferred_type = "expense"
+        else:
+            preferred_type = None
+
+        if preferred_type is None:
+            return set(category_map.keys())
+
+        return {
+            category_id
+            for category_id, category in category_map.items()
+            if category.type.value in {preferred_type, "transfer"}
+        }
+
+    def _suggest_categories_with_assisted_layer(
+        self,
+        *,
+        rows: list[TransactionImportDraft],
+        categories: list[Category],
+        category_map: dict[uuid.UUID, Category],
+    ) -> list[CategorySuggestion]:
+        if not rows or not self.category_classifier_service.enabled:
+            return []
+
+        assistant_rows = [
+            TransactionCategoryAssistantDraft(
+                source_row_number=row.source_row_number,
+                description=row.description or "",
+                notes=row.notes or None,
+                amount=row.amount,
+                currency=row.currency,
+            )
+            for row in rows
+            if row.description and row.amount is not None
+        ]
+        if not assistant_rows:
+            return []
+
+        raw_suggestions = self.category_classifier_service.classify_rows(
+            rows=assistant_rows,
+            categories=categories,
+        )
+        return [
+            suggestion
+            for raw_suggestion in raw_suggestions
+            if (
+                suggestion := self._normalize_assisted_suggestion(
+                    raw_suggestion=raw_suggestion,
+                    row_by_number={row.source_row_number: row for row in rows},
+                    category_map=category_map,
+                )
+            )
+            is not None
+        ]
+
+    def _normalize_assisted_suggestion(
+        self,
+        *,
+        raw_suggestion: TransactionCategoryAssistantSuggestion,
+        row_by_number: dict[int, TransactionImportDraft],
+        category_map: dict[uuid.UUID, Category],
+    ) -> CategorySuggestion | None:
+        category_id = raw_suggestion.category_id
+        confidence = raw_suggestion.confidence
+        if (
+            category_id is None
+            or confidence is None
+            or confidence < ASSISTED_CLASSIFICATION_CONFIDENCE_THRESHOLD
+        ):
+            return None
+
+        category = category_map.get(category_id)
+        row = row_by_number.get(raw_suggestion.source_row_number)
+        if category is None or row is None:
+            return None
+
+        allowed_category_ids = self._compatible_category_ids(
+            amount=row.amount,
+            category_map=category_map,
+        )
+        if category_id not in allowed_category_ids:
+            return None
+
+        return CategorySuggestion(
+            source_row_number=raw_suggestion.source_row_number,
+            category_id=category_id,
+            label=category.name,
+            source="assisted",
+            confidence=round(confidence, 2),
+            reason=(f"Assistant suggested category with confidence {round(confidence, 2)}"),
+            model=self.category_classifier_service.model_name,
+        )
+
+    def _apply_category_suggestion(
+        self,
+        *,
+        row: TransactionImportDraft,
+        suggestion: CategorySuggestion,
+    ) -> TransactionImportDraft:
+        return row.model_copy(
+            update={
+                "category_id": suggestion.category_id,
+                "category_suggestion_label": suggestion.label,
+                "category_suggestion_source": suggestion.source,
+                "category_suggestion_confidence": suggestion.confidence,
+                "category_suggestion_reason": (
+                    suggestion.reason if settings.classification_debug else None
+                ),
+                "category_suggestion_model": (
+                    suggestion.model if settings.classification_debug else None
+                ),
+                "category_is_suggested": True,
+            }
+        )
+
+    def _attach_classification_debug(
+        self,
+        *,
+        row: TransactionImportDraft,
+        reason: str,
+        model: str | None,
+    ) -> TransactionImportDraft:
+        if not settings.classification_debug:
+            return row
+        return row.model_copy(
+            update={
+                "category_suggestion_reason": reason,
+                "category_suggestion_model": model,
+            }
+        )
+
+    def _log_classification_event(self, *, row: TransactionImportDraft) -> None:
+        if not settings.classification_debug:
+            return
+
+        payload = {
+            "event": "transaction_import_classification",
+            "source_row_number": row.source_row_number,
+            "description": row.description,
+            "amount": str(row.amount) if row.amount is not None else None,
+            "category_id": str(row.category_id) if row.category_id is not None else None,
+            "category_is_suggested": row.category_is_suggested,
+            "category_suggestion_label": row.category_suggestion_label,
+            "category_suggestion_source": row.category_suggestion_source,
+            "category_suggestion_confidence": row.category_suggestion_confidence,
+            "category_suggestion_reason": row.category_suggestion_reason,
+            "category_suggestion_model": row.category_suggestion_model,
+        }
+        logger.info("%s", json.dumps(payload, ensure_ascii=False))
+
+    def _can_use_assisted_classification(self, *, row: TransactionImportDraft) -> bool:
+        return bool(row.description and row.amount is not None)
+
     def _extract_rows_from_pdf_structured_text(self, structured_text: str) -> list[dict[str, str]]:
         table_blocks = re.findall(
             r"\[Table \d+\]\n((?:\|.*\|\n?)*)",
@@ -596,6 +1025,24 @@ class TransactionImportService:
         return "".join(
             char for char in normalized if char.isalnum() and not unicodedata.combining(char)
         )
+
+    def _normalize_description_key(self, value: str) -> str:
+        normalized = unicodedata.normalize("NFKD", value.strip().lower())
+        normalized = "".join(char for char in normalized if not unicodedata.combining(char))
+        normalized = re.sub(r"\b\d+(?:[.,/-]\d+)*\b", " ", normalized)
+        normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
+        tokens = [token for token in normalized.split() if token]
+        return " ".join(tokens)
+
+    def _merchant_pattern_key(self, value: str) -> str:
+        tokens = [
+            token
+            for token in self._normalize_description_key(value).split()
+            if len(token) > 2 and token not in DESCRIPTION_STOPWORDS
+        ]
+        if not tokens:
+            return ""
+        return tokens[0]
 
     def _to_cell_string(self, value: Any) -> str:
         if value is None:
