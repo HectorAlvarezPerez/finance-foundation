@@ -922,8 +922,23 @@ export interface components {
             amount?: string | null;
             /** Category Id */
             category_id?: string | null;
+            /**
+             * Category Is Suggested
+             * @default false
+             */
+            category_is_suggested: boolean;
             /** Category Label */
             category_label?: string | null;
+            /** Category Suggestion Confidence */
+            category_suggestion_confidence?: number | null;
+            /** Category Suggestion Label */
+            category_suggestion_label?: string | null;
+            /** Category Suggestion Model */
+            category_suggestion_model?: string | null;
+            /** Category Suggestion Reason */
+            category_suggestion_reason?: string | null;
+            /** Category Suggestion Source */
+            category_suggestion_source?: string | null;
             /** Currency */
             currency: string;
             /** Date */

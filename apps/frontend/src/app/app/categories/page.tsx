@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useEffectEvent, useState } from "react";
+import { FormEvent, useEffect, useEffectEvent, useMemo, useState } from "react";
 import { FolderTree, Pencil, Plus, Trash2 } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,7 +10,6 @@ import { EmptyState } from "@/components/empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/ui/modal";
-import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useToast } from "@/components/ui/toast";
 import { apiRequest } from "@/lib/api";
 import type { Category, CategoryType, PaginatedResponse } from "@/lib/types";
@@ -46,12 +45,10 @@ export default function CategoriesPage() {
   const [form, setForm] = useState({ ...defaultForm });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [page, setPage] = useState(1);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; category: Category | null }>({
     open: false,
     category: null,
   });
-  const pageSize = 8;
 
   async function loadCategories() {
     try {
@@ -72,17 +69,18 @@ export default function CategoriesPage() {
     void loadCategoriesOnMount();
   }, []);
 
-  const paginatedCategories = categories.slice((page - 1) * pageSize, page * pageSize);
-  const expenseCategories = paginatedCategories.filter((category) => category.type === "expense");
-  const incomeCategories = paginatedCategories.filter((category) => category.type === "income");
-  const transferCategories = paginatedCategories.filter((category) => category.type === "transfer");
-
-  useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(categories.length / pageSize));
-    if (page > totalPages) {
-      setPage(totalPages);
-    }
-  }, [categories.length, page]);
+  const expenseCategories = useMemo(
+    () => categories.filter((category) => category.type === "expense"),
+    [categories],
+  );
+  const incomeCategories = useMemo(
+    () => categories.filter((category) => category.type === "income"),
+    [categories],
+  );
+  const transferCategories = useMemo(
+    () => categories.filter((category) => category.type === "transfer"),
+    [categories],
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -270,7 +268,7 @@ export default function CategoriesPage() {
                   <CardTitle>Transferencias</CardTitle>
                   <p className="text-sm text-[var(--app-muted)]">Movimientos entre cuentas o traspasos internos.</p>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className="max-h-[min(60vh,32rem)] space-y-3 overflow-y-auto pr-2">
                   {transferCategories.map((category, index) => (
                     <CategoryRow
                       key={category.id}
@@ -284,12 +282,6 @@ export default function CategoriesPage() {
               </Card>
             ) : null}
 
-            <PaginationControls
-              page={page}
-              pageSize={pageSize}
-              total={categories.length}
-              onPageChange={setPage}
-            />
           </div>
         ) : (
           <Card>
@@ -329,7 +321,7 @@ function CategoryColumn({
         <CardTitle>{title}</CardTitle>
         <p className="text-sm text-[var(--app-muted)]">{description}</p>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="max-h-[min(70vh,42rem)] space-y-3 overflow-y-auto pr-2">
         {categories.length ? (
           categories.map((category, index) => (
             <CategoryRow

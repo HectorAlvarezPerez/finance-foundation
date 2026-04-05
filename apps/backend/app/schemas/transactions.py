@@ -78,6 +78,12 @@ class TransactionImportDraft(BaseModel):
     account_id: uuid.UUID
     category_id: uuid.UUID | None = None
     category_label: str | None = None
+    category_suggestion_label: str | None = None
+    category_suggestion_source: str | None = None
+    category_suggestion_confidence: float | None = Field(default=None, ge=0, le=1)
+    category_suggestion_reason: str | None = None
+    category_suggestion_model: str | None = None
+    category_is_suggested: bool = False
     date: date_value | None = None
     amount: Decimal | None = Field(default=None, decimal_places=2, max_digits=12)
     currency: str = Field(min_length=3, max_length=3)
@@ -114,3 +120,21 @@ class PdfParsedTransaction(BaseModel):
 
 class PdfParsedTransactionsResponse(BaseModel):
     transactions: list[PdfParsedTransaction] = Field(default_factory=list)
+
+
+class TransactionCategoryAssistantDraft(BaseModel):
+    source_row_number: int
+    description: str = Field(min_length=1, max_length=512)
+    notes: str | None = None
+    amount: Decimal = Field(decimal_places=2, max_digits=12)
+    currency: str = Field(min_length=3, max_length=3)
+
+
+class TransactionCategoryAssistantSuggestion(BaseModel):
+    source_row_number: int
+    category_id: uuid.UUID | None = None
+    confidence: float | None = Field(default=None, ge=0, le=1)
+
+
+class TransactionCategoryAssistantResponse(BaseModel):
+    suggestions: list[TransactionCategoryAssistantSuggestion] = Field(default_factory=list)

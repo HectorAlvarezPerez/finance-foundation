@@ -520,6 +520,428 @@ def test_preview_transaction_import_from_excel(client, user_id) -> None:
     assert preview_payload["rows"][0]["validation_errors"] == []
 
 
+def test_preview_suggests_category_for_known_merchant(client, user_id) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "History Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    groceries_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Groceries",
+            "type": "expense",
+            "color": "#22c55e",
+            "icon": "shopping-cart",
+        },
+    )
+    assert groceries_response.status_code == 201
+    groceries_id = groceries_response.json()["id"]
+
+    transaction_response = client.post(
+        "/api/v1/transactions",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "account_id": account_id,
+            "category_id": groceries_id,
+            "date": "2026-03-10",
+            "amount": "-45.20",
+            "currency": "EUR",
+            "description": "Mercadona",
+            "notes": "Compra semanal",
+        },
+    )
+    assert transaction_response.status_code == 201
+
+    csv_content = "Fecha,Importe,Merchant\n11/03/2026,-12.40,Mercadona Valencia\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    row = preview_payload["rows"][0]
+    assert row["category_id"] == groceries_id
+    assert row["category_suggestion_label"] == "Groceries"
+    assert row["category_suggestion_source"] == "pattern"
+    assert row["category_is_suggested"] is True
+    assert row["validation_errors"] == []
+
+
+def test_preview_leaves_category_empty_for_ambiguous_merchant(client, user_id) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Ambiguous Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    groceries_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Groceries",
+            "type": "expense",
+            "color": "#22c55e",
+            "icon": "shopping-cart",
+        },
+    )
+    assert groceries_response.status_code == 201
+    groceries_id = groceries_response.json()["id"]
+
+    leisure_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Leisure",
+            "type": "expense",
+            "color": "#a855f7",
+            "icon": "ticket",
+        },
+    )
+    assert leisure_response.status_code == 201
+    leisure_id = leisure_response.json()["id"]
+
+    first_tx = client.post(
+        "/api/v1/transactions",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "account_id": account_id,
+            "category_id": groceries_id,
+            "date": "2026-03-10",
+            "amount": "-20.00",
+            "currency": "EUR",
+            "description": "Amazon Marketplace",
+            "notes": "Casa",
+        },
+    )
+    assert first_tx.status_code == 201
+
+    second_tx = client.post(
+        "/api/v1/transactions",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "account_id": account_id,
+            "category_id": leisure_id,
+            "date": "2026-03-12",
+            "amount": "-30.00",
+            "currency": "EUR",
+            "description": "Amazon Marketplace",
+            "notes": "Ocio",
+        },
+    )
+    assert second_tx.status_code == 201
+
+    csv_content = "Fecha,Importe,Merchant\n13/03/2026,-12.40,Amazon Marketplace\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    row = preview_payload["rows"][0]
+    assert row["category_id"] is None
+    assert row["category_suggestion_source"] is None
+    assert row["category_suggestion_confidence"] is None
+    assert row["category_is_suggested"] is False
+
+
+def test_preview_leaves_category_empty_when_no_signal_exists(client, user_id) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "No Signal Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    csv_content = "Fecha,Importe,Merchant\n15/03/2026,-9.90,Unknown Corner Shop\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    row = preview_payload["rows"][0]
+    assert row["category_id"] is None
+    assert row["category_suggestion_label"] is None
+    assert row["category_suggestion_source"] is None
+    assert row["category_suggestion_confidence"] is None
+    assert row["category_is_suggested"] is False
+
+
+def test_preview_preserves_explicit_imported_category_over_classifier(client, user_id) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Explicit Category Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    groceries_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Groceries",
+            "type": "expense",
+            "color": "#22c55e",
+            "icon": "shopping-cart",
+        },
+    )
+    assert groceries_response.status_code == 201
+    groceries_id = groceries_response.json()["id"]
+
+    travel_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Travel",
+            "type": "expense",
+            "color": "#0ea5e9",
+            "icon": "plane",
+        },
+    )
+    assert travel_response.status_code == 201
+    travel_id = travel_response.json()["id"]
+
+    transaction_response = client.post(
+        "/api/v1/transactions",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "account_id": account_id,
+            "category_id": travel_id,
+            "date": "2026-03-10",
+            "amount": "-45.20",
+            "currency": "EUR",
+            "description": "Mercadona",
+            "notes": "Clasificador debería sugerir viaje si pudiera",
+        },
+    )
+    assert transaction_response.status_code == 201
+
+    csv_content = "Fecha,Importe,Merchant,Categoria\n11/03/2026,-12.40,Mercadona,Groceries\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": (
+                '{"date":"Fecha","amount":"Importe","description":"Merchant","category":"Categoria"}'
+            ),
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    row = preview_payload["rows"][0]
+    assert row["category_id"] == groceries_id
+    assert row["category_label"] == "Groceries"
+    assert row["category_suggestion_source"] is None
+    assert row["category_is_suggested"] is False
+
+
+def test_preview_uses_assisted_category_classification_when_enabled(
+    client,
+    user_id,
+    monkeypatch,
+) -> None:
+    class FakeAzureOpenAITransactionCategoryService:
+        @property
+        def enabled(self) -> bool:
+            return True
+
+        @property
+        def model_name(self) -> str:
+            return "gpt-4o-mini"
+
+        def classify_rows(self, *, rows, categories):
+            groceries = next(category for category in categories if category.name == "Groceries")
+            return [
+                transaction_import_module.CategorySuggestion(
+                    source_row_number=rows[0].source_row_number,
+                    category_id=groceries.id,
+                    label=groceries.name,
+                    source="assisted",
+                    confidence=0.55,
+                    reason="Assistant suggested category with confidence 0.55",
+                    model="gpt-4o-mini",
+                )
+            ]
+
+    monkeypatch.setattr(
+        transaction_import_module,
+        "AzureOpenAITransactionCategoryService",
+        FakeAzureOpenAITransactionCategoryService,
+    )
+
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Assisted Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    groceries_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Groceries",
+            "type": "expense",
+            "color": "#22c55e",
+            "icon": "shopping-cart",
+        },
+    )
+    assert groceries_response.status_code == 201
+    groceries_id = groceries_response.json()["id"]
+
+    csv_content = "Fecha,Importe,Merchant\n15/03/2026,-9.90,Unknown Corner Shop\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    row = preview_payload["rows"][0]
+    assert row["category_id"] == groceries_id
+    assert row["category_suggestion_source"] == "assisted"
+    assert row["category_suggestion_confidence"] == 0.55
+    assert row["category_is_suggested"] is True
+
+
+def test_preview_includes_debug_reason_and_model_when_classification_debug_is_enabled(
+    client,
+    user_id,
+    monkeypatch,
+) -> None:
+    class FakeAzureOpenAITransactionCategoryService:
+        @property
+        def enabled(self) -> bool:
+            return True
+
+        @property
+        def model_name(self) -> str:
+            return "gpt-4o-mini"
+
+        def classify_rows(self, *, rows, categories):
+            groceries = next(category for category in categories if category.name == "Groceries")
+            return [
+                transaction_import_module.CategorySuggestion(
+                    source_row_number=rows[0].source_row_number,
+                    category_id=groceries.id,
+                    label=groceries.name,
+                    source="assisted",
+                    confidence=0.55,
+                    reason="Assistant suggested category with confidence 0.55",
+                    model="gpt-4o-mini",
+                )
+            ]
+
+    monkeypatch.setattr(transaction_import_module.settings, "classification_debug", True)
+    monkeypatch.setattr(
+        transaction_import_module,
+        "AzureOpenAITransactionCategoryService",
+        FakeAzureOpenAITransactionCategoryService,
+    )
+
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Debug Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    groceries_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Groceries",
+            "type": "expense",
+            "color": "#22c55e",
+            "icon": "shopping-cart",
+        },
+    )
+    assert groceries_response.status_code == 201
+
+    csv_content = "Fecha,Importe,Merchant\n15/03/2026,-9.90,Unknown Corner Shop\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    row = preview_response.json()["rows"][0]
+    assert row["category_suggestion_reason"] == "Assistant suggested category with confidence 0.55"
+    assert row["category_suggestion_model"] == "gpt-4o-mini"
+
+
 def test_preview_transaction_import_from_pdf(client, user_id, monkeypatch) -> None:
     class FakeAzureDocumentIntelligenceOcrService:
         def extract_text(self, *, content: bytes) -> OcrExtractionResult:
