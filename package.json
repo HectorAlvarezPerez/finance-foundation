@@ -30,7 +30,9 @@
     "db:revision": "bash -lc 'cd apps/backend && uv run alembic revision --autogenerate'",
     "db:upgrade": "bash -lc 'cd apps/backend && uv run alembic upgrade head'",
     "quality": "npm run contracts:check && npm run lint:frontend && npm run typecheck:frontend && npm run lint:backend && npm run typecheck:backend && npm run test:backend",
-    "generate:contracts": "bash -lc 'cd apps/backend && uv run python scripts/export_openapi.py && cd ../.. && openapi-typescript packages/shared/openapi.json -o packages/shared/src/generated/api.ts'"
+    "generate:contracts": "bash -lc 'cd apps/backend && uv run python scripts/export_openapi.py && cd ../.. && openapi-typescript packages/shared/openapi.json -o packages/shared/src/generated/api.ts'",
+    "langfuse:bootstrap": "bash -lc 'cd apps/backend && uv run python -m app.llm.bootstrap.seed_langfuse'",
+    "langfuse:evals": "bash -lc 'cd apps/backend && uv run python -m app.llm.evals.run_langfuse_evals'"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",

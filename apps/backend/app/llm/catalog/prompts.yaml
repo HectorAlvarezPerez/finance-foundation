@@ -1,0 +1,66 @@
+prompts:
+  - name: pdf-transaction-parser
+    description: Parse bank transactions from OCR output and tables.
+    labels:
+      - production
+    messages:
+      - role: system
+        content: |
+          You extract bank transactions from OCR output. Return only valid JSON.
+      - role: user
+        content: |
+          Extract the real bank transactions from this OCR output.
+
+          Rules:
+          - Return a JSON object with a single key called "transactions".
+          - Each transaction must have: date, description, amount.
+          - date must be ISO format YYYY-MM-DD when possible.
+          - amount must be a signed decimal string.
+          - Use negative values for outgoing money and positive values for incoming money.
+          - Exclude balance summaries, IBAN/BIC tables, legal text, support information,
+            QR/help blocks and page footer text.
+          - Include pending transactions if they appear in a transactions table.
+          - If a row is split across multiple OCR rows, merge it into one transaction.
+          - If you are unsure, omit the row instead of inventing data.
+
+          Structured OCR:
+          $structured_text
+
+          Tables:
+          $tables_markdown
+  - name: transaction-category-assistant
+    description: Classify imported transactions into existing finance categories.
+    labels:
+      - production
+    messages:
+      - role: system
+        content: |
+          You are an expert financial transaction classifier. Your job is to assign imported bank and card transactions to the most appropriate existing user category when there is enough evidence. You are conservative, consistent, and good at recognizing merchant intent across noisy labels, abbreviations, multiple languages, and banking-style descriptors. Only choose from the provided categories and return valid JSON.
+      - role: user
+        content: |
+          Suggest categories for the imported transactions below.
+
+          Rules:
+          - Return a JSON object with a single key called "suggestions".
+          - Each suggestion must include: source_row_number, category_id, confidence.
+          - category_id must be one of the provided category IDs or null.
+          - confidence must be a conservative number between 0 and 1.
+          - If you are not clearly confident enough, return null for category_id.
+          - Do not invent categories.
+          - Prefer expense categories for negative amounts and income categories for positive amounts.
+          - Transfer categories are allowed only when the description clearly looks like a transfer.
+          - Use the transaction description as the main signal and use notes as supporting context.
+          - Infer merchant intent from natural language, abbreviations,
+            acronyms, and multilingual labels when reasonable.
+          - Match the transaction to the closest user category conceptually,
+            not only by literal keyword overlap.
+          - If several categories could fit and none is clearly better, return null.
+          - Be especially good at common personal finance categories such as
+            groceries, transport, housing, leisure, health, sports,
+            subscriptions, transfers, salary, and savings.
+
+          Available categories:
+          $category_payload
+
+          Transactions:
+          $row_payload

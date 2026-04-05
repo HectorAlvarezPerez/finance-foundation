@@ -1,0 +1,1 @@
+"""Packaged prompt catalog assets."""
