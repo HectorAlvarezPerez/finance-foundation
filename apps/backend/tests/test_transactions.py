@@ -791,6 +791,9 @@ def test_preview_uses_assisted_category_classification_when_enabled(
     monkeypatch,
 ) -> None:
     class FakeAzureOpenAITransactionCategoryService:
+        def __init__(self, **_: object) -> None:
+            return None
+
         @property
         def enabled(self) -> bool:
             return True
@@ -871,6 +874,9 @@ def test_preview_includes_debug_reason_and_model_when_classification_debug_is_en
     monkeypatch,
 ) -> None:
     class FakeAzureOpenAITransactionCategoryService:
+        def __init__(self, **_: object) -> None:
+            return None
+
         @property
         def enabled(self) -> bool:
             return True
@@ -944,6 +950,9 @@ def test_preview_includes_debug_reason_and_model_when_classification_debug_is_en
 
 def test_preview_transaction_import_from_pdf(client, user_id, monkeypatch) -> None:
     class FakeAzureDocumentIntelligenceOcrService:
+        def __init__(self, **_: object) -> None:
+            return None
+
         def extract_text(self, *, content: bytes) -> OcrExtractionResult:
             transaction_table = OcrTable(
                 row_count=5,
@@ -1009,6 +1018,9 @@ def test_preview_transaction_import_from_pdf(client, user_id, monkeypatch) -> No
             )
 
     class FakeAzureOpenAIPdfParserService:
+        def __init__(self, **_: object) -> None:
+            return None
+
         @property
         def enabled(self) -> bool:
             return False
@@ -1086,6 +1098,9 @@ def test_pdf_import_uses_llm_fallback_when_table_parser_finds_no_rows(
     monkeypatch,
 ) -> None:
     class FakeAzureDocumentIntelligenceOcrService:
+        def __init__(self, **_: object) -> None:
+            return None
+
         def extract_text(self, *, content: bytes) -> OcrExtractionResult:
             return OcrExtractionResult(
                 text="Random OCR text",
@@ -1096,6 +1111,9 @@ def test_pdf_import_uses_llm_fallback_when_table_parser_finds_no_rows(
             )
 
     class FakeAzureOpenAIPdfParserService:
+        def __init__(self, **_: object) -> None:
+            return None
+
         @property
         def enabled(self) -> bool:
             return True

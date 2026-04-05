@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     azure_openai_transaction_category_deployment: str | None = None
     azure_openai_api_version: str = "2025-03-01-preview"
     classification_debug: bool = False
+    langfuse_enabled: bool = False
+    langfuse_public_key: str | None = None
+    langfuse_secret_key: str | None = None
+    langfuse_host: str | None = None
+    langfuse_env: str | None = None
+    langfuse_prompt_label: str = "production"
 
     @property
     def frontend_origins(self) -> list[str]:
@@ -101,6 +107,19 @@ class Settings(BaseSettings):
             and self.azure_openai_api_key
             and self.azure_openai_transaction_category_deployment
             and self.azure_openai_api_version
+        )
+
+    @property
+    def resolved_langfuse_env(self) -> str:
+        return self.langfuse_env or self.app_env
+
+    @property
+    def langfuse_enabled_configured(self) -> bool:
+        return bool(
+            self.langfuse_enabled
+            and self.langfuse_public_key
+            and self.langfuse_secret_key
+            and self.langfuse_host
         )
 
     model_config = SettingsConfigDict(

@@ -2,18 +2,31 @@ from __future__ import annotations
 
 import json
 
-import httpx
-
 from app.core.config import settings
+from app.llm.azure_chat import AzureChatCompletionClient
+from app.llm.eval_defs import PDF_TRANSACTION_PARSER_PROMPT_NAME
+from app.llm.prompt_variables import build_pdf_parser_variables
+from app.llm.runtime import build_observability_client, build_prompt_provider
+from app.llm.types import LlmObservabilityClient, PromptProvider
 from app.schemas.transactions import PdfParsedTransactionsResponse
 
 
 class AzureOpenAIPdfParserService:
-    def __init__(self) -> None:
-        self.endpoint = settings.azure_openai_endpoint
-        self.api_key = settings.azure_openai_api_key
-        self.deployment = settings.azure_openai_pdf_parser_deployment
-        self.api_version = settings.azure_openai_api_version
+    def __init__(
+        self,
+        *,
+        chat_client: AzureChatCompletionClient | None = None,
+        prompt_provider: PromptProvider | None = None,
+        observability_client: LlmObservabilityClient | None = None,
+    ) -> None:
+        self.chat_client = chat_client or AzureChatCompletionClient(
+            endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
+            deployment=settings.azure_openai_pdf_parser_deployment,
+            api_version=settings.azure_openai_api_version,
+        )
+        self.prompt_provider = prompt_provider or build_prompt_provider()
+        self.observability_client = observability_client or build_observability_client()
 
     @property
     def enabled(self) -> bool:
@@ -28,78 +41,75 @@ class AzureOpenAIPdfParserService:
         if not self.enabled:
             return []
 
-        endpoint = self.endpoint
-        api_key = self.api_key
-        deployment = self.deployment
-        if endpoint is None or api_key is None or deployment is None:
+        if not self.chat_client.is_configured:
             return []
 
-        prompt = self._build_prompt(
+        prompt_variables = build_pdf_parser_variables(
             structured_text=structured_text,
             tables_markdown=tables_markdown,
         )
-
-        url = (
-            f"{endpoint.rstrip('/')}/openai/deployments/{deployment}/chat/completions"
-            f"?api-version={self.api_version}"
+        prompt = self.prompt_provider.get_chat_prompt(
+            PDF_TRANSACTION_PARSER_PROMPT_NAME,
+            label=settings.langfuse_prompt_label,
+            variables=prompt_variables,
         )
+        deployment = self.chat_client.deployment
 
-        with httpx.Client(timeout=45.0) as client:
-            response = client.post(
-                url,
-                headers={
-                    "api-key": api_key,
-                    "Content-Type": "application/json",
+        try:
+            completion = self.chat_client.complete_json(messages=prompt.messages)
+            parsed = PdfParsedTransactionsResponse.model_validate(json.loads(completion.message))
+            normalized_transactions = [
+                {
+                    "Fecha": item.date.strip(),
+                    "Descripción": item.description.strip(),
+                    "Importe": item.amount.strip(),
+                }
+                for item in parsed.transactions
+            ]
+            final_rows = [row for row in normalized_transactions if any(row.values())]
+            self.observability_client.record_generation(
+                handle=None,
+                name="azure_openai_pdf_parser_generation",
+                model=deployment,
+                prompt=prompt,
+                input_payload={
+                    "structured_text": structured_text,
+                    "tables_markdown": tables_markdown,
                 },
-                json={
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You extract bank transactions from OCR output. "
-                                "Return only valid JSON."
-                            ),
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "temperature": 0,
-                    "response_format": {"type": "json_object"},
+                output_payload={
+                    "transactions": final_rows,
+                    "raw_message": completion.message,
+                },
+                usage=completion.usage,
+                cost=completion.cost,
+                metadata={
+                    "deployment": deployment,
+                    "api_version": self.chat_client.api_version,
+                    "prompt_source": prompt.source,
+                    "prompt_version": prompt.version,
+                    "latency_ms": completion.latency_ms,
                 },
             )
-            response.raise_for_status()
-
-        payload = response.json()
-        message = payload["choices"][0]["message"]["content"]
-        parsed = PdfParsedTransactionsResponse.model_validate(json.loads(message))
-        normalized_transactions = [
-            {
-                "Fecha": item.date.strip(),
-                "Descripción": item.description.strip(),
-                "Importe": item.amount.strip(),
-            }
-            for item in parsed.transactions
-        ]
-        return [row for row in normalized_transactions if any(row.values())]
-
-    def _build_prompt(self, *, structured_text: str, tables_markdown: str) -> str:
-        return f"""
-Extract the real bank transactions from this OCR output.
-
-Rules:
-- Return a JSON object with a single key called "transactions".
-- Each transaction must have: date, description, amount.
-- date must be ISO format YYYY-MM-DD when possible.
-- amount must be a signed decimal string.
-- Use negative values for outgoing money and positive values for incoming money.
-- Exclude balance summaries, IBAN/BIC tables, legal text, support information,
-  QR/help blocks and page footer text.
-- Include pending transactions if they appear in a transactions table.
-- If a row is split across multiple OCR rows, merge it into one transaction.
-- If you are unsure, omit the row instead of inventing data.
-
-Structured OCR:
-{structured_text}
-
-Tables:
-{tables_markdown}
-""".strip()
+            return final_rows
+        except Exception as exc:
+            self.observability_client.record_generation(
+                handle=None,
+                name="azure_openai_pdf_parser_generation",
+                model=deployment,
+                prompt=prompt,
+                input_payload={
+                    "structured_text": structured_text,
+                    "tables_markdown": tables_markdown,
+                },
+                output_payload=None,
+                metadata={
+                    "deployment": deployment,
+                    "api_version": self.chat_client.api_version,
+                    "prompt_source": prompt.source,
+                    "prompt_version": prompt.version,
+                    "latency_ms": None,
+                },
+                status_message=str(exc),
+                level="ERROR",
+            )
+            raise

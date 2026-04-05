@@ -1,0 +1,1 @@
+"""Langfuse bootstrap package."""

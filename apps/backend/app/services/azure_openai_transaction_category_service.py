@@ -1,10 +1,16 @@
 from __future__ import annotations
 
 import json
+from typing import Any
 
-import httpx
+from pydantic import ValidationError
 
 from app.core.config import settings
+from app.llm.azure_chat import AzureChatCompletionClient
+from app.llm.eval_defs import TRANSACTION_CATEGORY_ASSISTANT_PROMPT_NAME
+from app.llm.prompt_variables import build_category_classifier_variables
+from app.llm.runtime import build_observability_client, build_prompt_provider
+from app.llm.types import LlmObservabilityClient, PromptProvider
 from app.models.category import Category
 from app.schemas.transactions import (
     TransactionCategoryAssistantDraft,
@@ -14,11 +20,21 @@ from app.schemas.transactions import (
 
 
 class AzureOpenAITransactionCategoryService:
-    def __init__(self) -> None:
-        self.endpoint = settings.azure_openai_endpoint
-        self.api_key = settings.azure_openai_api_key
-        self.deployment = settings.azure_openai_transaction_category_deployment
-        self.api_version = settings.azure_openai_api_version
+    def __init__(
+        self,
+        *,
+        chat_client: AzureChatCompletionClient | None = None,
+        prompt_provider: PromptProvider | None = None,
+        observability_client: LlmObservabilityClient | None = None,
+    ) -> None:
+        self.chat_client = chat_client or AzureChatCompletionClient(
+            endpoint=settings.azure_openai_endpoint,
+            api_key=settings.azure_openai_api_key,
+            deployment=settings.azure_openai_transaction_category_deployment,
+            api_version=settings.azure_openai_api_version,
+        )
+        self.prompt_provider = prompt_provider or build_prompt_provider()
+        self.observability_client = observability_client or build_observability_client()
 
     @property
     def enabled(self) -> bool:
@@ -26,7 +42,7 @@ class AzureOpenAITransactionCategoryService:
 
     @property
     def model_name(self) -> str | None:
-        return self.deployment
+        return self.chat_client.deployment
 
     def classify_rows(
         self,
@@ -37,58 +53,101 @@ class AzureOpenAITransactionCategoryService:
         if not self.enabled or not rows or not categories:
             return []
 
-        endpoint = self.endpoint
-        api_key = self.api_key
-        deployment = self.deployment
-        if endpoint is None or api_key is None or deployment is None:
+        if not self.chat_client.is_configured:
             return []
 
-        prompt = self._build_prompt(rows=rows, categories=categories)
-        url = (
-            f"{endpoint.rstrip('/')}/openai/deployments/{deployment}/chat/completions"
-            f"?api-version={self.api_version}"
+        prompt_variables = self._build_prompt_variables(rows=rows, categories=categories)
+        prompt = self.prompt_provider.get_chat_prompt(
+            TRANSACTION_CATEGORY_ASSISTANT_PROMPT_NAME,
+            label=settings.langfuse_prompt_label,
+            variables=prompt_variables,
         )
+        deployment = self.chat_client.deployment
 
-        with httpx.Client(timeout=45.0) as client:
-            response = client.post(
-                url,
-                headers={
-                    "api-key": api_key,
-                    "Content-Type": "application/json",
+        try:
+            completion = self.chat_client.complete_json(messages=prompt.messages)
+            try:
+                parsed = TransactionCategoryAssistantResponse.model_validate(
+                    json.loads(completion.message)
+                )
+            except (json.JSONDecodeError, ValidationError) as exc:
+                self.observability_client.record_generation(
+                    handle=None,
+                    name="azure_openai_transaction_category_generation",
+                    model=deployment,
+                    prompt=prompt,
+                    input_payload={
+                        "rows": prompt_variables["row_payload"],
+                        "categories": prompt_variables["category_payload"],
+                    },
+                    output_payload={"raw_message": completion.message},
+                    metadata={
+                        "deployment": deployment,
+                        "api_version": self.chat_client.api_version,
+                        "prompt_source": prompt.source,
+                        "prompt_version": prompt.version,
+                        "latency_ms": completion.latency_ms,
+                        "validation_error": str(exc),
+                    },
+                    status_message="Invalid classifier response payload",
+                    level="WARNING",
+                )
+                return []
+            self.observability_client.record_generation(
+                handle=None,
+                name="azure_openai_transaction_category_generation",
+                model=deployment,
+                prompt=prompt,
+                input_payload={
+                    "rows": prompt_variables["row_payload"],
+                    "categories": prompt_variables["category_payload"],
                 },
-                json={
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                "You are an expert financial transaction classifier. "
-                                "Your job is to assign imported bank and card transactions to the "
-                                "most appropriate existing user category when there is enough "
-                                "evidence. You are conservative, consistent, and good at "
-                                "recognizing merchant intent across noisy labels, abbreviations, "
-                                "multiple languages, and banking-style descriptors. "
-                                "Only choose from the provided categories and return valid JSON."
-                            ),
-                        },
-                        {"role": "user", "content": prompt},
+                output_payload={
+                    "suggestions": [
+                        suggestion.model_dump(mode="json") for suggestion in parsed.suggestions
                     ],
-                    "temperature": 0,
-                    "response_format": {"type": "json_object"},
+                    "raw_message": completion.message,
+                },
+                usage=completion.usage,
+                cost=completion.cost,
+                metadata={
+                    "deployment": deployment,
+                    "api_version": self.chat_client.api_version,
+                    "prompt_source": prompt.source,
+                    "prompt_version": prompt.version,
+                    "latency_ms": completion.latency_ms,
                 },
             )
-            response.raise_for_status()
+            return parsed.suggestions
+        except Exception as exc:
+            self.observability_client.record_generation(
+                handle=None,
+                name="azure_openai_transaction_category_generation",
+                model=deployment,
+                prompt=prompt,
+                input_payload={
+                    "rows": prompt_variables["row_payload"],
+                    "categories": prompt_variables["category_payload"],
+                },
+                output_payload=None,
+                metadata={
+                    "deployment": deployment,
+                    "api_version": self.chat_client.api_version,
+                    "prompt_source": prompt.source,
+                    "prompt_version": prompt.version,
+                    "latency_ms": None,
+                },
+                status_message=str(exc),
+                level="ERROR",
+            )
+            raise
 
-        payload = response.json()
-        message = payload["choices"][0]["message"]["content"]
-        parsed = TransactionCategoryAssistantResponse.model_validate(json.loads(message))
-        return parsed.suggestions
-
-    def _build_prompt(
+    def _build_prompt_variables(
         self,
         *,
         rows: list[TransactionCategoryAssistantDraft],
         categories: list[Category],
-    ) -> str:
+    ) -> dict[str, Any]:
         category_payload = [
             {
                 "id": str(category.id),
@@ -98,32 +157,7 @@ class AzureOpenAITransactionCategoryService:
             for category in categories
         ]
         row_payload = [row.model_dump(mode="json") for row in rows]
-
-        return f"""
-Suggest categories for the imported transactions below.
-
-Rules:
-- Return a JSON object with a single key called "suggestions".
-- Each suggestion must include: source_row_number, category_id, confidence.
-- category_id must be one of the provided category IDs or null.
-- confidence must be a conservative number between 0 and 1.
-- If you are not clearly confident enough, return null for category_id.
-- Do not invent categories.
-- Prefer expense categories for negative amounts and income categories for positive amounts.
-- Transfer categories are allowed only when the description clearly looks like a transfer.
-- Use the transaction description as the main signal and use notes as supporting context.
-- Infer merchant intent from natural language, abbreviations,
-  acronyms, and multilingual labels when reasonable.
-- Match the transaction to the closest user category conceptually,
-  not only by literal keyword overlap.
-- If several categories could fit and none is clearly better, return null.
-- Be especially good at common personal finance categories such as
-  groceries, transport, housing, leisure, health, sports,
-  subscriptions, transfers, salary, and savings.
-
-Available categories:
-{json.dumps(category_payload, ensure_ascii=False)}
-
-Transactions:
-{json.dumps(row_payload, ensure_ascii=False)}
-""".strip()
+        return build_category_classifier_variables(
+            category_payload=category_payload,
+            row_payload=row_payload,
+        )

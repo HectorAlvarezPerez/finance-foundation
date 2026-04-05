@@ -19,6 +19,8 @@ from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.llm.runtime import build_llm_runtime
+from app.llm.types import LlmObservabilityClient
 from app.models.account import Account
 from app.models.category import Category
 from app.repositories.account_repository import AccountRepository
@@ -133,19 +135,31 @@ class TransactionImportService:
         document_ocr_service: AzureDocumentIntelligenceOcrService | None = None,
         pdf_llm_parser_service: AzureOpenAIPdfParserService | None = None,
         category_classifier_service: AzureOpenAITransactionCategoryService | None = None,
+        llm_observability_client: LlmObservabilityClient | None = None,
     ) -> None:
         self.repository = repository
         self.account_repository = account_repository
         self.category_repository = category_repository
         self.db = db
+        llm_runtime = build_llm_runtime()
+        shared_prompt_provider = llm_runtime.prompt_provider
+        shared_observability_client = llm_observability_client or llm_runtime.observability_client
         self.document_ocr_service = document_ocr_service or AzureDocumentIntelligenceOcrService()
-        self.pdf_llm_parser_service = pdf_llm_parser_service or AzureOpenAIPdfParserService()
-        self.category_classifier_service = (
-            category_classifier_service or AzureOpenAITransactionCategoryService()
+        self.pdf_llm_parser_service = pdf_llm_parser_service or AzureOpenAIPdfParserService(
+            prompt_provider=shared_prompt_provider,
+            observability_client=shared_observability_client,
         )
+        self.category_classifier_service = (
+            category_classifier_service
+            or AzureOpenAITransactionCategoryService(
+                prompt_provider=shared_prompt_provider,
+                observability_client=shared_observability_client,
+            )
+        )
+        self.llm_observability_client = shared_observability_client
 
     async def analyze_file(self, *, file: UploadFile) -> TransactionImportAnalysisResponse:
-        parsed = await self._parse_upload(file)
+        parsed = await self._parse_upload(file, user_id=None)
         return TransactionImportAnalysisResponse(
             source_type=parsed.source_type,
             columns=parsed.columns,
@@ -164,7 +178,7 @@ class TransactionImportService:
         mapping_json: str,
     ) -> TransactionImportPreviewResponse:
         account = self._require_account(user_id=user_id, account_id=account_id)
-        parsed = await self._parse_upload(file)
+        parsed = await self._parse_upload(file, user_id=user_id)
 
         mapping = self._build_effective_mapping(parsed.source_type, mapping_json)
         self._validate_mapping(mapping)
@@ -237,7 +251,12 @@ class TransactionImportService:
         self.db.commit()
         return TransactionImportCommitResponse(imported_count=len(payload.items))
 
-    async def _parse_upload(self, file: UploadFile) -> ParsedImportFile:
+    async def _parse_upload(
+        self,
+        file: UploadFile,
+        *,
+        user_id: uuid.UUID | None,
+    ) -> ParsedImportFile:
         extension = Path(file.filename or "").suffix.lower().lstrip(".")
         if extension not in SUPPORTED_IMPORT_TYPES:
             raise HTTPException(
@@ -256,7 +275,7 @@ class TransactionImportService:
             return self._parse_csv(content)
         if extension in {"xlsx", "xlsm", "xltx", "xltm"}:
             return self._parse_excel(content)
-        return self._parse_pdf(content)
+        return self._parse_pdf(content, user_id=user_id)
 
     def _parse_csv(self, content: bytes) -> ParsedImportFile:
         text = content.decode("utf-8-sig")
@@ -314,44 +333,92 @@ class TransactionImportService:
 
         return ParsedImportFile(source_type="excel", columns=columns, rows=parsed_rows)
 
-    def _parse_pdf(self, content: bytes) -> ParsedImportFile:
-        ocr_result = self.document_ocr_service.extract_text(content=content)
-        rows = self._extract_rows_from_pdf_structured_text(ocr_result.structured_text)
-        if rows:
+    def _parse_pdf(self, content: bytes, *, user_id: uuid.UUID | None) -> ParsedImportFile:
+        flow = self.llm_observability_client.start_flow(
+            "pdf_transaction_parser_flow",
+            input_payload={"content_bytes": len(content)},
+            metadata={
+                "user_id": str(user_id) if user_id is not None else None,
+                "source_type": "pdf",
+            },
+        )
+        try:
+            ocr_result = self.document_ocr_service.extract_text(content=content)
+            rows = self._extract_rows_from_pdf_structured_text(ocr_result.structured_text)
+            if rows:
+                self.llm_observability_client.end_flow(
+                    flow,
+                    output_payload={"row_count": len(rows)},
+                    metadata={
+                        "fallback_used": False,
+                        "structured_table_match": True,
+                    },
+                )
+                return ParsedImportFile(
+                    source_type="pdf",
+                    columns=PDF_EXTRACTED_COLUMNS,
+                    rows=rows,
+                    message=(
+                        "Hemos leído el PDF con OCR, generado un texto estructurado y preparado "
+                        "una propuesta de transacciones. Revísala antes de confirmar "
+                        "la importación."
+                    ),
+                )
+
+            llm_rows = self.pdf_llm_parser_service.parse_transactions(
+                structured_text=ocr_result.structured_text,
+                tables_markdown=ocr_result.tables_markdown,
+            )
+            if llm_rows:
+                self.llm_observability_client.end_flow(
+                    flow,
+                    output_payload={"row_count": len(llm_rows)},
+                    metadata={
+                        "fallback_used": True,
+                        "structured_table_match": False,
+                    },
+                )
+                return ParsedImportFile(
+                    source_type="pdf",
+                    columns=PDF_EXTRACTED_COLUMNS,
+                    rows=llm_rows,
+                    message=(
+                        "Hemos leído el PDF con OCR y usado una capa asistida para interpretar "
+                        "las transacciones antes de la revisión manual."
+                    ),
+                )
+
+            self.llm_observability_client.end_flow(
+                flow,
+                output_payload={"row_count": 0},
+                metadata={
+                    "fallback_used": True,
+                    "structured_table_match": False,
+                },
+                status_message="No transaction rows could be extracted",
+                level="WARNING",
+            )
             return ParsedImportFile(
                 source_type="pdf",
                 columns=PDF_EXTRACTED_COLUMNS,
-                rows=rows,
+                rows=[],
                 message=(
-                    "Hemos leído el PDF con OCR, generado un texto estructurado y preparado "
-                    "una propuesta de transacciones. Revísala antes de confirmar la importación."
+                    "Hemos leído el PDF con OCR, pero no hemos podido convertirlo en movimientos "
+                    "revisables todavía. Prueba con otro extracto o utiliza CSV/Excel."
                 ),
             )
-
-        llm_rows = self.pdf_llm_parser_service.parse_transactions(
-            structured_text=ocr_result.structured_text,
-            tables_markdown=ocr_result.tables_markdown,
-        )
-        if llm_rows:
-            return ParsedImportFile(
-                source_type="pdf",
-                columns=PDF_EXTRACTED_COLUMNS,
-                rows=llm_rows,
-                message=(
-                    "Hemos leído el PDF con OCR y usado una capa asistida para interpretar "
-                    "las transacciones antes de la revisión manual."
-                ),
+        except Exception as exc:
+            self.llm_observability_client.end_flow(
+                flow,
+                output_payload=None,
+                metadata={
+                    "fallback_used": True,
+                    "structured_table_match": False,
+                },
+                status_message=str(exc),
+                level="ERROR",
             )
-
-        return ParsedImportFile(
-            source_type="pdf",
-            columns=PDF_EXTRACTED_COLUMNS,
-            rows=[],
-            message=(
-                "Hemos leído el PDF con OCR, pero no hemos podido convertirlo en movimientos "
-                "revisables todavía. Prueba con otro extracto o utiliza CSV/Excel."
-            ),
-        )
+            raise
 
     def _suggest_mapping(self, columns: list[str]) -> TransactionImportColumnMapping:
         suggestions: dict[str, str | None] = {field: None for field in FIELD_ALIASES}
@@ -511,6 +578,7 @@ class TransactionImportService:
             return classified_rows
 
         assisted_suggestions = self._suggest_categories_with_assisted_layer(
+            user_id=user_id,
             rows=assisted_candidates,
             categories=categories,
             category_map=category_map,
@@ -684,6 +752,7 @@ class TransactionImportService:
     def _suggest_categories_with_assisted_layer(
         self,
         *,
+        user_id: uuid.UUID,
         rows: list[TransactionImportDraft],
         categories: list[Category],
         category_map: dict[uuid.UUID, Category],
@@ -705,22 +774,53 @@ class TransactionImportService:
         if not assistant_rows:
             return []
 
-        raw_suggestions = self.category_classifier_service.classify_rows(
-            rows=assistant_rows,
-            categories=categories,
+        flow = self.llm_observability_client.start_flow(
+            "transaction_category_assistant_flow",
+            input_payload={
+                "row_count": len(assistant_rows),
+                "category_count": len(categories),
+            },
+            metadata={
+                "user_id": str(user_id),
+                "classification_threshold": ASSISTED_CLASSIFICATION_CONFIDENCE_THRESHOLD,
+            },
         )
-        return [
-            suggestion
-            for raw_suggestion in raw_suggestions
-            if (
-                suggestion := self._normalize_assisted_suggestion(
-                    raw_suggestion=raw_suggestion,
-                    row_by_number={row.source_row_number: row for row in rows},
-                    category_map=category_map,
-                )
+        try:
+            raw_suggestions = self.category_classifier_service.classify_rows(
+                rows=assistant_rows,
+                categories=categories,
             )
-            is not None
-        ]
+            suggestions = [
+                suggestion
+                for raw_suggestion in raw_suggestions
+                if (
+                    suggestion := self._normalize_assisted_suggestion(
+                        raw_suggestion=raw_suggestion,
+                        row_by_number={row.source_row_number: row for row in rows},
+                        category_map=category_map,
+                    )
+                )
+                is not None
+            ]
+            self.llm_observability_client.end_flow(
+                flow,
+                output_payload={"suggestion_count": len(suggestions)},
+                metadata={
+                    "accepted_suggestion_count": len(suggestions),
+                    "raw_suggestion_count": len(raw_suggestions),
+                    "suggestion_source": "assisted",
+                },
+            )
+            return suggestions
+        except Exception as exc:
+            self.llm_observability_client.end_flow(
+                flow,
+                output_payload=None,
+                metadata={"suggestion_source": "assisted"},
+                status_message=str(exc),
+                level="ERROR",
+            )
+            raise
 
     def _normalize_assisted_suggestion(
         self,
