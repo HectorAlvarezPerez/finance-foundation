@@ -1,6 +1,6 @@
 import secrets
 from dataclasses import dataclass
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import urlencode, urlparse
 
 import httpx
 import jwt
@@ -8,6 +8,7 @@ from fastapi import HTTPException, Response, status
 
 from app.core.config import settings
 from app.core.security import create_auth_state_token, read_auth_state_token
+from app.services.auth_redirects import build_frontend_redirect_url, sanitize_next_path
 from app.services.auth_service import AuthService
 
 
@@ -43,7 +44,7 @@ class EntraAuthService:
         nonce = secrets.token_urlsafe(16)
         state = create_auth_state_token(
             {
-                "next": self._sanitize_next_path(next_path),
+                "next": sanitize_next_path(next_path),
                 "nonce": nonce,
             }
         )
@@ -216,17 +217,9 @@ class EntraAuthService:
             name=name,
         )
 
-    def _sanitize_next_path(self, next_path: str) -> str:
-        if not next_path.startswith("/") or next_path.startswith("//"):
-            return "/app"
-
-        return next_path
-
     def build_frontend_redirect_url(self, *, next_path: str, error: str | None = None) -> str:
-        target = urljoin(settings.default_frontend_origin, self._sanitize_next_path(next_path))
-        if error is None:
-            return target
-
-        login_url = urljoin(settings.default_frontend_origin, "/login")
-        query = urlencode({"error": error, "next": next_path})
-        return f"{login_url}?{query}"
+        return build_frontend_redirect_url(
+            default_frontend_origin=settings.default_frontend_origin,
+            next_path=next_path,
+            error=error,
+        )

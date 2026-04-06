@@ -7,6 +7,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -39,6 +40,16 @@ def setup_database() -> Generator[None, None, None]:
     Base.metadata.create_all(bind=engine)
     yield
     Base.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def enable_dev_user_header_for_tests() -> Generator[None, None, None]:
+    original = settings.allow_dev_user_header
+    settings.allow_dev_user_header = True
+    try:
+        yield
+    finally:
+        settings.allow_dev_user_header = original
 
 
 @pytest.fixture
