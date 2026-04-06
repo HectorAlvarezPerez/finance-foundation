@@ -24,7 +24,8 @@ WORKDIR /app
 
 RUN useradd --system --uid 1001 appuser
 
-COPY --from=builder /app /app
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/app /app/app
 
 USER appuser
 
