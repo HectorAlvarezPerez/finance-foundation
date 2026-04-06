@@ -4238,6 +4238,40 @@
     "/api/v1/transactions/import/analyze": {
       "post": {
         "operationId": "analyze_transaction_import_api_v1_transactions_import_analyze_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "multipart/form-data": {

@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useEffectEvent,
-  useMemo,
   useState,
   useCallback,
 } from "react";
@@ -63,25 +62,25 @@ export function AuthProvider({ children }: PropsWithChildren) {
     void loadInitialSession();
   }, []);
 
-  const login = useCallback(async (payload: AuthLoginRequest) => {
+  async function login(payload: AuthLoginRequest) {
     setError(null);
     await apiRequest<User>("/auth/login", {
       method: "POST",
       body: JSON.stringify(payload),
     });
     await refreshSession();
-  }, [refreshSession]);
+  }
 
-  const register = useCallback(async (payload: AuthRegisterRequest) => {
+  async function register(payload: AuthRegisterRequest) {
     setError(null);
     await apiRequest<User>("/auth/register", {
       method: "POST",
       body: JSON.stringify(payload),
     });
     await refreshSession();
-  }, [refreshSession]);
+  }
 
-  const logout = useCallback(async () => {
+  async function logout() {
     setError(null);
     await apiRequest<void>("/auth/logout", {
       method: "POST",
@@ -89,9 +88,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
     setUser(null);
     setStatus("unauthenticated");
-  }, []);
+  }
 
-  const deleteAccount = useCallback(async () => {
+  async function deleteAccount() {
     setError(null);
     await apiRequest<void>("/auth/me", {
       method: "DELETE",
@@ -99,26 +98,23 @@ export function AuthProvider({ children }: PropsWithChildren) {
     });
     setUser(null);
     setStatus("unauthenticated");
-  }, []);
+  }
 
-  const clearError = useCallback(() => {
+  function clearError() {
     setError(null);
-  }, []);
+  }
 
-  const value = useMemo<AuthContextValue>(
-    () => ({
-      status,
-      user,
-      error,
-      login,
-      register,
-      logout,
-      deleteAccount,
-      refreshSession,
-      clearError,
-    }),
-    [clearError, deleteAccount, error, login, logout, refreshSession, register, status, user],
-  );
+  const value: AuthContextValue = {
+    status,
+    user,
+    error,
+    login,
+    register,
+    logout,
+    deleteAccount,
+    refreshSession,
+    clearError,
+  };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

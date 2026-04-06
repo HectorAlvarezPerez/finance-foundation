@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
     session_cookie_max_age: int = 60 * 60 * 24 * 7
     auth_state_max_age: int = 60 * 10
-    allow_dev_user_header: bool = True
+    allow_dev_user_header: bool = False
     frontend_origin: str = "http://localhost:3000,http://localhost:3100"
     google_oauth_client_id: str | None = None
     google_oauth_client_secret: str | None = None

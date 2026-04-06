@@ -99,6 +99,7 @@ def create_transaction(
     response_model=TransactionImportAnalysisResponse,
 )
 async def analyze_transaction_import(
+    _user_id: CurrentUserId,
     service: TransactionImportServiceDep,
     file: UploadFile = IMPORT_FILE_PARAM,
 ) -> TransactionImportAnalysisResponse:
