@@ -14,8 +14,8 @@ ENV NEXT_PUBLIC_API_BASE_URL=$NEXT_PUBLIC_API_BASE_URL
 
 COPY --from=deps /workspace/node_modules ./node_modules
 COPY package.json package-lock.json ./
-COPY apps ./apps
-COPY packages ./packages
+COPY apps/frontend ./apps/frontend
+COPY packages/shared ./packages/shared
 COPY --from=deps /workspace/apps/frontend/node_modules ./apps/frontend/node_modules
 
 RUN npm run build:frontend
@@ -35,7 +35,6 @@ RUN apt-get update \
 
 COPY --from=builder --chown=nextjs:nodejs /workspace/apps/frontend/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /workspace/apps/frontend/.next/static ./apps/frontend/.next/static
-COPY --from=builder --chown=nextjs:nodejs /workspace/apps/frontend/public ./apps/frontend/public
 
 USER nextjs
 
