@@ -2150,9 +2150,13 @@ export interface operations {
     analyze_transaction_import_api_v1_transactions_import_analyze_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
             path?: never;
-            cookie?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
         };
         requestBody: {
             content: {
