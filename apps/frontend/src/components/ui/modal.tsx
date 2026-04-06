@@ -20,6 +20,11 @@ export function Modal({
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -30,7 +35,7 @@ export function Modal({
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -64,15 +69,22 @@ export function Modal({
     document.addEventListener("keydown", handleKeyDown);
     document.body.style.overflow = "hidden";
 
-    // Focus the dialog
-    dialogRef.current?.focus();
+    const firstFocusableElement = dialogRef.current?.querySelector<HTMLElement>(
+      'input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+    );
+
+    if (firstFocusableElement) {
+      firstFocusableElement.focus();
+    } else {
+      dialogRef.current?.focus();
+    }
 
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.body.style.overflow = "";
       previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) {
     return null;
@@ -81,7 +93,7 @@ export function Modal({
   return (
     <div
       className="animate-fadeIn fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto bg-black/40 px-4 py-6 backdrop-blur-sm sm:items-center"
-      onClick={onClose}
+      onClick={() => onCloseRef.current()}
       role="presentation"
     >
       <div
@@ -102,7 +114,7 @@ export function Modal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={() => onCloseRef.current()}
             className="rounded-full p-1.5 text-[var(--app-muted)] transition-all hover:bg-[var(--app-muted-surface)] hover:text-[var(--app-ink)]"
             aria-label="Cerrar"
           >
