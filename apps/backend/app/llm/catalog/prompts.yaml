@@ -24,10 +24,10 @@ prompts:
           - If you are unsure, omit the row instead of inventing data.
 
           Structured OCR:
-          $structured_text
+          {{structured_text}}
 
           Tables:
-          $tables_markdown
+          {{tables_markdown}}
   - name: transaction-category-assistant
     description: Classify imported transactions into existing finance categories.
     labels:
@@ -60,10 +60,10 @@ prompts:
             subscriptions, transfers, salary, and savings.
 
           Available categories:
-          $category_payload
+          {{category_payload}}
 
           Transactions:
-          $row_payload
+          {{row_payload}}
   - name: monthly-insight-recap-writer
     description: Write a short editorial monthly recap for a finance app using structured story signals.
     labels:

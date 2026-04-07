@@ -27,6 +27,7 @@ from app.llm.evals.scorers import (
 )
 from app.llm.observability import LangfuseObservabilityClient
 from app.llm.prompt_provider import LangfusePromptProvider
+from app.llm.prompts import PROMPT_DEFINITIONS
 from app.llm.types import FlowHandle, ResolvedPrompt
 from app.models.account import Account
 from app.models.budget import Budget
@@ -94,6 +95,22 @@ class FakeLangfuseForPromptProvider:
 class FailingLangfuseForPromptProvider(FakeLangfuseForPromptProvider):
     def get_prompt(self, name: str, **_: object) -> FakePromptClient:
         raise RuntimeError(f"failed for {name}")
+
+
+class StableLangfuseForBootstrap(FakeLangfuseForPromptProvider):
+    def get_prompt(self, name: str, **_: object) -> FakePromptClient:
+        definition = PROMPT_DEFINITIONS[name]
+        return FakePromptClient(
+            prompt=[
+                {
+                    "role": message["role"],
+                    "content": message["content"],
+                }
+                for message in definition.messages
+            ],
+            is_fallback=False,
+            labels=["production"],
+        )
 
 
 class FakeSpan:
@@ -317,6 +334,16 @@ def test_bootstrap_langfuse_dry_run_collects_actions() -> None:
 
     assert any(action.startswith("prompt:pdf-transaction-parser") for action in prompt_actions)
     assert any(action.startswith("dataset:pdf-transaction-parser-v1") for action in dataset_actions)
+
+
+def test_bootstrap_prompts_skips_when_existing_is_equivalent() -> None:
+    client = StableLangfuseForBootstrap()
+
+    prompt_actions = bootstrap_prompts(client, label="production", dry_run=False)
+
+    assert prompt_actions
+    assert all(action.endswith(":skip") for action in prompt_actions)
+    assert client.created_prompts == []
 
 
 def test_eval_runner_dry_run_returns_perfect_scores() -> None:
