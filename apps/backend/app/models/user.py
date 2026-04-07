@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from app.models.account import Account
     from app.models.budget import Budget
     from app.models.category import Category
+    from app.models.monthly_insight_recap import MonthlyInsightRecap
     from app.models.settings import Settings
     from app.models.transaction import Transaction
     from app.models.user_credential import UserCredential
@@ -52,6 +53,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         passive_deletes=True,
     )
     budgets: Mapped[list["Budget"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    monthly_insight_recaps: Mapped[list["MonthlyInsightRecap"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

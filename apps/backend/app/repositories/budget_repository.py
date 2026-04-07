@@ -57,6 +57,39 @@ class BudgetRepository:
         statement = select(Budget).where(Budget.user_id == user_id, Budget.id == budget_id)
         return self.db.scalar(statement)
 
+    def list_all_for_user(
+        self,
+        *,
+        user_id: uuid.UUID,
+        year: int | None = None,
+        month: int | None = None,
+        category_id: uuid.UUID | None = None,
+        sort_by: str = "year",
+        sort_order: str = "desc",
+    ) -> list[Budget]:
+        statement: Select[tuple[Budget]] = select(Budget).where(Budget.user_id == user_id)
+
+        if year is not None:
+            statement = statement.where(Budget.year == year)
+
+        if month is not None:
+            statement = statement.where(Budget.month == month)
+
+        if category_id is not None:
+            statement = statement.where(Budget.category_id == category_id)
+
+        sort_map = {
+            "amount": Budget.amount,
+            "created_at": Budget.created_at,
+            "month": Budget.month,
+            "year": Budget.year,
+        }
+        sort_column = sort_map.get(sort_by, Budget.year)
+        statement = statement.order_by(
+            sort_column.asc() if sort_order == "asc" else sort_column.desc()
+        )
+        return list(self.db.scalars(statement))
+
     def find_existing(
         self,
         *,

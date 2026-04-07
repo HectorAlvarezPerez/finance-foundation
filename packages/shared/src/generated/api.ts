@@ -303,6 +303,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insights/monthly-recap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Monthly Recap */
+        get: operations["get_monthly_recap_api_v1_insights_monthly_recap_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/insights/monthly-recap/regenerate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Regenerate Monthly Recap */
+        post: operations["regenerate_monthly_recap_api_v1_insights_monthly_recap_regenerate_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/insights/summary": {
         parameters: {
             query?: never;
@@ -758,10 +792,136 @@ export interface components {
             /** Transactions */
             transactions: number;
         };
+        /** InsightsMonthlyRecapFactRead */
+        InsightsMonthlyRecapFactRead: {
+            /** Label */
+            label: string;
+            /**
+             * Tone
+             * @default neutral
+             * @enum {string}
+             */
+            tone: "neutral" | "positive" | "negative" | "accent";
+            /** Value */
+            value: string;
+        };
+        /** InsightsMonthlyRecapMonthRead */
+        InsightsMonthlyRecapMonthRead: {
+            /** Month Key */
+            month_key: string;
+            /** Month Label */
+            month_label: string;
+        };
+        /** InsightsMonthlyRecapRead */
+        InsightsMonthlyRecapRead: {
+            /**
+             * Generated At
+             * Format: date-time
+             */
+            generated_at: string;
+            /**
+             * Is Stale
+             * @default false
+             */
+            is_stale: boolean;
+            /** Month Key */
+            month_key: string;
+            /** Month Label */
+            month_label: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "ready" | "fallback";
+            /** Stories */
+            stories?: components["schemas"]["InsightsMonthlyRecapStoryRead"][];
+        };
+        /** InsightsMonthlyRecapRegenerateRequest */
+        InsightsMonthlyRecapRegenerateRequest: {
+            /** Month Key */
+            month_key: string;
+        };
+        /** InsightsMonthlyRecapStoryRead */
+        InsightsMonthlyRecapStoryRead: {
+            /** Body */
+            body: string;
+            /** Facts */
+            facts?: components["schemas"]["InsightsMonthlyRecapFactRead"][];
+            /** Headline */
+            headline: string;
+            /** Id */
+            id: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "top_category" | "biggest_moment" | "month_comparison";
+            /** Subheadline */
+            subheadline: string;
+            /**
+             * Theme
+             * @enum {string}
+             */
+            theme: "amber" | "rose" | "sky" | "lime" | "slate";
+            /** Title */
+            title: string;
+            visual: components["schemas"]["InsightsMonthlyRecapVisualRead"];
+        };
+        /** InsightsMonthlyRecapVisualDatumRead */
+        InsightsMonthlyRecapVisualDatumRead: {
+            /** Color */
+            color?: string | null;
+            /** Label */
+            label: string;
+            /** Value */
+            value?: string | null;
+        };
+        /** InsightsMonthlyRecapVisualRead */
+        InsightsMonthlyRecapVisualRead: {
+            /** Accent Color */
+            accent_color?: string | null;
+            /** Amount */
+            amount?: string | null;
+            /** Category Color */
+            category_color?: string | null;
+            /** Category Name */
+            category_name?: string | null;
+            /** Current Amount */
+            current_amount?: string | null;
+            /** Current Color */
+            current_color?: string | null;
+            /** Current Label */
+            current_label?: string | null;
+            /** Date Label */
+            date_label?: string | null;
+            /** Delta */
+            delta?: string | null;
+            /** Description */
+            description?: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "top_category" | "biggest_moment" | "month_comparison";
+            /** Merchant */
+            merchant?: string | null;
+            /** Previous Amount */
+            previous_amount?: string | null;
+            /** Previous Color */
+            previous_color?: string | null;
+            /** Previous Label */
+            previous_label?: string | null;
+            /** Series */
+            series?: components["schemas"]["InsightsMonthlyRecapVisualDatumRead"][];
+            /** Share */
+            share?: number | null;
+        };
         /** InsightsSummaryRead */
         InsightsSummaryRead: {
             /** Account Balances */
             account_balances: components["schemas"]["InsightsAccountBalanceRead"][];
+            /** Available Recap Months */
+            available_recap_months?: components["schemas"]["InsightsMonthlyRecapMonthRead"][];
             /** Balance */
             balance: string;
             /** Expenses */
@@ -1959,6 +2119,78 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    get_monthly_recap_api_v1_insights_monthly_recap_get: {
+        parameters: {
+            query: {
+                month_key: string;
+            };
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsMonthlyRecapRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    regenerate_monthly_recap_api_v1_insights_monthly_recap_regenerate_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InsightsMonthlyRecapRegenerateRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InsightsMonthlyRecapRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

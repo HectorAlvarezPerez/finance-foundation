@@ -6,12 +6,14 @@ from decimal import Decimal
 
 from app.models.account import Account
 from app.models.category import Category
+from app.models.transaction import Transaction
 from app.repositories.account_repository import AccountRepository
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.insights import (
     InsightsAccountBalanceRead,
     InsightsMonthlyBucketRead,
+    InsightsMonthlyRecapMonthRead,
     InsightsSummaryRead,
     InsightsTopCategoryRead,
 )
@@ -27,6 +29,13 @@ class MonthlyBucket:
     transactions: int
 
 
+@dataclass
+class InsightsDataSnapshot:
+    accounts: list[Account]
+    categories: list[Category]
+    transactions: list[Transaction]
+
+
 class InsightsService:
     def __init__(
         self,
@@ -38,22 +47,30 @@ class InsightsService:
         self.category_repository = category_repository
         self.transaction_repository = transaction_repository
 
+    def get_snapshot(self, *, user_id: uuid.UUID) -> InsightsDataSnapshot:
+        return InsightsDataSnapshot(
+            accounts=self.account_repository.list_all_for_user(
+                user_id=user_id,
+                sort_by="name",
+                sort_order="asc",
+            ),
+            categories=self.category_repository.list_all_for_user(
+                user_id=user_id,
+                sort_by="name",
+                sort_order="asc",
+            ),
+            transactions=self.transaction_repository.list_all_for_user(
+                user_id=user_id,
+                sort_by="date",
+                sort_order="desc",
+            ),
+        )
+
     def get_summary(self, *, user_id: uuid.UUID) -> InsightsSummaryRead:
-        accounts = self.account_repository.list_all_for_user(
-            user_id=user_id,
-            sort_by="name",
-            sort_order="asc",
-        )
-        categories = self.category_repository.list_all_for_user(
-            user_id=user_id,
-            sort_by="name",
-            sort_order="asc",
-        )
-        transactions = self.transaction_repository.list_all_for_user(
-            user_id=user_id,
-            sort_by="date",
-            sort_order="desc",
-        )
+        snapshot = self.get_snapshot(user_id=user_id)
+        accounts = snapshot.accounts
+        categories = snapshot.categories
+        transactions = snapshot.transactions
 
         category_map = {category.id: category for category in categories}
         account_map = {account.id: account for account in accounts}
@@ -85,7 +102,7 @@ class InsightsService:
             if bucket is None:
                 bucket = MonthlyBucket(
                     month_key=month_key,
-                    month_label=self._format_month_label(transaction.date),
+                    month_label=self.format_month_label(transaction.date),
                     income=Decimal("0.00"),
                     expenses=Decimal("0.00"),
                     net=Decimal("0.00"),
@@ -138,9 +155,26 @@ class InsightsService:
             top_categories=top_categories,
             monthly_comparison=monthly_comparison,
             account_balances=account_balances,
+            available_recap_months=self.build_available_recap_months(transactions),
         )
 
-    def _format_month_label(self, value: date) -> str:
+    def build_available_recap_months(
+        self,
+        transactions: list[Transaction],
+    ) -> list[InsightsMonthlyRecapMonthRead]:
+        month_keys = {transaction.date.strftime("%Y-%m") for transaction in transactions}
+        return [
+            InsightsMonthlyRecapMonthRead(
+                month_key=month_key,
+                month_label=self.format_month_label_parts(int(month_key[:4]), int(month_key[5:7])),
+            )
+            for month_key in sorted(month_keys, reverse=True)
+        ]
+
+    def format_month_label(self, value: date) -> str:
+        return self.format_month_label_parts(value.year, value.month)
+
+    def format_month_label_parts(self, year: int, month: int) -> str:
         month_labels = {
             1: "ene",
             2: "feb",
@@ -155,7 +189,7 @@ class InsightsService:
             11: "nov",
             12: "dic",
         }
-        return f"{month_labels[value.month]} {str(value.year)[-2:]}"
+        return f"{month_labels[month]} {str(year)[-2:]}"
 
     def _build_top_category(
         self,

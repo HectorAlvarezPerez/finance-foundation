@@ -40,6 +40,15 @@ export type SettingsUpdate = components["schemas"]["SettingsUpdate"];
 export type InsightsTopCategory = components["schemas"]["InsightsTopCategoryRead"];
 export type InsightsMonthlyBucket = components["schemas"]["InsightsMonthlyBucketRead"];
 export type InsightsAccountBalance = components["schemas"]["InsightsAccountBalanceRead"];
+export type InsightsMonthlyRecapMonth = components["schemas"]["InsightsMonthlyRecapMonthRead"];
+export type InsightsMonthlyRecapFact = components["schemas"]["InsightsMonthlyRecapFactRead"];
+export type InsightsMonthlyRecapVisualDatum =
+  components["schemas"]["InsightsMonthlyRecapVisualDatumRead"];
+export type InsightsMonthlyRecapVisual = components["schemas"]["InsightsMonthlyRecapVisualRead"];
+export type InsightsMonthlyRecapStory = components["schemas"]["InsightsMonthlyRecapStoryRead"];
+export type InsightsMonthlyRecap = components["schemas"]["InsightsMonthlyRecapRead"];
+export type InsightsMonthlyRecapRegenerateRequest =
+  components["schemas"]["InsightsMonthlyRecapRegenerateRequest"];
 export type InsightsSummary = components["schemas"]["InsightsSummaryRead"];
 
 export type PaginatedResponse<T> = {

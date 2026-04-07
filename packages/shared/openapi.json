@@ -902,6 +902,410 @@
         "title": "InsightsMonthlyBucketRead",
         "type": "object"
       },
+      "InsightsMonthlyRecapFactRead": {
+        "properties": {
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "tone": {
+            "default": "neutral",
+            "enum": [
+              "neutral",
+              "positive",
+              "negative",
+              "accent"
+            ],
+            "title": "Tone",
+            "type": "string"
+          },
+          "value": {
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "label",
+          "value"
+        ],
+        "title": "InsightsMonthlyRecapFactRead",
+        "type": "object"
+      },
+      "InsightsMonthlyRecapMonthRead": {
+        "properties": {
+          "month_key": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month Key",
+            "type": "string"
+          },
+          "month_label": {
+            "title": "Month Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month_key",
+          "month_label"
+        ],
+        "title": "InsightsMonthlyRecapMonthRead",
+        "type": "object"
+      },
+      "InsightsMonthlyRecapRead": {
+        "properties": {
+          "generated_at": {
+            "format": "date-time",
+            "title": "Generated At",
+            "type": "string"
+          },
+          "is_stale": {
+            "default": false,
+            "title": "Is Stale",
+            "type": "boolean"
+          },
+          "month_key": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month Key",
+            "type": "string"
+          },
+          "month_label": {
+            "title": "Month Label",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "ready",
+              "fallback"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "stories": {
+            "items": {
+              "$ref": "#/components/schemas/InsightsMonthlyRecapStoryRead"
+            },
+            "title": "Stories",
+            "type": "array"
+          }
+        },
+        "required": [
+          "month_key",
+          "month_label",
+          "status",
+          "generated_at"
+        ],
+        "title": "InsightsMonthlyRecapRead",
+        "type": "object"
+      },
+      "InsightsMonthlyRecapRegenerateRequest": {
+        "properties": {
+          "month_key": {
+            "pattern": "^\\d{4}-\\d{2}$",
+            "title": "Month Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month_key"
+        ],
+        "title": "InsightsMonthlyRecapRegenerateRequest",
+        "type": "object"
+      },
+      "InsightsMonthlyRecapStoryRead": {
+        "properties": {
+          "body": {
+            "title": "Body",
+            "type": "string"
+          },
+          "facts": {
+            "items": {
+              "$ref": "#/components/schemas/InsightsMonthlyRecapFactRead"
+            },
+            "title": "Facts",
+            "type": "array"
+          },
+          "headline": {
+            "title": "Headline",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "top_category",
+              "biggest_moment",
+              "month_comparison"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "subheadline": {
+            "title": "Subheadline",
+            "type": "string"
+          },
+          "theme": {
+            "enum": [
+              "amber",
+              "rose",
+              "sky",
+              "lime",
+              "slate"
+            ],
+            "title": "Theme",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "visual": {
+            "$ref": "#/components/schemas/InsightsMonthlyRecapVisualRead"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "theme",
+          "title",
+          "headline",
+          "subheadline",
+          "body",
+          "visual"
+        ],
+        "title": "InsightsMonthlyRecapStoryRead",
+        "type": "object"
+      },
+      "InsightsMonthlyRecapVisualDatumRead": {
+        "properties": {
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value"
+          }
+        },
+        "required": [
+          "label"
+        ],
+        "title": "InsightsMonthlyRecapVisualDatumRead",
+        "type": "object"
+      },
+      "InsightsMonthlyRecapVisualRead": {
+        "properties": {
+          "accent_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Accent Color"
+          },
+          "amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amount"
+          },
+          "category_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Color"
+          },
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
+          "current_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Amount"
+          },
+          "current_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Color"
+          },
+          "current_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Label"
+          },
+          "date_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Label"
+          },
+          "delta": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delta"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "kind": {
+            "enum": [
+              "top_category",
+              "biggest_moment",
+              "month_comparison"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "merchant": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Merchant"
+          },
+          "previous_amount": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Amount"
+          },
+          "previous_color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Color"
+          },
+          "previous_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Label"
+          },
+          "series": {
+            "items": {
+              "$ref": "#/components/schemas/InsightsMonthlyRecapVisualDatumRead"
+            },
+            "title": "Series",
+            "type": "array"
+          },
+          "share": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Share"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "InsightsMonthlyRecapVisualRead",
+        "type": "object"
+      },
       "InsightsSummaryRead": {
         "properties": {
           "account_balances": {
@@ -909,6 +1313,13 @@
               "$ref": "#/components/schemas/InsightsAccountBalanceRead"
             },
             "title": "Account Balances",
+            "type": "array"
+          },
+          "available_recap_months": {
+            "items": {
+              "$ref": "#/components/schemas/InsightsMonthlyRecapMonthRead"
+            },
+            "title": "Available Recap Months",
             "type": "array"
           },
           "balance": {
@@ -3737,6 +4148,156 @@
         "summary": "Healthcheck",
         "tags": [
           "health"
+        ]
+      }
+    },
+    "/api/v1/insights/monthly-recap": {
+      "get": {
+        "operationId": "get_monthly_recap_api_v1_insights_monthly_recap_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month_key",
+            "required": true,
+            "schema": {
+              "pattern": "^\\d{4}-\\d{2}$",
+              "title": "Month Key",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsMonthlyRecapRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Monthly Recap",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/api/v1/insights/monthly-recap/regenerate": {
+      "post": {
+        "operationId": "regenerate_monthly_recap_api_v1_insights_monthly_recap_regenerate_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InsightsMonthlyRecapRegenerateRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InsightsMonthlyRecapRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Regenerate Monthly Recap",
+        "tags": [
+          "insights"
         ]
       }
     },

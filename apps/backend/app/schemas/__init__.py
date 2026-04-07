@@ -8,7 +8,11 @@ from app.schemas.categories import (
     CategoryUpdate,
 )
 from app.schemas.common import PaginationParams
-from app.schemas.insights import InsightsSummaryRead
+from app.schemas.insights import (
+    InsightsMonthlyRecapRead,
+    InsightsMonthlyRecapRegenerateRequest,
+    InsightsSummaryRead,
+)
 from app.schemas.settings import SettingsRead, SettingsUpdate
 from app.schemas.transactions import (
     TransactionCreate,
@@ -34,6 +38,8 @@ __all__ = [
     "CategoryListResponse",
     "CategoryRead",
     "CategoryUpdate",
+    "InsightsMonthlyRecapRead",
+    "InsightsMonthlyRecapRegenerateRequest",
     "PaginationParams",
     "InsightsSummaryRead",
     "SettingsRead",
