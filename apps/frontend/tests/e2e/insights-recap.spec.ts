@@ -161,9 +161,13 @@ test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
   await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: /Original dining dominated the month/i })).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Next" }).click();
+  await dialog.getByRole("button", { name: "Next story" }).click();
   await expect(dialog.getByRole("heading", { name: /Original had one standout moment/i })).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Regenerate" }).click();
+  await dialog.getByRole("button", { name: "Close recap" }).click();
+  await expect(dialog).not.toBeVisible();
+
+  await page.getByRole("button", { name: "Regenerate" }).click();
+  await expect(dialog).toBeVisible();
   await expect(dialog.getByRole("heading", { name: /Fresh dining dominated the month/i })).toBeVisible();
 });
