@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     azure_openai_api_key: str | None = None
     azure_openai_pdf_parser_deployment: str | None = None
     azure_openai_transaction_category_deployment: str | None = None
+    azure_openai_monthly_recap_deployment: str | None = None
+    monthly_recap_require_llm: bool = False
     azure_openai_api_version: str = "2025-03-01-preview"
     classification_debug: bool = False
     langfuse_enabled: bool = False
@@ -106,6 +108,15 @@ class Settings(BaseSettings):
             self.azure_openai_endpoint
             and self.azure_openai_api_key
             and self.azure_openai_transaction_category_deployment
+            and self.azure_openai_api_version
+        )
+
+    @property
+    def azure_openai_monthly_recap_enabled(self) -> bool:
+        return bool(
+            self.azure_openai_endpoint
+            and self.azure_openai_api_key
+            and self.azure_openai_monthly_recap_deployment
             and self.azure_openai_api_version
         )
 

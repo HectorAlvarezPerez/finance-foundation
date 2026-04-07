@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from decimal import Decimal
 from typing import Any, cast
+
+from conftest import TestingSessionLocal
 
 from app.core.config import settings
 from app.llm.bootstrap.seed_langfuse import bootstrap_datasets, bootstrap_prompts
 from app.llm.eval_defs import (
     CATEGORY_CLASSIFIER_DATASET_NAME,
+    MONTHLY_INSIGHT_RECAP_PROMPT_NAME,
     PDF_PARSER_DATASET_NAME,
     PDF_TRANSACTION_PARSER_PROMPT_NAME,
     TRANSACTION_CATEGORY_ASSISTANT_PROMPT_NAME,
@@ -23,12 +27,27 @@ from app.llm.evals.scorers import (
 )
 from app.llm.observability import LangfuseObservabilityClient
 from app.llm.prompt_provider import LangfusePromptProvider
+from app.llm.prompts import PROMPT_DEFINITIONS
 from app.llm.types import FlowHandle, ResolvedPrompt
+from app.models.account import Account
+from app.models.budget import Budget
+from app.models.category import Category
+from app.models.enums import AccountType, CategoryType
+from app.models.transaction import Transaction
+from app.models.user import User
+from app.repositories.account_repository import AccountRepository
+from app.repositories.budget_repository import BudgetRepository
+from app.repositories.category_repository import CategoryRepository
+from app.repositories.monthly_insight_recap_repository import MonthlyInsightRecapRepository
+from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transactions import TransactionCategoryAssistantDraft
+from app.services.azure_openai_monthly_recap_service import AzureOpenAIMonthlyRecapService
 from app.services.azure_openai_pdf_parser_service import AzureOpenAIPdfParserService
 from app.services.azure_openai_transaction_category_service import (
     AzureOpenAITransactionCategoryService,
 )
+from app.services.insights_service import InsightsService
+from app.services.monthly_recap_service import MonthlyRecapService
 
 
 @dataclass
@@ -78,6 +97,22 @@ class FailingLangfuseForPromptProvider(FakeLangfuseForPromptProvider):
         raise RuntimeError(f"failed for {name}")
 
 
+class StableLangfuseForBootstrap(FakeLangfuseForPromptProvider):
+    def get_prompt(self, name: str, **_: object) -> FakePromptClient:
+        definition = PROMPT_DEFINITIONS[name]
+        return FakePromptClient(
+            prompt=[
+                {
+                    "role": message["role"],
+                    "content": message["content"],
+                }
+                for message in definition.messages
+            ],
+            is_fallback=False,
+            labels=["production"],
+        )
+
+
 class FakeSpan:
     def __init__(self) -> None:
         self.id = "observation-id"
@@ -122,9 +157,10 @@ class FailingLangfuseForObservability(FakeLangfuseForObservability):
 
 class RecordingObservabilityClient:
     def __init__(self) -> None:
-        self.generations: list[dict[str, object]] = []
-        self.scores: list[dict[str, object]] = []
+        self.generations: list[dict[str, Any]] = []
+        self.scores: list[dict[str, Any]] = []
         self.flows: list[FlowHandle] = []
+        self.ended_flows: list[dict[str, Any]] = []
 
     def start_flow(
         self,
@@ -137,7 +173,8 @@ class RecordingObservabilityClient:
         self.flows.append(handle)
         return handle
 
-    def end_flow(self, handle: FlowHandle, **_: object) -> None:
+    def end_flow(self, handle: FlowHandle, **kwargs: object) -> None:
+        self.ended_flows.append({"handle": handle, **kwargs})
         return None
 
     def record_generation(self, **kwargs: object) -> None:
@@ -187,8 +224,11 @@ class FakeHttpxResponse:
 
 
 class FakeHttpxClient:
-    def __init__(self, payload: dict[str, object]) -> None:
-        self.payload = payload
+    def __init__(self, payload: dict[str, object] | list[dict[str, object]]) -> None:
+        if isinstance(payload, list):
+            self.payloads = payload
+        else:
+            self.payloads = [payload]
         self.requests: list[dict[str, object]] = []
 
     def __enter__(self) -> "FakeHttpxClient":
@@ -205,7 +245,13 @@ class FakeHttpxClient:
         json: dict[str, object],
     ) -> FakeHttpxResponse:
         self.requests.append({"url": url, "headers": headers, "json": json})
-        return FakeHttpxResponse(self.payload)
+        payload_index = min(len(self.requests) - 1, len(self.payloads) - 1)
+        return FakeHttpxResponse(self.payloads[payload_index])
+
+
+class FakeMonthlyNarrativeService:
+    def generate_story_copy(self, **_: object) -> None:
+        return None
 
 
 def test_langfuse_prompt_provider_uses_remote_prompt(monkeypatch) -> None:
@@ -237,6 +283,28 @@ def test_langfuse_prompt_provider_falls_back_on_error(monkeypatch) -> None:
     assert "Available categories" in resolved.messages[1]["content"]
 
 
+def test_langfuse_prompt_provider_fallback_renders_curly_variables(monkeypatch) -> None:
+    monkeypatch.setattr("app.llm.prompt_provider.Langfuse", FailingLangfuseForPromptProvider)
+    provider = LangfusePromptProvider(settings)
+
+    resolved = provider.get_chat_prompt(
+        MONTHLY_INSIGHT_RECAP_PROMPT_NAME,
+        label="production",
+        variables={
+            "month_label": "abril 2026",
+            "signals_payload": '{"expense_total":"1.200,00 EUR"}',
+            "stories_payload": '[{"id":"top-category"}]',
+        },
+    )
+
+    assert resolved.source == "local_fallback"
+    content = resolved.messages[1]["content"]
+    assert "abril 2026" in content
+    assert '{"expense_total":"1.200,00 EUR"}' in content
+    assert '[{"id":"top-category"}]' in content
+    assert "{{month_label}}" not in content
+
+
 def test_langfuse_observability_client_is_best_effort(monkeypatch) -> None:
     monkeypatch.setattr("app.llm.observability.Langfuse", FailingLangfuseForObservability)
     client = LangfuseObservabilityClient(settings)
@@ -266,6 +334,16 @@ def test_bootstrap_langfuse_dry_run_collects_actions() -> None:
 
     assert any(action.startswith("prompt:pdf-transaction-parser") for action in prompt_actions)
     assert any(action.startswith("dataset:pdf-transaction-parser-v1") for action in dataset_actions)
+
+
+def test_bootstrap_prompts_skips_when_existing_is_equivalent() -> None:
+    client = StableLangfuseForBootstrap()
+
+    prompt_actions = bootstrap_prompts(cast(Any, client), label="production", dry_run=False)
+
+    assert prompt_actions
+    assert all(action.endswith(":skip") for action in prompt_actions)
+    assert client.created_prompts == []
 
 
 def test_eval_runner_dry_run_returns_perfect_scores() -> None:
@@ -534,3 +612,205 @@ def test_category_service_returns_empty_list_on_invalid_model_payload(monkeypatc
         observability_client.generations[0]["status_message"]
         == "Invalid classifier response payload"
     )
+
+
+def test_monthly_recap_generation_records_langfuse_generation(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "azure_openai_endpoint", "https://example.com")
+    monkeypatch.setattr(settings, "azure_openai_api_key", "secret")
+    monkeypatch.setattr(settings, "azure_openai_monthly_recap_deployment", "recap-deployment")
+
+    fake_httpx = FakeHttpxClient(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"stories":[{"id":"top-category","headline":"Headline",'
+                            '"subheadline":"Subheadline","body":"Body"}]}'
+                        )
+                    }
+                }
+            ],
+            "usage": {"prompt_tokens": 9, "completion_tokens": 7, "total_tokens": 16},
+        }
+    )
+    monkeypatch.setattr("app.llm.azure_chat.httpx.Client", lambda timeout: fake_httpx)
+
+    observability_client = RecordingObservabilityClient()
+    service = AzureOpenAIMonthlyRecapService(
+        prompt_provider=FakePromptProvider(MONTHLY_INSIGHT_RECAP_PROMPT_NAME),
+        observability_client=observability_client,
+    )
+
+    stories = service.generate_story_copy(
+        month_label="marzo 2026",
+        signals_payload={"expense_total": "100.00 EUR"},
+        stories_payload=[{"id": "top-category", "title": "Top spending category"}],
+        handle=FlowHandle(name="flow", metadata={}, input_payload={}),
+    )
+
+    assert stories is not None
+    assert stories["top-category"].headline == "Headline"
+    assert observability_client.generations[0]["model"] == "recap-deployment"
+
+
+def test_monthly_recap_generation_rejects_empty_story_payload(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "azure_openai_endpoint", "https://example.com")
+    monkeypatch.setattr(settings, "azure_openai_api_key", "secret")
+    monkeypatch.setattr(settings, "azure_openai_monthly_recap_deployment", "recap-deployment")
+
+    fake_httpx = FakeHttpxClient(
+        {
+            "choices": [{"message": {"content": '{"stories":[]}'}}],
+            "usage": {"prompt_tokens": 7, "completion_tokens": 4, "total_tokens": 11},
+        }
+    )
+    monkeypatch.setattr("app.llm.azure_chat.httpx.Client", lambda timeout: fake_httpx)
+
+    observability_client = RecordingObservabilityClient()
+    service = AzureOpenAIMonthlyRecapService(
+        prompt_provider=FakePromptProvider(MONTHLY_INSIGHT_RECAP_PROMPT_NAME),
+        observability_client=observability_client,
+    )
+
+    stories = service.generate_story_copy(
+        month_label="marzo 2026",
+        signals_payload={"expense_total": "100.00 EUR"},
+        stories_payload=[{"id": "top-category", "title": "Categoría principal"}],
+        handle=FlowHandle(name="flow", metadata={}, input_payload={}),
+    )
+
+    assert stories is None
+    assert (
+        observability_client.generations[0]["status_message"]
+        == "Invalid monthly recap response payload"
+    )
+    metadata = cast(dict[str, Any], observability_client.generations[0]["metadata"])
+    assert metadata["invalid_reason"] == "llm_empty_stories"
+
+
+def test_monthly_recap_generation_retries_with_stricter_prompt(monkeypatch) -> None:
+    monkeypatch.setattr(settings, "azure_openai_endpoint", "https://example.com")
+    monkeypatch.setattr(settings, "azure_openai_api_key", "secret")
+    monkeypatch.setattr(settings, "azure_openai_monthly_recap_deployment", "recap-deployment")
+
+    fake_httpx = FakeHttpxClient(
+        [
+            {
+                "choices": [{"message": {"content": '{"stories":[]}'}}],
+                "usage": {"prompt_tokens": 7, "completion_tokens": 4, "total_tokens": 11},
+            },
+            {
+                "choices": [
+                    {
+                        "message": {
+                            "content": (
+                                '{"stories":[{"id":"top-category","headline":"Headline",'
+                                '"subheadline":"Subheadline","body":"Body"}]}'
+                            )
+                        }
+                    }
+                ],
+                "usage": {"prompt_tokens": 9, "completion_tokens": 7, "total_tokens": 16},
+            },
+        ]
+    )
+    monkeypatch.setattr("app.llm.azure_chat.httpx.Client", lambda timeout: fake_httpx)
+
+    observability_client = RecordingObservabilityClient()
+    service = AzureOpenAIMonthlyRecapService(
+        prompt_provider=FakePromptProvider(MONTHLY_INSIGHT_RECAP_PROMPT_NAME),
+        observability_client=observability_client,
+    )
+
+    stories = service.generate_story_copy(
+        month_label="marzo 2026",
+        signals_payload={"expense_total": "100.00 EUR"},
+        stories_payload=[{"id": "top-category", "title": "Categoría principal"}],
+        handle=FlowHandle(name="flow", metadata={}, input_payload={}),
+    )
+
+    assert stories is not None
+    assert stories["top-category"].headline == "Headline"
+    assert len(fake_httpx.requests) == 2
+    second_request_json = cast(dict[str, object], fake_httpx.requests[1]["json"])
+    assert second_request_json["temperature"] == 0
+    metadata = cast(dict[str, Any], observability_client.generations[0]["metadata"])
+    assert metadata["retried"] is True
+    assert metadata["attempt_count"] == 2
+
+
+def test_monthly_recap_service_records_cache_hit_flow() -> None:
+    observability_client = RecordingObservabilityClient()
+
+    with TestingSessionLocal() as db:
+        user = User(
+            auth_provider_user_id=f"test-{Decimal('1.0')}",
+            email="monthly-recap@example.com",
+            name="Monthly Recap",
+        )
+        db.add(user)
+        db.flush()
+
+        account = Account(
+            user_id=user.id,
+            name="Main",
+            bank_name="Demo",
+            type=AccountType.CHECKING,
+            currency="EUR",
+        )
+        category = Category(
+            user_id=user.id,
+            name="Food",
+            type=CategoryType.EXPENSE,
+            color="#f97316",
+            icon="utensils",
+        )
+        budget = Budget(
+            user_id=user.id,
+            category_id=category.id,
+            year=2026,
+            month=3,
+            currency="EUR",
+            amount=Decimal("200.00"),
+        )
+        transaction = Transaction(
+            user_id=user.id,
+            account_id=account.id,
+            category_id=category.id,
+            date=date(2026, 3, 12),
+            amount=Decimal("-42.50"),
+            currency="EUR",
+            description="Mercado",
+            notes=None,
+        )
+
+        db.add_all([account, category])
+        db.flush()
+        budget.category_id = category.id
+        transaction.account_id = account.id
+        transaction.category_id = category.id
+        db.add_all([budget, transaction])
+        db.commit()
+
+        recap_service = MonthlyRecapService(
+            insights_service=InsightsService(
+                AccountRepository(db),
+                CategoryRepository(db),
+                TransactionRepository(db),
+            ),
+            budget_repository=BudgetRepository(db),
+            recap_repository=MonthlyInsightRecapRepository(db),
+            db=db,
+            prompt_provider=FakePromptProvider(MONTHLY_INSIGHT_RECAP_PROMPT_NAME),
+            observability_client=observability_client,
+            narrative_service=FakeMonthlyNarrativeService(),
+        )
+
+        first = recap_service.get_monthly_recap(user_id=user.id, month_key="2026-03")
+        second = recap_service.get_monthly_recap(user_id=user.id, month_key="2026-03")
+
+    assert first.status == "fallback"
+    assert second.generated_at == first.generated_at
+    assert observability_client.ended_flows[0]["metadata"]["cache_status"] == "generated"
+    assert observability_client.ended_flows[1]["metadata"]["cache_status"] == "hit"

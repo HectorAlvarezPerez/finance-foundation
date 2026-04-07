@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { CreditCard, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import {
   Bar,
@@ -17,11 +17,19 @@ import {
 } from "recharts";
 
 import { AmountValue } from "@/components/amount-value";
+import { MonthlyRecapLauncher } from "@/components/insights/monthly-recap-launcher";
+import { MonthlyRecapOverlay } from "@/components/insights/monthly-recap-overlay";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/components/ui/toast";
 import { apiRequest } from "@/lib/api";
 import { formatCurrency, formatMonthLabel } from "@/lib/format";
-import type { InsightsSummary } from "@/lib/types";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import type {
+  InsightsMonthlyRecap,
+  InsightsMonthlyRecapRegenerateRequest,
+  InsightsRecapMonth,
+  InsightsSummaryWithRecapMonths,
+} from "@/lib/types";
 
 const chartPalette = {
   success: "#34C759",
@@ -31,18 +39,25 @@ const chartPalette = {
 };
 
 export default function InsightsPage() {
-  const [summary, setSummary] = useState<InsightsSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const [summary, setSummary] = useState<InsightsSummaryWithRecapMonths | null>(null);
+  const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedMonthKey, setSelectedMonthKey] = useState("");
+  const [recap, setRecap] = useState<InsightsMonthlyRecap | null>(null);
+  const [recapError, setRecapError] = useState<string | null>(null);
+  const [isRecapLoading, setIsRecapLoading] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [isRecapOpen, setIsRecapOpen] = useState(false);
 
   useEffect(() => {
     async function load() {
       try {
-        const nextSummary = await apiRequest<InsightsSummary>("/insights/summary");
+        const nextSummary = await apiRequest<InsightsSummaryWithRecapMonths>("/insights/summary");
         setSummary(nextSummary);
-        setError(null);
+        setSummaryError(null);
       } catch (requestError) {
-        setError(requestError instanceof Error ? requestError.message : "No se pudo cargar el análisis");
+        setSummaryError(requestError instanceof Error ? requestError.message : "No se pudo cargar el análisis");
       } finally {
         setIsLoading(false);
       }
@@ -51,14 +66,38 @@ export default function InsightsPage() {
     void load();
   }, []);
 
-  const today = new Date();
-  const currentMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const periodLabel = formatMonthLabel(today.getFullYear(), today.getMonth() + 1);
+  const currentMonthKey = useMemo(() => {
+    const today = new Date();
+    return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  }, []);
+
+  const periodLabel = useMemo(() => {
+    const today = new Date();
+    return formatMonthLabel(today.getFullYear(), today.getMonth() + 1);
+  }, []);
+
+  const recapMonths = useMemo(() => normalizeRecapMonths(summary), [summary]);
+
+  useEffect(() => {
+    if (!recapMonths.length) {
+      setSelectedMonthKey("");
+      return;
+    }
+
+    setSelectedMonthKey((current) => {
+      if (current && recapMonths.some((month) => month.monthKey === current)) {
+        return current;
+      }
+
+      return recapMonths[recapMonths.length - 1]?.monthKey ?? "";
+    });
+  }, [recapMonths]);
 
   const analytics = useMemo(() => {
-    const currentMonthBucket = summary?.monthly_comparison.find(
-      (bucket) => bucket.month_key === currentMonthKey,
-    );
+    const monthlyComparison = summary?.monthly_comparison ?? [];
+    const currentMonthBucket =
+      monthlyComparison.find((bucket) => bucket.month_key === currentMonthKey) ??
+      monthlyComparison[monthlyComparison.length - 1];
 
     return {
       income: Number(currentMonthBucket?.income ?? 0),
@@ -89,6 +128,54 @@ export default function InsightsPage() {
         })) ?? [],
     };
   }, [currentMonthKey, summary]);
+
+  async function loadMonthlyRecap(forceRegenerate: boolean) {
+    if (!selectedMonthKey) {
+      const message = "Selecciona un mes antes de generar el recap.";
+      setRecapError(message);
+      toast(message, "error");
+      return;
+    }
+
+    setRecapError(null);
+
+    if (forceRegenerate) {
+      setIsRegenerating(true);
+    } else {
+      setIsRecapLoading(true);
+    }
+
+    try {
+      const nextRecap = forceRegenerate
+        ? await apiRequest<InsightsMonthlyRecap>("/insights/monthly-recap/regenerate", {
+            method: "POST",
+            body: JSON.stringify({ month_key: selectedMonthKey } satisfies InsightsMonthlyRecapRegenerateRequest),
+          })
+        : await apiRequest<InsightsMonthlyRecap>(
+            `/insights/monthly-recap?month_key=${encodeURIComponent(selectedMonthKey)}`,
+          );
+
+      setRecap(nextRecap);
+      setIsRecapOpen(true);
+
+      if (forceRegenerate) {
+        toast(`Recap regenerated for ${nextRecap.month_label}`, "success");
+      } else if (nextRecap.is_stale) {
+        toast("Opened cached recap. Regenerate to refresh it.", "info");
+      }
+    } catch (requestError) {
+      const message =
+        requestError instanceof Error ? requestError.message : "No se pudo generar el recap";
+      setRecapError(message);
+      toast(message, "error");
+    } finally {
+      if (forceRegenerate) {
+        setIsRegenerating(false);
+      } else {
+        setIsRecapLoading(false);
+      }
+    }
+  }
 
   const metricCards = [
     {
@@ -137,9 +224,9 @@ export default function InsightsPage() {
         </p>
       </header>
 
-      {error ? (
+      {summaryError ? (
         <div className="animate-fadeIn rounded-2xl bg-[var(--app-danger-soft)] px-4 py-3 text-sm text-[var(--app-danger)]">
-          {error}
+          {summaryError}
         </div>
       ) : null}
 
@@ -147,21 +234,35 @@ export default function InsightsPage() {
         <ListSkeleton rows={4} />
       ) : (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {metricCards.map((item, index) => (
-              <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium text-[var(--app-muted)]">{item.title}</CardTitle>
-                  <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${item.bgClass}`}>
-                    <span className={item.accentClass}>{item.icon}</span>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{item.value}</div>
-                  <p className="text-xs text-[var(--app-muted)]">{item.description}</p>
-                </CardContent>
-              </Card>
-            ))}
+          <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+            <MonthlyRecapLauncher
+              compact
+              months={recapMonths}
+              selectedMonthKey={selectedMonthKey}
+              onSelectedMonthKeyChange={setSelectedMonthKey}
+              onPlay={() => void loadMonthlyRecap(false)}
+              onRegenerate={() => void loadMonthlyRecap(true)}
+              isLoading={isRecapLoading || isRegenerating}
+              recap={recap}
+              error={recapError}
+            />
+
+            <div className="grid gap-4 md:grid-cols-2">
+              {metricCards.map((item, index) => (
+                <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium text-[var(--app-muted)]">{item.title}</CardTitle>
+                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${item.bgClass}`}>
+                      <span className={item.accentClass}>{item.icon}</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{item.value}</div>
+                    <p className="text-xs text-[var(--app-muted)]">{item.description}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
 
           <div className="grid gap-6 xl:grid-cols-2">
@@ -228,7 +329,10 @@ export default function InsightsPage() {
                       <BarChart data={analytics.monthlyComparison} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" />
                         <XAxis dataKey="month" tick={{ fill: "var(--app-muted)", fontSize: 12 }} />
-                        <YAxis tick={{ fill: "var(--app-muted)", fontSize: 12 }} tickFormatter={(value) => compactCurrency(Number(value))} />
+                        <YAxis
+                          tick={{ fill: "var(--app-muted)", fontSize: 12 }}
+                          tickFormatter={(value) => compactCurrency(Number(value))}
+                        />
                         <Tooltip
                           formatter={(value, name) => [
                             formatCurrency(Number(value ?? 0), "EUR"),
@@ -267,7 +371,10 @@ export default function InsightsPage() {
                       <LineChart data={analytics.monthlyComparison} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" />
                         <XAxis dataKey="month" tick={{ fill: "var(--app-muted)", fontSize: 12 }} />
-                        <YAxis tick={{ fill: "var(--app-muted)", fontSize: 12 }} tickFormatter={(value) => compactCurrency(Number(value))} />
+                        <YAxis
+                          tick={{ fill: "var(--app-muted)", fontSize: 12 }}
+                          tickFormatter={(value) => compactCurrency(Number(value))}
+                        />
                         <Tooltip
                           formatter={(value, name) => [
                             name === "transactions"
@@ -313,7 +420,11 @@ export default function InsightsPage() {
                           margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
                         >
                           <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" horizontal={false} />
-                          <XAxis type="number" tick={{ fill: "var(--app-muted)", fontSize: 12 }} tickFormatter={(value) => compactCurrency(Number(value))} />
+                          <XAxis
+                            type="number"
+                            tick={{ fill: "var(--app-muted)", fontSize: 12 }}
+                            tickFormatter={(value) => compactCurrency(Number(value))}
+                          />
                           <YAxis type="category" dataKey="name" width={90} tick={{ fill: "var(--app-ink)", fontSize: 12 }} />
                           <Tooltip
                             formatter={(value, _name, item) => [
@@ -342,7 +453,10 @@ export default function InsightsPage() {
 
                     <div className="space-y-3">
                       {analytics.accountBalances.map((account) => (
-                        <div key={account.accountId} className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3 transition-colors hover:bg-[var(--app-muted-surface)]">
+                        <div
+                          key={account.accountId}
+                          className="flex items-center justify-between rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3 transition-colors hover:bg-[var(--app-muted-surface)]"
+                        >
                           <span className="text-sm font-medium">{account.name}</span>
                           <AmountValue amount={account.total} currency={account.currency} />
                         </div>
@@ -359,11 +473,90 @@ export default function InsightsPage() {
           </div>
         </>
       )}
+
+      {isRecapOpen && recap ? (
+        <MonthlyRecapOverlay
+          key={recap.source_fingerprint ?? recap.generated_at ?? recap.month_key}
+          open={isRecapOpen}
+          recap={recap}
+          onClose={() => setIsRecapOpen(false)}
+        />
+      ) : null}
     </div>
   );
 }
 
-const tooltipStyle: React.CSSProperties = {
+function normalizeRecapMonths(summary: InsightsSummaryWithRecapMonths | null): InsightsRecapMonth[] {
+  const explicitMonths = summary?.available_recap_months;
+  const rawMonths =
+    explicitMonths && explicitMonths.length > 0 ? explicitMonths : summary?.monthly_comparison ?? [];
+  const monthMap = new Map<string, InsightsRecapMonth>();
+
+  for (const month of rawMonths) {
+    const normalized = normalizeRecapMonth(month);
+
+    if (normalized) {
+      monthMap.set(normalized.monthKey, normalized);
+    }
+  }
+
+  return Array.from(monthMap.values()).sort((left, right) => left.monthKey.localeCompare(right.monthKey));
+}
+
+function normalizeRecapMonth(
+  month: InsightsRecapMonth | { month_key: string; month_label?: string } | string,
+): InsightsRecapMonth | null {
+  if (typeof month === "string") {
+    const label = formatMonthKeyLabel(month);
+    return {
+      monthKey: month,
+      label,
+      month_key: month,
+      month_label: label,
+    };
+  }
+
+  if ("monthKey" in month && typeof month.monthKey === "string") {
+    const label =
+      "label" in month && typeof month.label === "string"
+        ? month.label
+        : formatMonthKeyLabel(month.monthKey);
+
+    return {
+      monthKey: month.monthKey,
+      label,
+      month_key: month.monthKey,
+      month_label: label,
+    };
+  }
+
+  if ("month_key" in month && typeof month.month_key === "string") {
+    const label =
+      "month_label" in month && typeof month.month_label === "string"
+        ? month.month_label
+        : formatMonthKeyLabel(month.month_key);
+
+    return {
+      monthKey: month.month_key,
+      label,
+      month_key: month.month_key,
+      month_label: label,
+    };
+  }
+
+  return null;
+}
+
+function formatMonthKeyLabel(monthKey: string) {
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return monthKey;
+  }
+
+  return formatMonthLabel(Number(match[1]), Number(match[2]));
+}
+
+const tooltipStyle: CSSProperties = {
   backgroundColor: "var(--app-panel)",
   border: "1px solid var(--app-border)",
   borderRadius: "12px",
@@ -376,7 +569,7 @@ function ChartFrame({
   children,
   heightClassName = "h-[260px] sm:h-[320px]",
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   heightClassName?: string;
 }) {
   const frameRef = useRef<HTMLDivElement | null>(null);

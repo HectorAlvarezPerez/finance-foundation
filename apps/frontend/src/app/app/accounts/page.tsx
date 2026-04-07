@@ -1,16 +1,26 @@
 "use client";
 
 import { FormEvent, useEffect, useEffectEvent, useRef, useState } from "react";
-import { MoreVertical, Pencil, Plus, Trash2, Wallet } from "lucide-react";
+import {
+  Building2,
+  ChevronLeft,
+  ChevronRight,
+  CreditCard,
+  MoreVertical,
+  Pencil,
+  PiggyBank,
+  Plus,
+  Trash2,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 import { AmountValue } from "@/components/amount-value";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { EmptyState } from "@/components/empty-state";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/ui/modal";
-import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useToast } from "@/components/ui/toast";
 import { apiRequest } from "@/lib/api";
 import type { Account, AccountType, PaginatedResponse, Transaction } from "@/lib/types";
@@ -38,6 +48,36 @@ const accountTypeLabels: Record<AccountType, string> = {
   other: "Otra",
 };
 
+const accountTypeIcons: Record<AccountType, typeof CreditCard> = {
+  checking: CreditCard,
+  savings: PiggyBank,
+  shared: Users,
+  other: Wallet,
+};
+
+const accountTypeGradients: Record<AccountType, { from: string; to: string; glow: string }> = {
+  checking: {
+    from: "hsl(220, 45%, 32%)",
+    to: "hsl(245, 38%, 44%)",
+    glow: "rgba(50, 70, 140, 0.35)",
+  },
+  savings: {
+    from: "hsl(185, 40%, 30%)",
+    to: "hsl(165, 35%, 40%)",
+    glow: "rgba(40, 120, 110, 0.35)",
+  },
+  shared: {
+    from: "hsl(260, 35%, 36%)",
+    to: "hsl(285, 30%, 46%)",
+    glow: "rgba(95, 65, 140, 0.35)",
+  },
+  other: {
+    from: "hsl(215, 18%, 34%)",
+    to: "hsl(210, 20%, 46%)",
+    glow: "rgba(70, 85, 110, 0.35)",
+  },
+};
+
 export default function AccountsPage() {
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -48,8 +88,8 @@ export default function AccountsPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; account: Account | null }>({ open: false, account: null });
-  const [page, setPage] = useState(1);
-  const pageSize = 6;
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   async function loadAccounts() {
     try {
@@ -84,14 +124,49 @@ export default function AccountsPage() {
     );
   });
 
-  const paginatedAccounts = accounts.slice((page - 1) * pageSize, page * pageSize);
-
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(accounts.length / pageSize));
-    if (page > totalPages) {
-      setPage(totalPages);
+    if (activeIndex >= accounts.length && accounts.length > 0) {
+      setActiveIndex(accounts.length - 1);
     }
-  }, [accounts.length, page]);
+  }, [accounts.length, activeIndex]);
+
+  // direction: +1 = next, -1 = prev — used to compute wrap-around visual offset
+  const [navDirection, setNavDirection] = useState<number>(0);
+
+  function navigateTo(index: number, direction?: number) {
+    if (isTransitioning || index === activeIndex) return;
+    setNavDirection(direction ?? (index > activeIndex ? 1 : -1));
+    setIsTransitioning(true);
+    setActiveIndex(index);
+    setTimeout(() => setIsTransitioning(false), 450);
+  }
+
+  function navigatePrev() {
+    if (accounts.length === 0) return;
+    const next = activeIndex === 0 ? accounts.length - 1 : activeIndex - 1;
+    navigateTo(next, -1);
+  }
+
+  function navigateNext() {
+    if (accounts.length === 0) return;
+    const next = activeIndex === accounts.length - 1 ? 0 : activeIndex + 1;
+    navigateTo(next, 1);
+  }
+
+  /**
+   * Compute the shortest circular offset from the active card.
+   * When wrapping (e.g. last→first), the offset is +1 instead of -(n-1),
+   * producing a smooth single-step slide in the correct direction.
+   */
+  function circularOffset(index: number): number {
+    const n = accounts.length;
+    if (n <= 1) return index - activeIndex;
+    let diff = index - activeIndex;
+    // Normalise to [-n/2, +n/2]
+    if (diff > n / 2) diff -= n;
+    if (diff < -n / 2) diff += n;
+    return diff;
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -178,6 +253,8 @@ export default function AccountsPage() {
 
   const inputClasses = "w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)] focus:shadow-[0_0_0_3px_var(--app-accent-soft)]";
 
+  const activeAccount = accounts[activeIndex] ?? null;
+
   return (
     <div>
       <PageHeader
@@ -252,75 +329,478 @@ export default function AccountsPage() {
 
         {isLoading ? (
           <ListSkeleton rows={3} />
+        ) : accounts.length === 0 ? (
+          <div className="animate-slideUp">
+            <EmptyState
+              title="No hay cuentas todavía"
+              description="Crea la primera cuenta para empezar a registrar transacciones y presupuestos."
+              icon={Wallet}
+              actionLabel="Nueva cuenta"
+              onAction={openCreateDialog}
+              variant="plain"
+            />
+          </div>
         ) : (
-          <Card className="animate-slideUp">
-            <CardHeader>
-              <CardTitle>Listado</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {accounts.length ? (
-                paginatedAccounts.map((account, index) => (
-                  <div
-                    key={account.id}
-                    className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-visible rounded-[var(--app-radius-xl)] border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-5 py-4 transition-all hover:z-10 hover:bg-[var(--app-muted-surface)] hover:shadow-[var(--app-shadow)]`}
+          <div className="animate-slideUp">
+            {/* Wallet Carousel */}
+            <div className="wallet-stage">
+              {/* Navigation arrows */}
+              {accounts.length > 1 && (
+                <>
+                  <button
+                    type="button"
+                    onClick={navigatePrev}
+                    className="wallet-nav wallet-nav--prev"
+                    aria-label="Cuenta anterior"
+                    disabled={isTransitioning}
                   >
-                    <div className="grid gap-4 sm:grid-cols-[minmax(0,1.45fr)_minmax(0,0.8fr)_auto] sm:items-center">
-                      <div className="min-w-0 space-y-2">
-                        <p className="truncate text-base font-semibold">{account.name}</p>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-sm text-[var(--app-muted)]">
-                          <span>{accountTypeLabels[account.type]}</span>
-                          <span>{account.currency}</span>
-                          {account.bank_name ? (
-                            <span>
-                              Banco:{" "}
-                              <span className="font-medium text-[var(--app-text)]">
-                                {account.bank_name}
-                              </span>
-                            </span>
-                          ) : null}
-                        </div>
-                      </div>
-                      <div className="min-w-0 rounded-2xl bg-[var(--app-panel)] px-4 py-3 text-sm">
-                        <p className="text-xs uppercase tracking-[0.16em] text-[var(--app-muted)]">Saldo</p>
-                        <div className="mt-2 text-lg font-semibold">
-                          <AmountValue amount={balances.get(account.id) ?? 0} currency={account.currency} />
-                        </div>
-                      </div>
-                      <div className="relative z-20 flex justify-end self-start sm:self-center">
-                        <AccountActionsMenu
-                          label={account.name}
-                          onEdit={() => openEditDialog(account)}
-                          onDelete={() => setConfirmDelete({ open: true, account })}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <EmptyState
-                  title="No hay cuentas todavía"
-                  description="Crea la primera cuenta para empezar a registrar transacciones y presupuestos."
-                  icon={Wallet}
-                  actionLabel="Nueva cuenta"
-                  onAction={openCreateDialog}
-                  variant="plain"
-                />
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={navigateNext}
+                    className="wallet-nav wallet-nav--next"
+                    aria-label="Cuenta siguiente"
+                    disabled={isTransitioning}
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </>
               )}
 
-              <PaginationControls
-                page={page}
-                pageSize={pageSize}
-                total={accounts.length}
-                onPageChange={setPage}
-              />
-            </CardContent>
-          </Card>
+              {/* Cards Stack */}
+              <div className="wallet-carousel">
+                {accounts.map((account, index) => {
+                  const offset = circularOffset(index);
+                  const absOffset = Math.abs(offset);
+                  const isActive = index === activeIndex;
+                  const gradient = accountTypeGradients[account.type];
+                  const Icon = accountTypeIcons[account.type];
+                  const balance = balances.get(account.id) ?? 0;
+
+                  // Cards beyond ±2 circular positions are hidden
+                  if (absOffset > 2) return null;
+
+                  const cardStyle: React.CSSProperties = {
+                    "--card-from": gradient.from,
+                    "--card-to": gradient.to,
+                    "--card-glow": gradient.glow,
+                    transform: isActive
+                      ? "translateX(0) scale(1) rotateY(0deg)"
+                      : `translateX(${offset * 70}%) scale(${1 - absOffset * 0.1}) rotateY(${offset * -8}deg)`,
+                    zIndex: 10 - absOffset,
+                    opacity: isActive ? 1 : Math.max(0.3, 1 - absOffset * 0.35),
+                    filter: isActive ? "none" : `blur(${absOffset * 1.5}px)`,
+                    pointerEvents: "auto",
+                  } as React.CSSProperties;
+
+                  return (
+                    <div
+                      key={account.id}
+                      className={`wallet-card ${isActive ? "wallet-card--active" : ""}`}
+                      style={cardStyle}
+                      onClick={() => !isActive && navigateTo(index)}
+                    >
+                      {/* Card shine overlay */}
+                      <div className="wallet-card__shine" />
+
+                      {/* Card content */}
+                      <div className="wallet-card__content">
+                        {/* Top section: Icon + Type + Actions */}
+                        <div className="wallet-card__header">
+                          <div className="wallet-card__icon-wrap">
+                            <Icon className="h-5 w-5" strokeWidth={1.8} />
+                          </div>
+                          {isActive && (
+                            <AccountActionsMenu
+                              label={account.name}
+                              onEdit={() => openEditDialog(account)}
+                              onDelete={() => setConfirmDelete({ open: true, account })}
+                            />
+                          )}
+                        </div>
+
+                        {/* Type badge */}
+                        <div className="wallet-card__type">
+                          {accountTypeLabels[account.type]}
+                        </div>
+
+                        {/* Spacer */}
+                        <div className="flex-1" />
+
+                        {/* Bank / Currency */}
+                        <div className="wallet-card__meta">
+                          {account.bank_name && (
+                            <div className="wallet-card__bank">
+                              <Building2 className="h-3.5 w-3.5 opacity-60" />
+                              <span>{account.bank_name}</span>
+                            </div>
+                          )}
+                          <div className="wallet-card__currency">{account.currency}</div>
+                        </div>
+
+                        {/* Account name */}
+                        <div className="wallet-card__name">{account.name}</div>
+
+                        {/* Balance */}
+                        <div className="wallet-card__balance">
+                          <span className="wallet-card__balance-label">Saldo</span>
+                          <span className="wallet-card__balance-value">
+                            <AmountValue amount={balance} currency={account.currency} className="!text-white !text-2xl" />
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Dots */}
+              {accounts.length > 1 && (
+                <div className="wallet-dots">
+                  {accounts.map((account, index) => (
+                    <button
+                      key={account.id}
+                      type="button"
+                      onClick={() => navigateTo(index)}
+                      className={`wallet-dot ${index === activeIndex ? "wallet-dot--active" : ""}`}
+                      aria-label={`Ir a ${account.name}`}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Account detail info below the wallet */}
+            {activeAccount && (
+              <div className="wallet-detail animate-fadeIn" key={activeAccount.id}>
+                <div className="wallet-detail__grid">
+                  <DetailCard label="Tipo" value={accountTypeLabels[activeAccount.type]} />
+                  <DetailCard label="Divisa" value={activeAccount.currency} />
+                  <DetailCard label="Banco" value={activeAccount.bank_name || "—"} />
+                  <DetailCard
+                    label="Saldo"
+                    value={
+                      <AmountValue
+                        amount={balances.get(activeAccount.id) ?? 0}
+                        currency={activeAccount.currency}
+                      />
+                    }
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
+
+      <style>{`
+        /* ─── Wallet Stage ─────────────────────────────────────── */
+        .wallet-stage {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          padding: 0.75rem 0 0.5rem;
+          perspective: 1200px;
+        }
+
+        /* ─── Navigation Arrows ────────────────────────────────── */
+        .wallet-nav {
+          position: absolute;
+          top: 50%;
+          transform: translateY(-70%);
+          z-index: 30;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          border: 1px solid var(--app-border);
+          background: var(--app-glass);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          color: var(--app-text);
+          cursor: pointer;
+          transition: all 250ms cubic-bezier(0.25, 0.1, 0.25, 1);
+          box-shadow: var(--app-shadow);
+        }
+        .wallet-nav:hover {
+          background: var(--app-panel-strong);
+          box-shadow: var(--app-shadow-elevated);
+          transform: translateY(-70%) scale(1.08);
+        }
+        .wallet-nav:active {
+          transform: translateY(-70%) scale(0.95);
+        }
+        .wallet-nav:disabled {
+          opacity: 0.4;
+          pointer-events: none;
+        }
+        .wallet-nav--prev {
+          left: 0;
+        }
+        .wallet-nav--next {
+          right: 0;
+        }
+        @media (min-width: 768px) {
+          .wallet-nav--prev {
+            left: 1rem;
+          }
+          .wallet-nav--next {
+            right: 1rem;
+          }
+        }
+
+        /* ─── Carousel Container ──────────────────────────────── */
+        .wallet-carousel {
+          position: relative;
+          width: 220px;
+          height: 280px;
+          transform-style: preserve-3d;
+        }
+        @media (min-width: 640px) {
+          .wallet-carousel {
+            width: 240px;
+            height: 310px;
+          }
+        }
+
+        /* ─── Individual Card ─────────────────────────────────── */
+        .wallet-card {
+          position: absolute;
+          inset: 0;
+          border-radius: 24px;
+          overflow: hidden;
+          cursor: pointer;
+          transition:
+            transform 450ms cubic-bezier(0.34, 1.56, 0.64, 1),
+            opacity 400ms cubic-bezier(0.25, 0.1, 0.25, 1),
+            filter 400ms cubic-bezier(0.25, 0.1, 0.25, 1),
+            box-shadow 400ms cubic-bezier(0.25, 0.1, 0.25, 1);
+
+          background: linear-gradient(
+            165deg,
+            var(--card-from) 0%,
+            var(--card-to) 100%
+          );
+          box-shadow:
+            0 4px 24px var(--card-glow),
+            0 1px 3px rgba(0, 0, 0, 0.08),
+            inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+        .wallet-card--active {
+          box-shadow:
+            0 8px 48px var(--card-glow),
+            0 2px 8px rgba(0, 0, 0, 0.1),
+            inset 0 1px 0 rgba(255, 255, 255, 0.2);
+        }
+        .wallet-card--active:hover {
+          transform: translateX(0) scale(1.02) rotateY(0deg) !important;
+        }
+
+        /* Card shine */
+        .wallet-card__shine {
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(
+            135deg,
+            rgba(255, 255, 255, 0.18) 0%,
+            rgba(255, 255, 255, 0.05) 40%,
+            transparent 60%,
+            rgba(255, 255, 255, 0.03) 100%
+          );
+          pointer-events: none;
+          z-index: 1;
+        }
+
+        /* Card content */
+        .wallet-card__content {
+          position: relative;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          height: 100%;
+          padding: 1.1rem 1.25rem;
+          color: white;
+        }
+
+        /* Card header */
+        .wallet-card__header {
+          display: flex;
+          align-items: flex-start;
+          justify-content: space-between;
+        }
+
+        /* Card icon */
+        .wallet-card__icon-wrap {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 36px;
+          height: 36px;
+          border-radius: 11px;
+          background: rgba(255, 255, 255, 0.18);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+
+        /* Card type */
+        .wallet-card__type {
+          margin-top: 0.5rem;
+          font-size: 0.7rem;
+          font-weight: 500;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          opacity: 0.7;
+        }
+
+        /* Card meta */
+        .wallet-card__meta {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 0.25rem;
+        }
+        .wallet-card__bank {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.8rem;
+          opacity: 0.8;
+        }
+        .wallet-card__currency {
+          font-size: 0.8rem;
+          font-weight: 600;
+          letter-spacing: 0.05em;
+          opacity: 0.8;
+          background: rgba(255, 255, 255, 0.15);
+          padding: 0.15rem 0.5rem;
+          border-radius: 6px;
+        }
+
+        /* Card name */
+        .wallet-card__name {
+          font-size: 1rem;
+          font-weight: 700;
+          margin-top: 0.3rem;
+          line-height: 1.3;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+
+        /* Card balance */
+        .wallet-card__balance {
+          margin-top: 0.5rem;
+          padding: 0.6rem 0.75rem;
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+        }
+        .wallet-card__balance-label {
+          display: block;
+          font-size: 0.65rem;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.15em;
+          opacity: 0.7;
+          margin-bottom: 0.15rem;
+        }
+        .wallet-card__balance-value {
+          display: block;
+          font-size: 1.25rem;
+          font-weight: 700;
+          letter-spacing: -0.02em;
+        }
+
+        /* ─── Dots ────────────────────────────────────────────── */
+        .wallet-dots {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 0.5rem;
+          margin-top: 0.75rem;
+        }
+        .wallet-dot {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          border: none;
+          padding: 0;
+          background: var(--app-muted);
+          opacity: 0.3;
+          cursor: pointer;
+          transition: all 300ms cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+        .wallet-dot:hover {
+          opacity: 0.6;
+          transform: scale(1.2);
+        }
+        .wallet-dot--active {
+          width: 24px;
+          border-radius: 4px;
+          background: var(--app-accent);
+          opacity: 1;
+        }
+
+        /* ─── Detail Section ──────────────────────────────────── */
+        .wallet-detail {
+          margin-top: 0.75rem;
+        }
+        .wallet-detail__grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 0.75rem;
+        }
+        @media (min-width: 640px) {
+          .wallet-detail__grid {
+            grid-template-columns: repeat(4, 1fr);
+          }
+        }
+
+        .wallet-detail-card {
+          padding: 1rem 1.15rem;
+          border-radius: var(--app-radius-xl);
+          background: var(--app-panel-strong);
+          border: 1px solid var(--app-border);
+          transition: all 250ms cubic-bezier(0.25, 0.1, 0.25, 1);
+        }
+        .wallet-detail-card:hover {
+          background: var(--app-muted-surface);
+          box-shadow: var(--app-shadow);
+        }
+        .wallet-detail-card__label {
+          font-size: 0.7rem;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.14em;
+          color: var(--app-muted);
+          margin-bottom: 0.35rem;
+        }
+        .wallet-detail-card__value {
+          font-size: 0.95rem;
+          font-weight: 600;
+          color: var(--app-text);
+        }
+      `}</style>
     </div>
   );
 }
 
+/* ─── Detail Card ─────────────────────────────────────────── */
+function DetailCard({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div className="wallet-detail-card">
+      <div className="wallet-detail-card__label">{label}</div>
+      <div className="wallet-detail-card__value">{value}</div>
+    </div>
+  );
+}
+
+/* ─── Account Actions Menu ────────────────────────────────── */
 function AccountActionsMenu({
   label,
   onEdit,
@@ -363,15 +843,20 @@ function AccountActionsMenu({
 
   return (
     <div ref={menuRef} className="relative z-30">
-      <button type="button" onClick={() => setIsOpen((c) => !c)} className="rounded-lg p-1 text-[var(--app-muted)] transition-all hover:bg-[var(--app-muted-surface)]" aria-label={`Acciones de cuenta ${label}`}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((c) => !c)}
+        className="rounded-lg p-1.5 text-white/70 transition-all hover:bg-white/15 hover:text-white"
+        aria-label={`Acciones de cuenta ${label}`}
+      >
         <MoreVertical className="h-4 w-4" />
       </button>
       {isOpen ? (
-        <div className="animate-slideDown absolute right-0 z-[80] mt-1 min-w-40 rounded-xl border border-[var(--app-border)] bg-[var(--app-glass)] p-1 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
-          <button type="button" onClick={() => runAndClose(onEdit)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-all hover:bg-[var(--app-muted-surface)]">
+        <div className="animate-slideDown absolute right-0 z-[80] mt-1 min-w-40 rounded-xl border border-white/15 bg-black/60 p-1 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
+          <button type="button" onClick={() => runAndClose(onEdit)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/90 transition-all hover:bg-white/15">
             <Pencil className="h-4 w-4" /> Editar
           </button>
-          <button type="button" onClick={() => runAndClose(onDelete)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[var(--app-danger)] transition-all hover:bg-[var(--app-danger-soft)]">
+          <button type="button" onClick={() => runAndClose(onDelete)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-red-400 transition-all hover:bg-red-500/15">
             <Trash2 className="h-4 w-4" /> Eliminar
           </button>
         </div>
