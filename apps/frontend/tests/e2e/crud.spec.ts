@@ -65,6 +65,7 @@ test.describe("CRUD principal", () => {
     await page.getByRole("button", { name: "Crear cuenta" }).click();
     await expect(page.getByText(accountName, { exact: true })).toBeVisible();
 
+    await page.getByRole("button", { name: `Ir a ${accountName}` }).click();
     await page.getByLabel(`Acciones de cuenta ${accountName}`).click();
     await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Editar" }).click();
     await page.getByLabel("Nombre de la cuenta").fill(accountNameUpdated);
