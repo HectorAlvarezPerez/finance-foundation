@@ -391,7 +391,7 @@ export default function AccountsPage() {
                     zIndex: 10 - absOffset,
                     opacity: isActive ? 1 : Math.max(0.3, 1 - absOffset * 0.35),
                     filter: isActive ? "none" : `blur(${absOffset * 1.5}px)`,
-                    pointerEvents: isActive ? "auto" : "none",
+                    pointerEvents: "auto",
                   } as React.CSSProperties;
 
                   return (
