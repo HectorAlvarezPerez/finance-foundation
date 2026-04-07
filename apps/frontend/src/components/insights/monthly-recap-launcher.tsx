@@ -27,7 +27,7 @@ export function MonthlyRecapLauncher({
 }) {
   const normalizedMonths = months.map((month) => normalizeMonth(month));
   const selectedMonth = normalizedMonths.find((month) => month.monthKey === selectedMonthKey);
-  const activeRecapStatus = recap ? getStatusLabel(recap.status, recap.is_stale) : "No recap yet";
+  const activeRecapStatus = recap ? getStatusLabel(recap.is_stale) : "Sin recap";
 
   return (
     <section
@@ -46,15 +46,15 @@ export function MonthlyRecapLauncher({
           <div className="space-y-4">
             <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)] backdrop-blur">
               <Sparkles className="h-3.5 w-3.5" />
-              Monthly recap
+              Recap mensual
             </div>
             <div className="space-y-2">
               <h2 className="max-w-3xl text-3xl font-semibold tracking-tight text-[var(--app-ink)] sm:text-4xl">
-                Play the month like a story, not a spreadsheet.
+                Vive el mes como una historia, no como una hoja de cálculo.
               </h2>
               <p className="max-w-2xl text-sm leading-6 text-[var(--app-muted)] sm:text-base">
-                Choose a month, launch the recap, and step through 2-3 editorial stories built from real
-                spending signals.
+                Elige un mes, lanza el recap y recorre 2-3 stories editoriales construidas con señales reales
+                de gasto.
               </p>
             </div>
           </div>
@@ -64,9 +64,9 @@ export function MonthlyRecapLauncher({
             {selectedMonth ? (
               <StatusPill label={selectedMonth.label} />
             ) : (
-              <StatusPill label="Select a month" />
+              <StatusPill label="Elige un mes" />
             )}
-            {recap?.generated_at ? <StatusPill label={`Updated ${formatDateLabel(recap.generated_at)}`} /> : null}
+            {recap?.generated_at ? <StatusPill label={`Actualizado ${formatDateLabel(recap.generated_at)}`} /> : null}
           </div>
         </div>
 
@@ -79,7 +79,7 @@ export function MonthlyRecapLauncher({
         >
           <div className="space-y-3">
             <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]" htmlFor="recap-month-select">
-              Month
+              Mes
             </label>
             <select
               id="recap-month-select"
@@ -123,12 +123,12 @@ export function MonthlyRecapLauncher({
               {isLoading ? (
                 <>
                   <RefreshCw className="h-4 w-4 animate-spin" />
-                  Generating recap...
+                  Generando recap...
                 </>
               ) : (
                 <>
                   <Play className="h-4 w-4" />
-                  Play monthly recap
+                  Ver recap mensual
                 </>
               )}
             </button>
@@ -156,7 +156,7 @@ export function MonthlyRecapLauncher({
               }}
             >
               <RefreshCw className="h-4 w-4" />
-              Regenerate
+              Regenerar
             </button>
           </div>
 
@@ -169,10 +169,10 @@ export function MonthlyRecapLauncher({
             }}
           >
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-              Recap status
+              Estado del recap
             </p>
               <p className="mt-1 text-sm font-medium text-[var(--app-text)]">
-                {recap ? getStatusDescription(recap.status, recap.is_stale) : "No recap has been generated yet."}
+                {recap ? getStatusDescription(recap.is_stale) : "Todavía no se ha generado ningún recap."}
               </p>
             </div>
             {error ? (
@@ -181,7 +181,7 @@ export function MonthlyRecapLauncher({
               </div>
             ) : null}
             {normalizedMonths.length === 0 ? (
-              <p className="text-sm text-[var(--app-muted)]">No month is available yet. Add some activity first.</p>
+              <p className="text-sm text-[var(--app-muted)]">Todavía no hay meses disponibles. Añade actividad primero.</p>
             ) : null}
           </div>
         </div>
@@ -250,36 +250,16 @@ const launcherEdgeGlowStyle = {
     "linear-gradient(180deg, color-mix(in srgb, var(--app-accent-soft) 55%, transparent), transparent)",
 } as const;
 
-function getStatusLabel(status: string, isStale?: boolean) {
+function getStatusLabel(isStale?: boolean) {
   if (isStale) {
-    return "Out of date";
+    return "Desactualizado";
   }
-
-  switch (status.toLowerCase()) {
-    case "ready":
-      return "Ready";
-    case "fallback":
-      return "Fallback copy";
-    case "failed":
-      return "Failed";
-    default:
-      return status;
-  }
+  return "Disponible";
 }
 
-function getStatusDescription(status: string, isStale?: boolean) {
+function getStatusDescription(isStale?: boolean) {
   if (isStale) {
-    return "A cached recap exists, but new data is available. Regenerate it when you want the latest story.";
+    return "Existe un recap en caché, pero hay datos nuevos disponibles. Regénéralo cuando quieras la versión más reciente.";
   }
-
-  switch (status.toLowerCase()) {
-    case "ready":
-      return "The recap is ready and can be reopened without regenerating.";
-    case "fallback":
-      return "The recap was built with deterministic fallback copy, so it stays available even if the model fails.";
-    case "failed":
-      return "The recap could not be produced right now. Try regenerating again.";
-    default:
-      return "The recap is available for this month.";
-  }
+  return "El recap está disponible para este mes y puede reabrirse cuando quieras.";
 }

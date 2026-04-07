@@ -13,6 +13,7 @@ from typing import Any, Literal, Protocol, cast
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.llm.runtime import build_llm_runtime
 from app.llm.types import FlowHandle, LlmObservabilityClient, PromptProvider
 from app.models.budget import Budget
@@ -35,6 +36,7 @@ from app.services.insights_service import InsightsService
 
 MONTH_KEY_PATTERN = re.compile(r"^\d{4}-\d{2}$")
 ZERO = Decimal("0.00")
+LLM_UNAVAILABLE_DETAIL = "Monthly recap is temporarily unavailable. Please try again later."
 
 
 @dataclass(frozen=True)
@@ -158,38 +160,39 @@ class MonthlyRecapService:
             )
 
             if existing is not None and not force_regenerate:
-                if existing.source_fingerprint == fingerprint:
-                    recap = self._to_read_model(existing, is_stale=False)
+                if not (settings.monthly_recap_require_llm and existing.status == "fallback"):
+                    if existing.source_fingerprint == fingerprint:
+                        recap = self._to_read_model(existing, is_stale=False)
+                        self._end_flow(
+                            flow,
+                            cache_status="hit",
+                            source_fingerprint=fingerprint,
+                            story_kinds=[story.kind for story in recap.stories],
+                            used_fallback=recap.status == "fallback",
+                            output_payload={
+                                "story_count": len(recap.stories),
+                                "status": recap.status,
+                                "is_stale": False,
+                            },
+                        )
+                        return recap
+
+                    recap = self._to_read_model(existing, is_stale=True)
                     self._end_flow(
                         flow,
-                        cache_status="hit",
+                        cache_status="stale",
                         source_fingerprint=fingerprint,
                         story_kinds=[story.kind for story in recap.stories],
                         used_fallback=recap.status == "fallback",
                         output_payload={
                             "story_count": len(recap.stories),
                             "status": recap.status,
-                            "is_stale": False,
+                            "is_stale": True,
                         },
+                        status_message="Serving stale recap",
+                        level="WARNING",
                     )
                     return recap
-
-                recap = self._to_read_model(existing, is_stale=True)
-                self._end_flow(
-                    flow,
-                    cache_status="stale",
-                    source_fingerprint=fingerprint,
-                    story_kinds=[story.kind for story in recap.stories],
-                    used_fallback=recap.status == "fallback",
-                    output_payload={
-                        "story_count": len(recap.stories),
-                        "status": recap.status,
-                        "is_stale": True,
-                    },
-                    status_message="Serving stale recap",
-                    level="WARNING",
-                )
-                return recap
 
             if not current_transactions and existing is None:
                 raise HTTPException(
@@ -285,11 +288,22 @@ class MonthlyRecapService:
             handle=flow,
         )
 
+        if settings.monthly_recap_require_llm and llm_output is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=LLM_UNAVAILABLE_DETAIL,
+            )
+
         used_fallback = False
         stories: list[InsightsMonthlyRecapStoryRead] = []
         for draft in drafts:
             narrative = llm_output.get(draft["id"]) if llm_output is not None else None
             if narrative is None:
+                if settings.monthly_recap_require_llm:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail=LLM_UNAVAILABLE_DETAIL,
+                    )
                 used_fallback = True
                 narrative = MonthlyRecapNarrativeStory(
                     id=draft["id"],
@@ -494,9 +508,9 @@ class MonthlyRecapService:
         ]
 
         top_category_name = top_category["name"]
-        biggest_moment_title = "Biggest spending moment"
-        comparison_title = "Comparison vs previous month"
-        top_category_title = "Top spending category"
+        biggest_moment_title = "Momento de gasto más fuerte"
+        comparison_title = "Comparativa frente al mes anterior"
+        top_category_title = "Categoría de gasto principal"
 
         return [
             {
@@ -617,9 +631,6 @@ class MonthlyRecapService:
                 "kind": draft["kind"],
                 "title": draft["title"],
                 "facts": [fact.model_dump(mode="json") for fact in draft["facts"]],
-                "fallback_headline": draft["fallback_headline"],
-                "fallback_subheadline": draft["fallback_subheadline"],
-                "fallback_body": draft["fallback_body"],
             }
             for draft in drafts
         ]

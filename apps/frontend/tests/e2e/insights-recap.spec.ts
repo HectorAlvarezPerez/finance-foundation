@@ -14,9 +14,9 @@ function buildRecap(monthLabel: string, headlinePrefix: string, generatedAt: str
       {
         id: `${headlinePrefix}-1`,
         kind: "top_category",
-        headline: `${headlinePrefix} dining dominated the month`,
-        subheadline: "The biggest slice of spend came from food and casual lunches.",
-        body: "The visual stack shows where the category concentrated and how much of the month it took.",
+        headline: `${headlinePrefix} comida dominó el mes`,
+        subheadline: "La porción más grande del gasto llegó desde la comida del día a día.",
+        body: "La composición visual muestra dónde se concentró la categoría y cuánto peso tuvo en el mes.",
         facts: [
           { label: "Share", value: "34%", tone: "accent" },
           { label: "Amount", value: "€345.20", tone: "neutral" },
@@ -36,9 +36,9 @@ function buildRecap(monthLabel: string, headlinePrefix: string, generatedAt: str
       {
         id: `${headlinePrefix}-2`,
         kind: "biggest_moment",
-        headline: `${headlinePrefix} had one standout moment`,
-        subheadline: "A single charge carried the most weight in the story.",
-        body: "This card highlights the transaction that moved the month the most.",
+        headline: `${headlinePrefix} tuvo un momento muy marcado`,
+        subheadline: "Un único cargo arrastró gran parte del relato del mes.",
+        body: "Esta story destaca la transacción que más movió el mes.",
         facts: [
           { label: "Merchant", value: "Apple Store", tone: "neutral" },
           { label: "Date", value: "12 Mar", tone: "accent" },
@@ -48,15 +48,15 @@ function buildRecap(monthLabel: string, headlinePrefix: string, generatedAt: str
           amount: -245.0,
           date_label: "12 Mar 2026",
           merchant: "Apple Store",
-          description: "One larger purchase changed the shape of the month.",
+          description: "Una compra más grande cambió la forma del mes.",
         },
       },
       {
         id: `${headlinePrefix}-3`,
         kind: "month_comparison",
-        headline: `${headlinePrefix} moved up versus February`,
-        subheadline: "March nudged the line higher, but not by a huge margin.",
-        body: "Comparison keeps the recap grounded in a real trend instead of a single number.",
+        headline: `${headlinePrefix} subió frente a febrero`,
+        subheadline: "Marzo empujó la línea un poco hacia arriba, sin romper la tendencia.",
+        body: "La comparativa mantiene el recap anclado en una tendencia real y no en una sola cifra.",
         facts: [
           { label: "Delta", value: "+€42.00", tone: "positive" },
         ],
@@ -152,22 +152,22 @@ test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
   await page.goto("/app/insights");
 
   await expect(page.getByRole("heading", { name: "Análisis financiero" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Play monthly recap" })).toBeVisible();
-  await expect(page.getByLabel("Month")).toHaveValue("2026-03");
+  await expect(page.getByRole("button", { name: "Ver recap mensual" })).toBeVisible();
+  await expect(page.getByLabel("Mes")).toHaveValue("2026-03");
 
-  await page.getByRole("button", { name: "Play monthly recap" }).click();
+  await page.getByRole("button", { name: "Ver recap mensual" }).click();
 
-  const dialog = page.getByRole("dialog", { name: /Monthly recap/i });
+  const dialog = page.getByRole("dialog", { name: /Recap mensual/i });
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("heading", { name: /Original dining dominated the month/i })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: /Original comida dominó el mes/i })).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Next story" }).click();
-  await expect(dialog.getByRole("heading", { name: /Original had one standout moment/i })).toBeVisible();
+  await dialog.getByRole("button", { name: "Siguiente story" }).click();
+  await expect(dialog.getByRole("heading", { name: /Original tuvo un momento muy marcado/i })).toBeVisible();
 
-  await dialog.getByRole("button", { name: "Close recap" }).click();
+  await dialog.getByRole("button", { name: "Cerrar recap" }).click();
   await expect(dialog).not.toBeVisible();
 
-  await page.getByRole("button", { name: "Regenerate" }).click();
+  await page.getByRole("button", { name: "Regenerar" }).click();
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("heading", { name: /Fresh dining dominated the month/i })).toBeVisible();
+  await expect(dialog.getByRole("heading", { name: /Fresh comida dominó el mes/i })).toBeVisible();
 });

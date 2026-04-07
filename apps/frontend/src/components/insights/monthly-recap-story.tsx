@@ -130,7 +130,7 @@ function TopCategoryVisual({
       <div className="flex items-start justify-between gap-4">
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
-            Top category
+            Categoría principal
           </p>
           <h3 className="text-[1.7rem] font-semibold tracking-tight text-[var(--app-ink)]">
             {visual.category_name ?? "Categoría principal"}
@@ -220,11 +220,11 @@ function BiggestMomentVisual({
       style={buildVisualCardStyle("neutral")}
     >
       <div className="flex items-center justify-between gap-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
-          Biggest moment
-        </p>
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
+            Momento clave
+          </p>
         <div className="rounded-full bg-[var(--app-accent-soft)] px-3 py-1 text-xs font-semibold text-[var(--app-accent)]">
-          Highest spend
+          Mayor gasto
         </div>
       </div>
 
@@ -252,8 +252,8 @@ function BiggestMomentVisual({
         <div className="relative overflow-hidden rounded-[1.5rem] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-danger-soft),color-mix(in_srgb,var(--app-panel)_92%,transparent))] p-4">
           <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,var(--app-danger),transparent)]" />
           <div className="grid grid-cols-2 gap-3">
-            <MetricTile label="Impact" value="Peak" tone="danger" />
-            <MetricTile label="Signal" value="Real data" tone="accent" />
+            <MetricTile label="Impacto" value="Pico" tone="danger" />
+            <MetricTile label="Señal" value="Dato real" tone="accent" />
           </div>
         </div>
       </div>
@@ -279,7 +279,7 @@ function MonthComparisonVisual({
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
-          Month comparison
+          Comparativa mensual
         </p>
         <div
           className={cn(
@@ -287,20 +287,20 @@ function MonthComparisonVisual({
             isPositive ? "bg-[rgba(52,199,89,0.18)] text-[var(--app-success)]" : "bg-[rgba(255,59,48,0.18)] text-[var(--app-danger)]",
           )}
         >
-          {isPositive ? "Up" : "Down"} {compactNumber(Math.abs(delta))}
+          {isPositive ? "Sube" : "Baja"} {compactNumber(Math.abs(delta))}
         </div>
       </div>
 
       <div className="mt-4 grid flex-1 grid-cols-[1fr_1fr] items-end gap-3">
         <ComparisonColumn
-          label={visual.previous_label ?? "Previous month"}
+          label={visual.previous_label ?? "Mes anterior"}
           amount={previous}
           max={max}
           color={visual.previous_color ?? "rgba(255,255,255,0.34)"}
           tone="muted"
         />
         <ComparisonColumn
-          label={visual.current_label ?? "Current month"}
+          label={visual.current_label ?? "Este mes"}
           amount={current}
           max={max}
           color={visual.current_color ?? "var(--app-accent)"}
@@ -312,7 +312,7 @@ function MonthComparisonVisual({
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
-              Difference
+              Diferencia
             </p>
             <div className="mt-1 flex items-center gap-2 text-[1.6rem] font-semibold tracking-tight text-[var(--app-ink)]">
               <ArrowRight className={cn("h-5 w-5", isPositive ? "rotate-[-30deg] text-[var(--app-success)]" : "rotate-[30deg] text-[var(--app-danger)]")} />
@@ -320,7 +320,7 @@ function MonthComparisonVisual({
             </div>
           </div>
           <div className="text-right text-sm text-[var(--app-muted)]">
-            <p>{visual.previous_label ?? "Previous month"} vs {visual.current_label ?? "Current month"}</p>
+            <p>{visual.previous_label ?? "Mes anterior"} vs {visual.current_label ?? "Este mes"}</p>
           </div>
         </div>
       </div>
@@ -380,10 +380,10 @@ function GenericVisual() {
           Visual
         </p>
         <h3 className="mt-3 text-2xl font-semibold tracking-tight text-[var(--app-ink)]">
-          A story built from your latest activity
+          Una story construida con tu actividad reciente
         </h3>
         <p className="mt-3 text-sm leading-6 text-[var(--app-muted)]">
-          The backend can swap in a richer visual later without changing the front-end shell.
+          El backend puede sustituir este visual por otro más rico sin cambiar el contenedor del frontend.
         </p>
       </div>
     </div>
@@ -487,13 +487,13 @@ function MetricTile({
 }
 
 function getKindLabel(kind: string) {
-  switch (kind) {
+      switch (kind) {
     case "top_category":
-      return "Top category";
+      return "Categoría principal";
     case "biggest_moment":
-      return "Biggest moment";
+      return "Momento clave";
     case "month_comparison":
-      return "Month comparison";
+      return "Comparativa mensual";
     default:
       return kind.replaceAll("_", " ");
   }
