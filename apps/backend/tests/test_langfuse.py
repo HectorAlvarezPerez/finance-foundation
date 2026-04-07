@@ -339,7 +339,7 @@ def test_bootstrap_langfuse_dry_run_collects_actions() -> None:
 def test_bootstrap_prompts_skips_when_existing_is_equivalent() -> None:
     client = StableLangfuseForBootstrap()
 
-    prompt_actions = bootstrap_prompts(client, label="production", dry_run=False)
+    prompt_actions = bootstrap_prompts(cast(Any, client), label="production", dry_run=False)
 
     assert prompt_actions
     assert all(action.endswith(":skip") for action in prompt_actions)
