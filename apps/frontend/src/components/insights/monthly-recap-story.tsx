@@ -21,7 +21,7 @@ export function MonthlyRecapStoryCard({
 }) {
   return (
     <section
-      className="relative mx-auto flex h-[calc(100dvh-2rem)] max-h-[760px] w-full flex-col overflow-hidden rounded-[2.25rem] border"
+      className="relative mx-auto flex h-[calc(100dvh-8rem)] max-h-[640px] min-h-[420px] w-full flex-col overflow-hidden rounded-[2.25rem] border sm:h-[calc(100dvh-8.5rem)]"
       style={{
         borderColor: "var(--app-border)",
         background:
@@ -31,7 +31,7 @@ export function MonthlyRecapStoryCard({
     >
       <div className="absolute inset-0 opacity-70" style={storyGlowStyle} />
       <div className="absolute inset-x-0 top-0 h-24" style={storyTopGlowStyle} />
-      <div className="relative grid h-full min-h-0 grid-rows-[auto_auto_1fr_auto] gap-3 p-5 sm:p-6">
+      <div className="relative grid min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)_auto] gap-2.5 p-4 sm:gap-3 sm:p-5">
         <div className="flex items-start justify-between gap-4">
           <RecapKindChip kind={story.kind} />
           <div
@@ -50,28 +50,28 @@ export function MonthlyRecapStoryCard({
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
             Recap mensual
           </p>
-          <h2 className="line-clamp-2 text-[1.8rem] font-semibold leading-[1.05] tracking-tight text-[var(--app-ink)] sm:text-[2.05rem]">
+          <h2 className="text-[1.65rem] font-semibold leading-[1.06] tracking-tight text-[var(--app-ink)] sm:text-[1.9rem]">
             {story.headline}
           </h2>
           {story.subheadline ? (
-            <p className="line-clamp-2 text-sm leading-6 text-[var(--app-muted)] sm:text-[15px]">
+            <p className="text-sm leading-6 text-[var(--app-muted)] sm:text-[15px]">
               {story.subheadline}
             </p>
           ) : null}
           {story.body ? (
-            <p className="line-clamp-2 text-sm leading-6 text-[var(--app-text)] sm:text-[15px]">
+            <p className="text-sm leading-6 text-[var(--app-text)] sm:text-[15px]">
               {story.body}
             </p>
           ) : null}
         </div>
 
-        <div className="min-h-0">
+        <div className="min-h-0 overflow-y-auto overflow-x-hidden">
           <RecapVisual visual={story.visual} />
         </div>
 
         <div className="space-y-2">
           {story.facts?.length ? (
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {story.facts.slice(0, 3).map((fact) => (
                 <FactChip key={`${fact.label}-${fact.value}`} fact={fact} />
               ))}
@@ -124,7 +124,7 @@ function TopCategoryVisual({
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.9rem] border p-4"
+      className="mx-auto flex w-full max-w-[96%] flex-col rounded-[1.65rem] border p-3.5 sm:p-4"
       style={buildVisualCardStyle("top")}
     >
       <div className="flex items-start justify-between gap-4">
@@ -132,7 +132,7 @@ function TopCategoryVisual({
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[var(--app-muted)]">
             Categoría principal
           </p>
-          <h3 className="text-[1.7rem] font-semibold tracking-tight text-[var(--app-ink)]">
+          <h3 className="text-[1.45rem] font-semibold tracking-tight text-[var(--app-ink)] sm:text-[1.6rem]">
             {visual.category_name ?? "Categoría principal"}
           </h3>
         </div>
@@ -150,14 +150,14 @@ function TopCategoryVisual({
         ) : null}
       </div>
 
-      <div className="mt-4 grid grid-cols-[minmax(0,1fr)_96px] items-center gap-4 sm:grid-cols-[minmax(0,1fr)_112px]">
+      <div className="mt-3 grid grid-cols-[minmax(0,1fr)_84px] items-center gap-3 sm:grid-cols-[minmax(0,1fr)_96px] sm:gap-4">
         <div className="min-w-0">
           <p className="text-sm text-[var(--app-muted)]">Gasto destacado</p>
-          <div className="mt-1 text-[2.15rem] font-semibold tracking-tight">
+          <div className="mt-1 text-[1.95rem] font-semibold tracking-tight">
             <AmountValue
               amount={visual.amount ?? 0}
               currency="EUR"
-              className="text-[2.15rem] font-semibold text-[var(--app-ink)]"
+              className="text-[1.95rem] font-semibold text-[var(--app-ink)]"
             />
           </div>
           <p className="mt-1 text-sm text-[var(--app-muted)]">
@@ -165,7 +165,7 @@ function TopCategoryVisual({
           </p>
         </div>
         <div
-          className="mx-auto h-24 w-24 rounded-full border p-2.5 sm:h-28 sm:w-28"
+          className="mx-auto h-20 w-20 rounded-full border p-2 sm:h-24 sm:w-24"
           style={{
             borderColor: "var(--app-border)",
             background:
@@ -181,7 +181,7 @@ function TopCategoryVisual({
         </div>
       </div>
 
-      <div className="mt-5 grid min-h-0 flex-1 content-start gap-3">
+      <div className="mt-4 grid content-start gap-2.5">
         {visibleSeries.map((item, index) => {
           const value = Number(item.value ?? 0);
           const width = Math.max(14, Math.min(100, (value / maxSeriesValue) * 100));
@@ -216,7 +216,7 @@ function BiggestMomentVisual({
 }) {
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.9rem] border p-4"
+      className="mx-auto flex w-full max-w-[96%] flex-col rounded-[1.65rem] border p-3.5 sm:p-4"
       style={buildVisualCardStyle("neutral")}
     >
       <div className="flex items-center justify-between gap-3">
@@ -228,11 +228,11 @@ function BiggestMomentVisual({
         </div>
       </div>
 
-      <div className="mt-4 flex flex-1 flex-col justify-between gap-4">
-        <div className="space-y-3">
+      <div className="mt-3 flex flex-col justify-between gap-3">
+        <div className="space-y-2.5">
           <div className="flex items-end gap-4">
-            <div className="text-[2.2rem] font-semibold tracking-tight text-[var(--app-ink)]">
-              <AmountValue amount={visual.amount ?? 0} currency="EUR" className="text-[2.2rem] font-semibold" />
+            <div className="text-[1.95rem] font-semibold tracking-tight text-[var(--app-ink)] sm:text-[2.05rem]">
+              <AmountValue amount={visual.amount ?? 0} currency="EUR" className="text-[1.95rem] font-semibold sm:text-[2.05rem]" />
             </div>
             <ArrowUpRight className="mb-1 h-6 w-6 text-[var(--app-danger)]" />
           </div>
@@ -240,7 +240,7 @@ function BiggestMomentVisual({
             <p className="text-sm font-medium text-[var(--app-muted)]">{visual.date_label}</p>
           ) : null}
           {visual.merchant ? (
-            <h3 className="text-[1.65rem] font-semibold tracking-tight text-[var(--app-ink)]">
+            <h3 className="text-[1.45rem] font-semibold tracking-tight text-[var(--app-ink)] sm:text-[1.55rem]">
               {visual.merchant}
             </h3>
           ) : null}
@@ -249,7 +249,7 @@ function BiggestMomentVisual({
           ) : null}
         </div>
 
-        <div className="relative overflow-hidden rounded-[1.5rem] border border-[var(--app-border)] bg-[linear-gradient(180deg,var(--app-danger-soft),color-mix(in_srgb,var(--app-panel)_92%,transparent))] p-4">
+        <div className="relative shrink-0 overflow-hidden rounded-[1.35rem] border border-[var(--app-border)] bg-[linear-gradient(180deg,color-mix(in_srgb,var(--app-danger-soft)_65%,transparent),color-mix(in_srgb,var(--app-panel)_94%,transparent))] p-3.5">
           <div className="absolute inset-x-0 top-0 h-1 bg-[linear-gradient(90deg,var(--app-danger),transparent)]" />
           <div className="grid grid-cols-2 gap-3">
             <MetricTile label="Impacto" value="Pico" tone="danger" />
@@ -266,15 +266,22 @@ function MonthComparisonVisual({
 }: {
   visual: Extract<InsightsMonthlyRecapVisual, { kind: "month_comparison" }>;
 }) {
-  const current = Number(visual.current_amount ?? 0);
-  const previous = Number(visual.previous_amount ?? 0);
+  const previousLabel = formatMonthDisplayLabel(visual.previous_label ?? "Mes anterior");
+  const currentLabel = formatMonthDisplayLabel(visual.current_label ?? "Este mes");
+  const current = parseNumericAmount(visual.current_amount) ?? 0;
+  const previous = parseNumericAmount(visual.previous_amount) ?? 0;
+  const previousColor = normalizeVisualColor(
+    visual.previous_color,
+    "color-mix(in srgb, var(--app-ink) 24%, transparent)",
+  );
+  const currentColor = normalizeVisualColor(visual.current_color, "var(--app-accent)");
   const max = Math.max(Math.abs(current), Math.abs(previous), 1);
-  const delta = Number(visual.delta ?? current - previous);
+  const delta = parseNumericAmount(visual.delta) ?? current - previous;
   const isPositive = delta >= 0;
 
   return (
     <div
-      className="flex h-full min-h-0 flex-col overflow-hidden rounded-[1.9rem] border p-4"
+      className="mx-auto flex w-full max-w-[96%] flex-col rounded-[1.65rem] border p-3.5 sm:p-4"
       style={buildVisualCardStyle("comparison")}
     >
       <div className="flex items-center justify-between gap-3">
@@ -291,24 +298,24 @@ function MonthComparisonVisual({
         </div>
       </div>
 
-      <div className="mt-4 grid flex-1 grid-cols-[1fr_1fr] items-end gap-3">
+      <div className="mt-3 grid grid-cols-[1fr_1fr] items-end gap-2.5 sm:gap-3">
         <ComparisonColumn
-          label={visual.previous_label ?? "Mes anterior"}
+          label={previousLabel}
           amount={previous}
           max={max}
-          color={visual.previous_color ?? "rgba(255,255,255,0.34)"}
+          color={previousColor}
           tone="muted"
         />
         <ComparisonColumn
-          label={visual.current_label ?? "Este mes"}
+          label={currentLabel}
           amount={current}
           max={max}
-          color={visual.current_color ?? "var(--app-accent)"}
+          color={currentColor}
           tone="active"
         />
       </div>
 
-      <div className="mt-4 rounded-[1.5rem] border p-4" style={buildSubPanelStyle()}>
+      <div className="mt-3 shrink-0 rounded-[1.35rem] border p-3.5" style={buildSubPanelStyle()}>
         <div className="flex items-center justify-between gap-4">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
@@ -316,11 +323,13 @@ function MonthComparisonVisual({
             </p>
             <div className="mt-1 flex items-center gap-2 text-[1.6rem] font-semibold tracking-tight text-[var(--app-ink)]">
               <ArrowRight className={cn("h-5 w-5", isPositive ? "rotate-[-30deg] text-[var(--app-success)]" : "rotate-[30deg] text-[var(--app-danger)]")} />
-              <AmountValue amount={delta} currency="EUR" className="text-[1.6rem] font-semibold text-[var(--app-ink)]" />
+              <span className="whitespace-nowrap tabular-nums text-[1.6rem] font-semibold text-[var(--app-ink)]">
+                {formatStrictCurrency(delta, "EUR")}
+              </span>
             </div>
           </div>
           <div className="text-right text-sm text-[var(--app-muted)]">
-            <p>{visual.previous_label ?? "Mes anterior"} vs {visual.current_label ?? "Este mes"}</p>
+            <p>{previousLabel} vs {currentLabel}</p>
           </div>
         </div>
       </div>
@@ -341,9 +350,15 @@ function ComparisonColumn({
   color: string;
   tone: "active" | "muted";
 }) {
-  const height = Math.max(18, (Math.abs(amount) / max) * 100);
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
+  const safeMax = Number.isFinite(max) && max > 0 ? max : 1;
+  const height = Math.max(18, Math.min(100, (Math.abs(safeAmount) / safeMax) * 100));
+  const fillColor = tone === "muted" ? "var(--app-muted)" : color;
+  const fillOpacity = tone === "muted" ? 0.7 : 1;
+  const shadowAlpha = tone === "muted" ? 0.14 : 0.2;
+
   return (
-    <div className="flex h-full flex-col items-center justify-end gap-3">
+    <div className="flex min-h-0 flex-col items-center justify-end gap-2.5">
       <div className="text-center">
         <p className={cn("text-sm font-medium", tone === "active" ? "text-[var(--app-ink)]" : "text-[var(--app-muted)]")}>
           {label}
@@ -353,15 +368,17 @@ function ComparisonColumn({
         </p>
       </div>
       <div
-        className="flex h-36 w-full items-end justify-center rounded-[1.25rem] border p-3"
+        className="flex h-24 w-full items-end justify-center rounded-[1.15rem] border p-2.5 sm:h-28"
         style={buildSubPanelStyle()}
       >
           <div
+            data-testid={`comparison-bar-${tone}`}
             className="w-full rounded-[1rem] transition-all duration-700"
             style={{
               height: `${height}%`,
-              background: buildColumnFill(color),
-              boxShadow: `0 0 28px ${colorWithAlpha(color, 0.2)}`,
+              background: buildColumnFill(fillColor),
+              boxShadow: `0 0 28px ${colorWithAlpha(fillColor, shadowAlpha)}`,
+              opacity: fillOpacity,
             }}
         />
       </div>
@@ -372,7 +389,7 @@ function ComparisonColumn({
 function GenericVisual() {
   return (
     <div
-      className="flex h-full min-h-0 items-center justify-center rounded-[1.9rem] border p-6"
+      className="flex items-center justify-center rounded-[1.9rem] border p-6"
       style={buildVisualCardStyle("neutral")}
     >
       <div className="max-w-sm text-center">
@@ -392,8 +409,17 @@ function GenericVisual() {
 
 function RecapKindChip({ kind }: { kind: string }) {
   const label = getKindLabel(kind);
+  const toneClass =
+    kind === "top_category"
+      ? "border-[rgba(111,66,193,0.28)] bg-[rgba(111,66,193,0.12)] text-[color:color-mix(in_srgb,var(--app-accent)_86%,#6f42c1)]"
+      : kind === "biggest_moment"
+        ? "border-[rgba(255,59,48,0.24)] bg-[rgba(255,59,48,0.1)] text-[var(--app-danger)]"
+        : kind === "month_comparison"
+          ? "border-[rgba(52,199,89,0.24)] bg-[rgba(52,199,89,0.1)] text-[var(--app-success)]"
+          : "border-[var(--app-border)] bg-[var(--app-muted-surface)] text-[var(--app-muted)]";
+
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]">
+    <div className={cn("inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em]", toneClass)}>
       <Sparkles className="h-3.5 w-3.5" />
       {label}
     </div>
@@ -415,7 +441,7 @@ function buildVisualCardStyle(kind: "top" | "neutral" | "comparison") {
     return {
       borderColor: "var(--app-border)",
       background:
-        "linear-gradient(180deg, color-mix(in srgb, var(--app-panel) 88%, var(--app-accent-soft) 12%), color-mix(in srgb, var(--app-panel-strong) 92%, transparent))",
+        "linear-gradient(180deg, color-mix(in srgb, var(--app-panel) 91%, var(--app-accent-soft) 9%), color-mix(in srgb, var(--app-panel-strong) 95%, transparent))",
       boxShadow: "var(--app-shadow)",
     } as const;
   }
@@ -424,7 +450,7 @@ function buildVisualCardStyle(kind: "top" | "neutral" | "comparison") {
     return {
       borderColor: "var(--app-border)",
       background:
-        "linear-gradient(180deg, color-mix(in srgb, var(--app-panel) 86%, var(--app-success-soft) 14%), color-mix(in srgb, var(--app-panel-strong) 92%, transparent))",
+        "linear-gradient(180deg, color-mix(in srgb, var(--app-panel) 90%, var(--app-success-soft) 10%), color-mix(in srgb, var(--app-panel-strong) 95%, transparent))",
       boxShadow: "var(--app-shadow)",
     } as const;
   }
@@ -455,9 +481,11 @@ function FactChip({ fact }: { fact: InsightsMonthlyRecapFact }) {
           : "border-[var(--app-border)] bg-[var(--app-muted-surface)] text-[var(--app-ink)]";
 
   return (
-    <div className={cn("rounded-2xl border px-3 py-2 text-sm", toneClass)}>
-      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] opacity-70">{fact.label}</p>
-      <p className="mt-0.5 font-medium">{fact.value}</p>
+    <div className={cn("min-w-0 rounded-2xl border px-2.5 py-2 text-sm", toneClass)}>
+      <p className="text-[10px] font-semibold uppercase leading-[1.2] tracking-[0.08em] opacity-70 whitespace-normal break-words">
+        {fact.label}
+      </p>
+      <p className="mt-0.5 text-sm font-medium leading-tight text-inherit">{fact.value}</p>
     </div>
   );
 }
@@ -509,6 +537,154 @@ function compactNumber(value: number) {
   }
 
   return `${Math.round(value)}`;
+}
+
+function formatMonthDisplayLabel(label: string) {
+  const rawLabel = label.trim();
+  if (!rawLabel) {
+    return label;
+  }
+
+  const normalized = rawLabel.toLowerCase().replace(".", "");
+  const shortPattern = /^(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+(\d{2}|\d{4})$/i;
+  const isoPattern = /^(\d{4})-(\d{2})$/;
+
+  const shortMatch = normalized.match(shortPattern);
+  if (shortMatch) {
+    const monthByShortName: Record<string, number> = {
+      ene: 1,
+      feb: 2,
+      mar: 3,
+      abr: 4,
+      may: 5,
+      jun: 6,
+      jul: 7,
+      ago: 8,
+      sep: 9,
+      oct: 10,
+      nov: 11,
+      dic: 12,
+    };
+
+    const month = monthByShortName[shortMatch[1]];
+    const parsedYear = Number(shortMatch[2]);
+    const year = shortMatch[2].length === 2 ? 2000 + parsedYear : parsedYear;
+
+    if (month && Number.isFinite(year)) {
+      const date = new Date(year, month - 1, 1);
+      const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(date);
+      return `${monthName} ${year}`;
+    }
+  }
+
+  const isoMatch = normalized.match(isoPattern);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    if (Number.isFinite(year) && month >= 1 && month <= 12) {
+      const date = new Date(year, month - 1, 1);
+      const monthName = new Intl.DateTimeFormat("es-ES", { month: "long" }).format(date);
+      return `${monthName} ${year}`;
+    }
+  }
+
+  return rawLabel;
+}
+
+function parseNumericAmount(value: unknown) {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? value : null;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  let normalized = trimmed.replace(/\s+/g, "").replace(/[^\d,.-]/g, "");
+  if (!normalized) {
+    return null;
+  }
+
+  const hasComma = normalized.includes(",");
+  const hasDot = normalized.includes(".");
+
+  if (hasComma && hasDot) {
+    const lastComma = normalized.lastIndexOf(",");
+    const lastDot = normalized.lastIndexOf(".");
+
+    if (lastComma > lastDot) {
+      normalized = normalized.replace(/\./g, "").replace(",", ".");
+    } else {
+      normalized = normalized.replace(/,/g, "");
+    }
+  } else if (hasComma) {
+    const parts = normalized.split(",");
+    const decimalPart = parts[parts.length - 1] ?? "";
+    if (parts.length > 1 && decimalPart.length <= 2) {
+      normalized = `${parts.slice(0, -1).join("")}.${decimalPart}`;
+    } else {
+      normalized = parts.join("");
+    }
+  } else if (hasDot) {
+    const parts = normalized.split(".");
+    const decimalPart = parts[parts.length - 1] ?? "";
+    if (parts.length > 1 && decimalPart.length <= 2) {
+      normalized = `${parts.slice(0, -1).join("")}.${decimalPart}`;
+    } else {
+      normalized = parts.join("");
+    }
+  }
+
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatStrictCurrency(amount: number, currency: string, locale = "es-ES") {
+  const safeAmount = Number.isFinite(amount) ? amount : 0;
+  const normalizedAmount = Math.abs(safeAmount) < 0.005 ? 0 : safeAmount;
+
+  return new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(normalizedAmount);
+}
+
+function normalizeVisualColor(value: unknown, fallback: string) {
+  if (typeof value !== "string") {
+    return fallback;
+  }
+
+  const color = value.trim();
+  if (!color) {
+    return fallback;
+  }
+
+  if (
+    color.startsWith("var(") ||
+    color.startsWith("rgb(") ||
+    color.startsWith("rgba(") ||
+    color.startsWith("hsl(") ||
+    color.startsWith("hsla(")
+  ) {
+    return color;
+  }
+
+  if (/^#([\da-fA-F]{3}|[\da-fA-F]{4}|[\da-fA-F]{6}|[\da-fA-F]{8})$/.test(color)) {
+    return color;
+  }
+
+  if (/^[a-zA-Z]+$/.test(color)) {
+    return color;
+  }
+
+  return fallback;
 }
 
 function colorWithAlpha(color: string, alpha: number) {

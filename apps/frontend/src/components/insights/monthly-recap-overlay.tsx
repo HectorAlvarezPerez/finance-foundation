@@ -132,7 +132,7 @@ export function MonthlyRecapOverlay({
 
   return (
     <div
-      className="animate-fadeIn fixed inset-0 z-[90] flex items-center justify-center px-3 py-3 backdrop-blur-2xl sm:px-4 sm:py-4"
+      className="animate-fadeIn fixed inset-0 z-[90] overflow-y-auto px-3 py-3 backdrop-blur-2xl sm:px-4 sm:py-4"
       style={{
         background:
           "color-mix(in srgb, var(--background) 68%, rgba(7, 12, 24, 0.42))",
@@ -146,7 +146,7 @@ export function MonthlyRecapOverlay({
     >
       <div
         ref={dialogRef}
-        className="mx-auto flex min-h-[calc(100dvh-1.5rem)] w-full items-center justify-center"
+        className="mx-auto flex min-h-[calc(100dvh-1.5rem)] w-full items-center justify-center py-1 sm:py-2"
         role="dialog"
         aria-modal="true"
         aria-label={`Recap mensual ${recap.month_label}`}
@@ -161,21 +161,23 @@ export function MonthlyRecapOverlay({
               onClick={() => setActiveStoryIndex((current) => Math.max(current - 1, 0))}
             />
 
-            <div className="relative min-h-0 w-full max-w-[410px]">
-              <button
-                type="button"
-                onClick={() => onCloseRef.current()}
-                aria-label="Cerrar recap"
-                className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all hover:scale-[1.02] sm:right-4 sm:top-4"
-                style={{
-                  borderColor: "var(--app-border)",
-                  background: "color-mix(in srgb, var(--app-panel) 92%, transparent)",
-                  color: "var(--app-ink)",
-                  boxShadow: "var(--app-shadow)",
-                }}
-              >
-                <X className="h-4 w-4" />
-              </button>
+            <div className="min-h-0 w-full max-w-[410px]">
+              <div className="mb-2 flex justify-end sm:mb-3">
+                <button
+                  type="button"
+                  onClick={() => onCloseRef.current()}
+                  aria-label="Cerrar recap"
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all hover:scale-[1.02]"
+                  style={{
+                    borderColor: "var(--app-border)",
+                    background: "color-mix(in srgb, var(--app-panel) 92%, transparent)",
+                    color: "var(--app-ink)",
+                    boxShadow: "var(--app-shadow)",
+                  }}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
               <MonthlyRecapStoryCard story={activeStory} index={activeStoryIndex} total={recap.stories.length} />
             </div>
