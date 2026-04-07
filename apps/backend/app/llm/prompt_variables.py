@@ -20,3 +20,16 @@ def build_category_classifier_variables(
         "category_payload": json.dumps(category_payload, ensure_ascii=False),
         "row_payload": json.dumps(row_payload, ensure_ascii=False),
     }
+
+
+def build_monthly_recap_variables(
+    *,
+    month_label: str,
+    signals_payload: dict[str, Any],
+    stories_payload: list[dict[str, Any]],
+) -> dict[str, Any]:
+    return {
+        "month_label": month_label,
+        "signals_payload": json.dumps(signals_payload, ensure_ascii=False),
+        "stories_payload": json.dumps(stories_payload, ensure_ascii=False),
+    }

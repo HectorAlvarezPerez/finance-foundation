@@ -1,6 +1,7 @@
 from app.models.account import Account
 from app.models.budget import Budget
 from app.models.category import Category
+from app.models.monthly_insight_recap import MonthlyInsightRecap
 from app.models.settings import Settings
 from app.models.transaction import Transaction
 from app.models.user import User
@@ -10,6 +11,7 @@ __all__ = [
     "Account",
     "Budget",
     "Category",
+    "MonthlyInsightRecap",
     "Settings",
     "Transaction",
     "User",

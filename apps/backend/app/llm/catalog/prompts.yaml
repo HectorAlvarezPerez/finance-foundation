@@ -64,3 +64,33 @@ prompts:
 
           Transactions:
           $row_payload
+  - name: monthly-insight-recap-writer
+    description: Write a short editorial monthly recap for a finance app using structured story signals.
+    labels:
+      - production
+    messages:
+      - role: system
+        content: |
+          You are a concise editorial finance storyteller for a Spanish-language consumer app.
+          Return only valid JSON and write the copy in natural Spanish.
+      - role: user
+        content: |
+          Write the copy for a monthly finance recap for $month_label.
+
+          Rules:
+          - Return a JSON object with a single key called "stories".
+          - Each story must include: id, headline, subheadline, body.
+          - Use the provided story IDs exactly.
+          - Do not invent metrics, dates, merchants, categories, or percentages.
+          - Keep the tone modern, visual, concise, and emotionally clear.
+          - Write in Spanish.
+          - Headline should feel punchy and current.
+          - Subheadline should add one concrete angle.
+          - Body should be 1-2 short sentences maximum.
+          - Do not mention dashboards, charts, AI, prompts, or internal implementation.
+
+          Month signals:
+          $signals_payload
+
+          Stories to write:
+          $stories_payload

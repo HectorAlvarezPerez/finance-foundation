@@ -7,6 +7,7 @@ from typing import Any
 import yaml
 
 from app.llm.eval_defs import (
+    MONTHLY_INSIGHT_RECAP_PROMPT_NAME,
     PDF_TRANSACTION_PARSER_PROMPT_NAME,
     TRANSACTION_CATEGORY_ASSISTANT_PROMPT_NAME,
 )
@@ -14,6 +15,7 @@ from app.llm.types import ChatMessage, PromptDefinition
 
 PROMPT_CATALOG_PATH = Path(__file__).with_name("catalog") / "prompts.yaml"
 EXPECTED_PROMPT_NAMES = {
+    MONTHLY_INSIGHT_RECAP_PROMPT_NAME,
     PDF_TRANSACTION_PARSER_PROMPT_NAME,
     TRANSACTION_CATEGORY_ASSISTANT_PROMPT_NAME,
 }

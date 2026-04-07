@@ -1,5 +1,6 @@
 PDF_TRANSACTION_PARSER_PROMPT_NAME = "pdf-transaction-parser"
 TRANSACTION_CATEGORY_ASSISTANT_PROMPT_NAME = "transaction-category-assistant"
+MONTHLY_INSIGHT_RECAP_PROMPT_NAME = "monthly-insight-recap-writer"
 
 PDF_PARSER_DATASET_NAME = "pdf-transaction-parser-v1"
 CATEGORY_CLASSIFIER_DATASET_NAME = "transaction-category-assistant-v1"
