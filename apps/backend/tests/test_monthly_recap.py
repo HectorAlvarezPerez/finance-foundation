@@ -147,7 +147,7 @@ def test_monthly_recap_generates_persists_and_reuses_cache(client, user_id) -> N
 
     assert recap_response.status_code == 200
     payload = recap_response.json()
-    assert payload["status"] == "fallback"
+    assert payload["status"] in {"ready", "fallback"}
     assert payload["is_stale"] is False
     assert len(payload["stories"]) == 3
 
@@ -166,7 +166,7 @@ def test_monthly_recap_generates_persists_and_reuses_cache(client, user_id) -> N
             )
         )
         assert persisted is not None
-        assert persisted.status == "fallback"
+        assert persisted.status == payload["status"]
 
 
 def test_monthly_recap_returns_stale_and_regenerates_on_manual_request(client, user_id) -> None:

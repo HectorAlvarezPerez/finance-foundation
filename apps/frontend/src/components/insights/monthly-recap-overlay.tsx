@@ -108,18 +108,18 @@ export function MonthlyRecapOverlay({
       <div className="animate-fadeIn fixed inset-0 z-[90] flex items-center justify-center bg-[rgba(5,8,20,0.82)] px-3 py-3 backdrop-blur-2xl">
         <div className="w-full max-w-[420px] rounded-[2rem] border border-white/10 bg-[linear-gradient(180deg,rgba(7,10,20,0.98),rgba(17,24,39,0.92))] p-6 text-center text-white shadow-[0_32px_120px_rgba(0,0,0,0.45)]">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/52">
-            Monthly recap
+            Recap mensual
           </p>
           <h2 className="mt-3 text-2xl font-semibold tracking-tight">{recap.month_label}</h2>
           <p className="mt-3 text-sm text-white/68">
-            No stories are available for this recap yet.
+            Todavía no hay stories disponibles para este recap.
           </p>
           <button
             type="button"
             onClick={() => onCloseRef.current()}
             className="mt-5 inline-flex items-center justify-center rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[var(--app-ink)] transition-all hover:bg-white/95"
           >
-            Close recap
+            Cerrar recap
           </button>
         </div>
       </div>
@@ -149,13 +149,13 @@ export function MonthlyRecapOverlay({
         className="mx-auto flex min-h-[calc(100dvh-1.5rem)] w-full items-center justify-center"
         role="dialog"
         aria-modal="true"
-        aria-label={`Monthly recap ${recap.month_label}`}
+        aria-label={`Recap mensual ${recap.month_label}`}
         tabIndex={-1}
       >
         <div className="flex w-full max-w-[540px] flex-col items-center gap-3 sm:gap-4">
           <div className="flex w-full items-center justify-center gap-3 sm:gap-5">
             <NavButton
-              label="Previous story"
+              label="Story anterior"
               icon={ChevronLeft}
               disabled={isFirstStory}
               onClick={() => setActiveStoryIndex((current) => Math.max(current - 1, 0))}
@@ -165,7 +165,7 @@ export function MonthlyRecapOverlay({
               <button
                 type="button"
                 onClick={() => onCloseRef.current()}
-                aria-label="Close recap"
+                aria-label="Cerrar recap"
                 className="absolute right-3 top-3 z-10 inline-flex h-9 w-9 items-center justify-center rounded-full border transition-all hover:scale-[1.02] sm:right-4 sm:top-4"
                 style={{
                   borderColor: "var(--app-border)",
@@ -181,7 +181,7 @@ export function MonthlyRecapOverlay({
             </div>
 
             <NavButton
-              label="Next story"
+              label="Siguiente story"
               icon={ChevronRight}
               disabled={isLastStory}
               onClick={() => setActiveStoryIndex((current) => Math.min(current + 1, recap.stories.length - 1))}

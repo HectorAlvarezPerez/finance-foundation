@@ -18,6 +18,31 @@ def _normalize_prompt_messages(messages: tuple[ChatMessage, ...]) -> list[dict[s
     ]
 
 
+def _canonicalize_existing_prompt_messages(raw_messages: object) -> list[dict[str, str]] | None:
+    if not isinstance(raw_messages, list):
+        return None
+
+    normalized: list[dict[str, str]] = []
+    for raw_item in raw_messages:
+        if not isinstance(raw_item, dict):
+            return None
+
+        role = raw_item.get("role")
+        content = raw_item.get("content")
+        if not isinstance(role, str) or not isinstance(content, str):
+            return None
+
+        normalized.append(
+            {
+                "type": "message",
+                "role": role,
+                "content": content,
+            }
+        )
+
+    return normalized
+
+
 def _dataset_item_id(dataset_name: str, case_name: str) -> str:
     digest = hashlib.sha1(f"{dataset_name}:{case_name}".encode("utf-8")).hexdigest()
     return digest[:32]
@@ -36,7 +61,9 @@ def bootstrap_prompts(client: Langfuse | None, *, label: str, dry_run: bool) -> 
                     type="chat",
                     fallback=list(prompt_definition.messages),
                 )
-                existing_prompt = getattr(existing, "prompt", None)
+                existing_prompt = _canonicalize_existing_prompt_messages(
+                    getattr(existing, "prompt", None)
+                )
                 if (
                     not getattr(existing, "is_fallback", False)
                     and existing_prompt == desired_prompt

@@ -24,10 +24,10 @@ prompts:
           - If you are unsure, omit the row instead of inventing data.
 
           Structured OCR:
-          $structured_text
+          {{structured_text}}
 
           Tables:
-          $tables_markdown
+          {{tables_markdown}}
   - name: transaction-category-assistant
     description: Classify imported transactions into existing finance categories.
     labels:
@@ -60,10 +60,10 @@ prompts:
             subscriptions, transfers, salary, and savings.
 
           Available categories:
-          $category_payload
+          {{category_payload}}
 
           Transactions:
-          $row_payload
+          {{row_payload}}
   - name: monthly-insight-recap-writer
     description: Write a short editorial monthly recap for a finance app using structured story signals.
     labels:
@@ -75,12 +75,14 @@ prompts:
           Return only valid JSON and write the copy in natural Spanish.
       - role: user
         content: |
-          Write the copy for a monthly finance recap for $month_label.
+          Write the copy for a monthly finance recap for {{month_label}}.
 
           Rules:
           - Return a JSON object with a single key called "stories".
           - Each story must include: id, headline, subheadline, body.
           - Use the provided story IDs exactly.
+          - Return one story for every provided story ID (no more, no fewer).
+          - Never return an empty stories array.
           - Do not invent metrics, dates, merchants, categories, or percentages.
           - Keep the tone modern, visual, concise, and emotionally clear.
           - Write in Spanish.
@@ -90,7 +92,7 @@ prompts:
           - Do not mention dashboards, charts, AI, prompts, or internal implementation.
 
           Month signals:
-          $signals_payload
+          {{signals_payload}}
 
           Stories to write:
-          $stories_payload
+          {{stories_payload}}

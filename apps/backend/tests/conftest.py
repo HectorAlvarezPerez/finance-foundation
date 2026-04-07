@@ -52,6 +52,16 @@ def enable_dev_user_header_for_tests() -> Generator[None, None, None]:
         settings.allow_dev_user_header = original
 
 
+@pytest.fixture(autouse=True)
+def disable_require_llm_for_tests() -> Generator[None, None, None]:
+    original = settings.monthly_recap_require_llm
+    settings.monthly_recap_require_llm = False
+    try:
+        yield
+    finally:
+        settings.monthly_recap_require_llm = original
+
+
 @pytest.fixture
 def client() -> TestClient:
     return TestClient(app)
