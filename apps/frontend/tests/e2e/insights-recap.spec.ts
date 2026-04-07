@@ -152,10 +152,11 @@ test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
   await page.goto("/app/insights");
 
   await expect(page.getByRole("heading", { name: "Análisis financiero" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ver recap mensual" })).toBeVisible();
+  const openRecapButton = page.getByRole("button", { name: /Ver recap( mensual)?/i });
+  await expect(openRecapButton).toBeVisible();
   await expect(page.getByLabel("Mes")).toHaveValue("2026-03");
 
-  await page.getByRole("button", { name: "Ver recap mensual" }).click();
+  await openRecapButton.click();
 
   const dialog = page.getByRole("dialog", { name: /Recap mensual/i });
   await expect(dialog).toBeVisible();
