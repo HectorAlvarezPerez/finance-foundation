@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from string import Template
 from typing import Any, Literal, Protocol, TypedDict
@@ -105,7 +106,13 @@ class LlmObservabilityClient(Protocol):
 
 def render_template_string(template: str, variables: dict[str, Any]) -> str:
     prepared = {key: "" if value is None else str(value) for key, value in variables.items()}
-    return Template(template).safe_substitute(prepared)
+
+    def replace_curly(match: re.Match[str]) -> str:
+        key = match.group("key")
+        return prepared.get(key, match.group(0))
+
+    rendered = re.sub(r"\{\{\s*(?P<key>[a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}", replace_curly, template)
+    return Template(rendered).safe_substitute(prepared)
 
 
 def render_prompt_messages(

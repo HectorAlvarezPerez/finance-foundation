@@ -266,6 +266,28 @@ def test_langfuse_prompt_provider_falls_back_on_error(monkeypatch) -> None:
     assert "Available categories" in resolved.messages[1]["content"]
 
 
+def test_langfuse_prompt_provider_fallback_renders_curly_variables(monkeypatch) -> None:
+    monkeypatch.setattr("app.llm.prompt_provider.Langfuse", FailingLangfuseForPromptProvider)
+    provider = LangfusePromptProvider(settings)
+
+    resolved = provider.get_chat_prompt(
+        MONTHLY_INSIGHT_RECAP_PROMPT_NAME,
+        label="production",
+        variables={
+            "month_label": "abril 2026",
+            "signals_payload": '{"expense_total":"1.200,00 EUR"}',
+            "stories_payload": '[{"id":"top-category"}]',
+        },
+    )
+
+    assert resolved.source == "local_fallback"
+    content = resolved.messages[1]["content"]
+    assert "abril 2026" in content
+    assert '{"expense_total":"1.200,00 EUR"}' in content
+    assert '[{"id":"top-category"}]' in content
+    assert "{{month_label}}" not in content
+
+
 def test_langfuse_observability_client_is_best_effort(monkeypatch) -> None:
     monkeypatch.setattr("app.llm.observability.Langfuse", FailingLangfuseForObservability)
     client = LangfuseObservabilityClient(settings)
