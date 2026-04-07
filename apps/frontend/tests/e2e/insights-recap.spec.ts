@@ -54,20 +54,20 @@ function buildRecap(monthLabel: string, headlinePrefix: string, generatedAt: str
       {
         id: `${headlinePrefix}-3`,
         kind: "month_comparison",
-        headline: `${headlinePrefix} subió frente a febrero`,
-        subheadline: "Marzo empujó la línea un poco hacia arriba, sin romper la tendencia.",
+        headline: `${headlinePrefix} cerró igual que febrero`,
+        subheadline: "El gasto total quedó estable frente al mes anterior.",
         body: "La comparativa mantiene el recap anclado en una tendencia real y no en una sola cifra.",
         facts: [
-          { label: "Delta", value: "+€42.00", tone: "positive" },
+          { label: "Delta", value: "0,00 EUR", tone: "positive" },
         ],
         visual: {
           kind: "month_comparison",
-          current_amount: 1800,
-          previous_amount: 1758,
-          delta: 42,
+          current_amount: "2062,50",
+          previous_amount: "2.062,50",
+          delta: "0,00",
           current_label: "Mar 2026",
           previous_label: "Feb 2026",
-          current_color: "#0071e3",
+          current_color: "orange-500",
           previous_color: "rgba(255,255,255,0.34)",
         },
       },
@@ -152,10 +152,11 @@ test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
   await page.goto("/app/insights");
 
   await expect(page.getByRole("heading", { name: "Análisis financiero" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Ver recap mensual" })).toBeVisible();
+  const openRecapButton = page.getByRole("button", { name: /Ver recap( mensual)?/i });
+  await expect(openRecapButton).toBeVisible();
   await expect(page.getByLabel("Mes")).toHaveValue("2026-03");
 
-  await page.getByRole("button", { name: "Ver recap mensual" }).click();
+  await openRecapButton.click();
 
   const dialog = page.getByRole("dialog", { name: /Recap mensual/i });
   await expect(dialog).toBeVisible();
@@ -163,6 +164,14 @@ test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
 
   await dialog.getByRole("button", { name: "Siguiente story" }).click();
   await expect(dialog.getByRole("heading", { name: /Original tuvo un momento muy marcado/i })).toBeVisible();
+
+  await dialog.getByRole("button", { name: "Siguiente story" }).click();
+  await expect(dialog.getByRole("heading", { name: /Original cerró igual que febrero/i })).toBeVisible();
+  await expect(dialog.getByText("0,00 €")).toBeVisible();
+  const activeBarBackgroundImage = await dialog
+    .getByTestId("comparison-bar-active")
+    .evaluate((element) => getComputedStyle(element).backgroundImage);
+  expect(activeBarBackgroundImage).not.toBe("none");
 
   await dialog.getByRole("button", { name: "Cerrar recap" }).click();
   await expect(dialog).not.toBeVisible();
