@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
-import { CreditCard, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, CreditCard, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -17,6 +17,9 @@ import {
 } from "recharts";
 
 import { AmountValue } from "@/components/amount-value";
+import { CashFlowChart } from "@/components/insights/cash-flow-chart";
+import { CategoryTreemap } from "@/components/insights/category-treemap";
+import { CumulativePacingChart } from "@/components/insights/cumulative-pacing-chart";
 import { MonthlyRecapLauncher } from "@/components/insights/monthly-recap-launcher";
 import { MonthlyRecapOverlay } from "@/components/insights/monthly-recap-overlay";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -43,7 +46,7 @@ export default function InsightsPage() {
   const [summary, setSummary] = useState<InsightsSummaryWithRecapMonths | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedMonthKey, setSelectedMonthKey] = useState("");
+  const [selectedAnalysisMonthKey, setSelectedAnalysisMonthKey] = useState("");
   const [recap, setRecap] = useState<InsightsMonthlyRecap | null>(null);
   const [recapError, setRecapError] = useState<string | null>(null);
   const [isRecapLoading, setIsRecapLoading] = useState(false);
@@ -71,39 +74,62 @@ export default function InsightsPage() {
     return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
   }, []);
 
-  const periodLabel = useMemo(() => {
-    const today = new Date();
-    return formatMonthLabel(today.getFullYear(), today.getMonth() + 1);
-  }, []);
-
   const recapMonths = useMemo(() => normalizeRecapMonths(summary), [summary]);
+  const analysisMonths = useMemo(
+    () =>
+      (summary?.monthly_comparison ?? []).map((bucket) => ({
+        monthKey: bucket.month_key,
+        label: formatMonthKeyLabel(bucket.month_key),
+      })),
+    [summary],
+  );
 
   useEffect(() => {
-    if (!recapMonths.length) {
-      setSelectedMonthKey("");
+    if (!analysisMonths.length) {
+      setSelectedAnalysisMonthKey("");
       return;
     }
 
-    setSelectedMonthKey((current) => {
-      if (current && recapMonths.some((month) => month.monthKey === current)) {
+    setSelectedAnalysisMonthKey((current) => {
+      if (current && analysisMonths.some((month) => month.monthKey === current)) {
         return current;
       }
 
-      return recapMonths[recapMonths.length - 1]?.monthKey ?? "";
+      const currentMonth = analysisMonths.find((month) => month.monthKey === currentMonthKey);
+      return currentMonth?.monthKey ?? analysisMonths[analysisMonths.length - 1]?.monthKey ?? "";
     });
-  }, [recapMonths]);
+  }, [analysisMonths, currentMonthKey]);
+
+  const selectedAnalysisMonthIndex = useMemo(
+    () => analysisMonths.findIndex((month) => month.monthKey === selectedAnalysisMonthKey),
+    [analysisMonths, selectedAnalysisMonthKey],
+  );
+
+  const selectedAnalysisMonth =
+    selectedAnalysisMonthIndex >= 0 ? analysisMonths[selectedAnalysisMonthIndex] : null;
+
+  const periodLabel = selectedAnalysisMonth?.label ?? formatMonthLabel(new Date().getFullYear(), new Date().getMonth() + 1);
+
+  const recapTargetMonth = recapMonths.find((month) => month.monthKey === selectedAnalysisMonthKey) ?? null;
+  const recapTargetMonthKey = recapTargetMonth?.monthKey ?? "";
 
   const analytics = useMemo(() => {
     const monthlyComparison = summary?.monthly_comparison ?? [];
-    const currentMonthBucket =
-      monthlyComparison.find((bucket) => bucket.month_key === currentMonthKey) ??
+    const selectedMonthBucket =
+      monthlyComparison.find((bucket) => bucket.month_key === selectedAnalysisMonthKey) ??
       monthlyComparison[monthlyComparison.length - 1];
 
+    const selectedMonthIncome = Number(selectedMonthBucket?.income ?? 0);
+    const selectedMonthExpenses = Number(selectedMonthBucket?.expenses ?? 0);
+    const selectedMonthNet = Number(selectedMonthBucket?.net ?? 0);
+    const savingsRate =
+      selectedMonthIncome > 0 ? Math.max(0, Number(((selectedMonthNet / selectedMonthIncome) * 100).toFixed(2))) : 0;
+
     return {
-      income: Number(currentMonthBucket?.income ?? 0),
-      expenses: Number(currentMonthBucket?.expenses ?? 0),
+      income: selectedMonthIncome,
+      expenses: selectedMonthExpenses,
       balance: Number(summary?.balance ?? 0),
-      transactionCount: summary?.transaction_count ?? 0,
+      transactionCount: selectedMonthBucket?.transactions ?? 0,
       topCategories:
         summary?.top_categories.map((category) => ({
           categoryId: category.category_id ?? `missing-${category.name}`,
@@ -126,12 +152,25 @@ export default function InsightsPage() {
           total: Number(account.total),
           currency: account.currency,
         })) ?? [],
+      dailyPacing:
+        summary?.daily_pacing?.map((item) => ({
+          day: item.day,
+          current_month_cumulative: item.current_month_cumulative ? Number(item.current_month_cumulative) : null,
+          previous_month_cumulative: item.previous_month_cumulative ? Number(item.previous_month_cumulative) : null,
+        })) ?? [],
+      expenseCategories:
+        summary?.expense_categories?.map((category) => ({
+          name: category.name,
+          value: Number(category.total),
+          fill: category.color,
+        })) ?? [],
+      savingsRate,
     };
-  }, [currentMonthKey, summary]);
+  }, [selectedAnalysisMonthKey, summary]);
 
   async function loadMonthlyRecap(forceRegenerate: boolean) {
-    if (!selectedMonthKey) {
-      const message = "Selecciona un mes antes de generar el recap.";
+    if (!recapTargetMonthKey) {
+      const message = "Este mes no tiene recap disponible todavía.";
       setRecapError(message);
       toast(message, "error");
       return;
@@ -149,10 +188,10 @@ export default function InsightsPage() {
       const nextRecap = forceRegenerate
         ? await apiRequest<InsightsMonthlyRecap>("/insights/monthly-recap/regenerate", {
             method: "POST",
-            body: JSON.stringify({ month_key: selectedMonthKey } satisfies InsightsMonthlyRecapRegenerateRequest),
+            body: JSON.stringify({ month_key: recapTargetMonthKey } satisfies InsightsMonthlyRecapRegenerateRequest),
           })
         : await apiRequest<InsightsMonthlyRecap>(
-            `/insights/monthly-recap?month_key=${encodeURIComponent(selectedMonthKey)}`,
+            `/insights/monthly-recap?month_key=${encodeURIComponent(recapTargetMonthKey)}`,
           );
 
       setRecap(nextRecap);
@@ -203,12 +242,28 @@ export default function InsightsPage() {
       bgClass: "bg-[var(--app-danger-soft)]",
     },
     {
-      title: "Transacciones totales",
+      title: "Transacciones",
       value: String(analytics.transactionCount),
-      description: "Movimientos analizados",
+      description: "Movimientos",
       icon: <CreditCard className="h-5 w-5" />,
       accentClass: "text-[var(--app-muted)]",
       bgClass: "bg-[var(--app-muted-surface)]",
+    },
+    {
+      title: "Tasa de ahorro",
+      value: `${analytics.savingsRate}%`,
+      description: "Porcentaje mensual",
+      icon: <TrendingUp className="h-5 w-5" />,
+      accentClass: "text-[var(--app-accent)]",
+      bgClass: "bg-[var(--app-accent-soft)]",
+    },
+    {
+      title: "Salud Financiera",
+      value: analytics.savingsRate >= 20 ? "Excelente" : analytics.savingsRate >= 10 ? "Buena" : "Mejorable",
+      description: "Basado en ahorro",
+      icon: <CreditCard className="h-5 w-5" />,
+      accentClass: analytics.savingsRate >= 10 ? "text-[var(--app-success)]" : "text-[var(--app-danger)]",
+      bgClass: analytics.savingsRate >= 10 ? "bg-[var(--app-success-soft)]" : "bg-[var(--app-danger-soft)]",
     },
   ];
 
@@ -222,6 +277,57 @@ export default function InsightsPage() {
         <p className="mt-2 text-sm text-[var(--app-muted)]">
           Resumen analítico de balances, categorías y tendencias sobre tus movimientos.
         </p>
+
+        <div className="mt-4 flex w-full justify-end">
+          <div className="inline-flex items-center gap-2 rounded-2xl border-2 border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 shadow-[var(--app-shadow)]">
+            <div className="mr-1 hidden items-center gap-2 border-r border-[var(--app-border)] pr-3 sm:inline-flex">
+              <CalendarDays className="h-4 w-4 text-[var(--app-accent)]" />
+              <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--app-muted)]">
+                Mes analizado
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (selectedAnalysisMonthIndex <= 0) {
+                  return;
+                }
+
+                setSelectedAnalysisMonthKey(analysisMonths[selectedAnalysisMonthIndex - 1]?.monthKey ?? "");
+              }}
+              disabled={selectedAnalysisMonthIndex <= 0}
+              aria-label="Mes anterior"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-ink)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+
+            <span className="min-w-[130px] text-center text-sm font-bold text-[var(--app-ink)]">{periodLabel}</span>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  selectedAnalysisMonthIndex < 0 ||
+                  selectedAnalysisMonthIndex >= analysisMonths.length - 1
+                ) {
+                  return;
+                }
+
+                setSelectedAnalysisMonthKey(analysisMonths[selectedAnalysisMonthIndex + 1]?.monthKey ?? "");
+              }}
+              disabled={
+                selectedAnalysisMonthIndex < 0 ||
+                selectedAnalysisMonthIndex >= analysisMonths.length - 1
+              }
+              aria-label="Mes siguiente"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-ink)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
       </header>
 
       {summaryError ? (
@@ -234,12 +340,10 @@ export default function InsightsPage() {
         <ListSkeleton rows={4} />
       ) : (
         <>
-          <div className="grid gap-4 xl:grid-cols-2 xl:items-start">
+          <div className="grid gap-4 xl:grid-cols-[0.82fr_1.18fr] xl:items-start">
             <MonthlyRecapLauncher
               compact
-              months={recapMonths}
-              selectedMonthKey={selectedMonthKey}
-              onSelectedMonthKeyChange={setSelectedMonthKey}
+              hasSelectedMonth={Boolean(recapTargetMonthKey)}
               onPlay={() => void loadMonthlyRecap(false)}
               onRegenerate={() => void loadMonthlyRecap(true)}
               isLoading={isRecapLoading || isRegenerating}
@@ -247,7 +351,7 @@ export default function InsightsPage() {
               error={recapError}
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               {metricCards.map((item, index) => (
                 <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -265,97 +369,13 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Card className="min-w-0 animate-slideUp stagger-5">
-              <CardHeader>
-                <CardTitle>Gasto por categoría</CardTitle>
-                <CardDescription>Top categorías ordenadas por volumen total de gasto.</CardDescription>
-              </CardHeader>
-              <CardContent className="min-w-0">
-                {analytics.topCategories.length ? (
-                  <ChartFrame>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                      <BarChart
-                        data={analytics.topCategories.map((category) => ({
-                          name: category.name,
-                          total: category.total,
-                          fill: category.color,
-                        }))}
-                        layout="vertical"
-                        margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" horizontal={false} />
-                        <XAxis
-                          type="number"
-                          tick={{ fill: "var(--app-muted)", fontSize: 12 }}
-                          tickFormatter={(value) => compactCurrency(Number(value))}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          width={90}
-                          tick={{ fill: "var(--app-ink)", fontSize: 12 }}
-                        />
-                        <Tooltip
-                          cursor={{ fill: "var(--app-muted-surface)" }}
-                          formatter={(value) => [formatCurrency(Number(value ?? 0), "EUR"), "Gasto"]}
-                          contentStyle={tooltipStyle}
-                        />
-                        <Bar dataKey="total" radius={[0, 8, 8, 0]}>
-                          {analytics.topCategories.map((category) => (
-                            <Cell key={category.categoryId} fill={withOpacity(category.color, 0.72)} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartFrame>
-                ) : (
-                  <p className="text-sm text-[var(--app-muted)]">
-                    Aún no hay suficiente actividad para mostrar categorías con gasto.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+          <div className="animate-slideUp stagger-4">
+            <CumulativePacingChart data={analytics.dailyPacing} />
+          </div>
 
-            <Card className="min-w-0 animate-slideUp stagger-5">
-              <CardHeader>
-                <CardTitle>Comparación mensual</CardTitle>
-                <CardDescription>Ingresos y gastos de los últimos meses con datos reales.</CardDescription>
-              </CardHeader>
-              <CardContent className="min-w-0">
-                {analytics.monthlyComparison.length ? (
-                  <ChartFrame>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                      <BarChart data={analytics.monthlyComparison} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" />
-                        <XAxis dataKey="month" tick={{ fill: "var(--app-muted)", fontSize: 12 }} />
-                        <YAxis
-                          tick={{ fill: "var(--app-muted)", fontSize: 12 }}
-                          tickFormatter={(value) => compactCurrency(Number(value))}
-                        />
-                        <Tooltip
-                          formatter={(value, name) => [
-                            formatCurrency(Number(value ?? 0), "EUR"),
-                            name === "income" ? "Ingresos" : "Gastos",
-                          ]}
-                          contentStyle={tooltipStyle}
-                        />
-                        <Legend
-                          formatter={(value: string) => (value === "income" ? "Ingresos" : "Gastos")}
-                          wrapperStyle={{ fontSize: 12 }}
-                        />
-                        <Bar dataKey="income" name="income" fill={chartPalette.success} radius={[8, 8, 0, 0]} />
-                        <Bar dataKey="expenses" name="expenses" fill={chartPalette.danger} radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartFrame>
-                ) : (
-                  <p className="text-sm text-[var(--app-muted)]">
-                    No hay suficiente histórico para comparar meses.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <CategoryTreemap data={analytics.expenseCategories} />
+            <CashFlowChart data={analytics.monthlyComparison} />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
@@ -435,16 +455,23 @@ export default function InsightsPage() {
                           />
                           <Bar dataKey="total" radius={[0, 8, 8, 0]}>
                             {analytics.accountBalances.map((account) => (
-                              <Cell
-                                key={account.accountId}
-                                fill={
+                              (() => {
+                                const strongColor =
                                   account.total > 0
                                     ? chartPalette.success
                                     : account.total < 0
                                       ? chartPalette.danger
-                                      : chartPalette.muted
-                                }
-                              />
+                                      : chartPalette.muted;
+
+                                return (
+                                  <Cell
+                                    key={account.accountId}
+                                    fill={withOpacity(strongColor, 0.24)}
+                                    stroke={strongColor}
+                                    strokeWidth={1.5}
+                                  />
+                                );
+                              })()
                             ))}
                           </Bar>
                         </BarChart>

@@ -12,8 +12,8 @@ export function Modal({
   dialogClassName,
 }: {
   open: boolean;
-  title: string;
-  description?: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
   onClose: () => void;
   children: React.ReactNode;
   dialogClassName?: string;
@@ -102,7 +102,7 @@ export function Modal({
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={title}
+        aria-label={typeof title === "string" ? title : "Modal"}
         tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-4 border-b border-[var(--app-border)] px-6 py-5">

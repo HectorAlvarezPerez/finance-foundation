@@ -60,21 +60,21 @@ test.describe("CRUD principal", () => {
     await page.getByLabel("Nombre de la cuenta").fill(accountName);
     await page.getByLabel("Banco").fill("Banco PW");
     await page.getByLabel("Tipo de cuenta").selectOption("other");
-    await page.getByLabel("Divisa").fill("EUR");
     await page.getByLabel("Saldo inicial").fill("250");
     await page.getByRole("button", { name: "Crear cuenta" }).click();
-    await expect(page.getByText(accountName, { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: `Ir a ${accountName}` })).toBeVisible();
 
     await page.getByRole("button", { name: `Ir a ${accountName}` }).click();
     await page.getByLabel(`Acciones de cuenta ${accountName}`).click();
-    await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Editar" }).click();
-    await page.getByLabel("Nombre de la cuenta").fill(accountNameUpdated);
-    await page.getByRole("button", { name: "Guardar cambios" }).click();
+    await page.getByRole("button", { name: "Editar" }).last().click();
+    const accountDialog = page.getByRole("dialog", { name: /Editar cuenta/i });
+    await expect(accountDialog).toBeVisible();
+    await accountDialog.getByLabel("Nombre de la cuenta").fill(accountNameUpdated);
+    await accountDialog.getByRole("button", { name: "Guardar cambios" }).click();
 
     await page.goto("/app/categories");
-    await page.getByRole("button", { name: "Nueva categoría" }).click();
+    await page.getByRole("button", { name: "Añadir" }).first().click();
     await page.getByLabel("Nombre de la categoría").fill(categoryName);
-    await page.getByLabel("Tipo de categoría").selectOption("expense");
     await page.getByLabel("Seleccionar color #2563eb").click();
     await page.getByRole("button", { name: "Crear categoría" }).click();
     await expect(page.getByText(categoryName, { exact: true })).toBeVisible();
@@ -82,6 +82,7 @@ test.describe("CRUD principal", () => {
     await page.getByLabel(`Acciones de categoría ${categoryName}`).click();
     await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Editar" }).click();
     await page.getByLabel("Nombre de la categoría").fill(categoryNameUpdated);
+    await page.getByLabel("Tipo de categoría").selectOption("expense");
     await page.getByRole("button", { name: "Guardar cambios" }).click();
 
     await page.goto("/app/budgets");

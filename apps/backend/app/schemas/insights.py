@@ -13,6 +13,20 @@ class InsightsTopCategoryRead(BaseModel):
     total: Decimal
 
 
+class InsightsCategoryTotalRead(BaseModel):
+    category_id: uuid.UUID | None
+    name: str
+    color: str
+    type: Literal["income", "expense", "transfer"]
+    total: Decimal
+
+
+class InsightsDailyPacingRead(BaseModel):
+    day: int
+    current_month_cumulative: Decimal | None = None
+    previous_month_cumulative: Decimal | None = None
+
+
 class InsightsMonthlyBucketRead(BaseModel):
     month_key: str
     month_label: str
@@ -104,3 +118,6 @@ class InsightsSummaryRead(BaseModel):
     monthly_comparison: list[InsightsMonthlyBucketRead]
     account_balances: list[InsightsAccountBalanceRead]
     available_recap_months: list[InsightsMonthlyRecapMonthRead] = Field(default_factory=list)
+    expense_categories: list[InsightsCategoryTotalRead] = Field(default_factory=list)
+    daily_pacing: list[InsightsDailyPacingRead] = Field(default_factory=list)
+    savings_rate: float = 0.0

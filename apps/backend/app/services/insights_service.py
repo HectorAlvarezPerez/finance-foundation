@@ -12,6 +12,8 @@ from app.repositories.category_repository import CategoryRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.insights import (
     InsightsAccountBalanceRead,
+    InsightsCategoryTotalRead,
+    InsightsDailyPacingRead,
     InsightsMonthlyBucketRead,
     InsightsMonthlyRecapMonthRead,
     InsightsSummaryRead,
@@ -126,6 +128,15 @@ class InsightsService:
             reverse=True,
         )[:6]
 
+        expense_categories = sorted(
+            (
+                self._build_category_total(category_map, category_id, total)
+                for category_id, total in expense_by_category.items()
+            ),
+            key=lambda item: item.total,
+            reverse=True,
+        )
+
         monthly_comparison = [
             InsightsMonthlyBucketRead(
                 month_key=bucket.month_key,
@@ -147,6 +158,47 @@ class InsightsService:
             reverse=True,
         )
 
+        today = date.today()
+        current_month_key = today.strftime("%Y-%m")
+        if today.month == 1:
+            prev_year = today.year - 1
+            prev_month = 12
+        else:
+            prev_year = today.year
+            prev_month = today.month - 1
+        prev_month_key = f"{prev_year}-{prev_month:02d}"
+
+        current_pacing = {day: Decimal("0.00") for day in range(1, 32)}
+        prev_pacing = {day: Decimal("0.00") for day in range(1, 32)}
+
+        for t in transactions:
+            if t.amount < 0:
+                month_key = t.date.strftime("%Y-%m")
+                if month_key == current_month_key:
+                    current_pacing[t.date.day] += abs(t.amount)
+                elif month_key == prev_month_key:
+                    prev_pacing[t.date.day] += abs(t.amount)
+
+        current_cum = Decimal("0.00")
+        prev_cum = Decimal("0.00")
+        daily_pacing = []
+        for day in range(1, 32):
+            current_cum += current_pacing[day]
+            prev_cum += prev_pacing[day]
+
+            curr_val = current_cum if day <= today.day else None
+            daily_pacing.append(
+                InsightsDailyPacingRead(
+                    day=day,
+                    current_month_cumulative=curr_val,
+                    previous_month_cumulative=prev_cum,
+                )
+            )
+
+        savings_rate = 0.0
+        if income > 0:
+            savings_rate = max(0.0, float((balance / income) * 100))
+
         return InsightsSummaryRead(
             income=income,
             expenses=expenses,
@@ -156,6 +208,9 @@ class InsightsService:
             monthly_comparison=monthly_comparison,
             account_balances=account_balances,
             available_recap_months=self.build_available_recap_months(transactions),
+            expense_categories=expense_categories,
+            daily_pacing=daily_pacing,
+            savings_rate=round(savings_rate, 2),
         )
 
     def build_available_recap_months(
@@ -204,6 +259,24 @@ class InsightsService:
             category_id=category_id,
             name=name,
             color=color,
+            total=total,
+        )
+
+    def _build_category_total(
+        self,
+        category_map: dict[uuid.UUID, Category],
+        category_id: uuid.UUID | None,
+        total: Decimal,
+    ) -> InsightsCategoryTotalRead:
+        category = category_map.get(category_id) if category_id is not None else None
+        name = category.name if category is not None else "Sin categoría"
+        color = category.color if category is not None and category.color else "#94a3b8"
+        ctype = category.type.value if category is not None else "expense"
+        return InsightsCategoryTotalRead(
+            category_id=category_id,
+            name=name,
+            color=color,
+            type=ctype,
             total=total,
         )
 

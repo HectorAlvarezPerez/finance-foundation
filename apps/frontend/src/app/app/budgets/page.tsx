@@ -493,12 +493,19 @@ function BudgetStatusCard({
   onEdit: () => void;
   onDelete: () => void;
 }) {
-  const statusClass =
+  const gradientClass =
     budget.tone === "danger"
-      ? "border-[color-mix(in_srgb,var(--app-danger)_30%,transparent)] text-[var(--app-danger)] bg-[color-mix(in_srgb,var(--app-danger-soft)_55%,transparent)]"
+      ? "from-[color-mix(in_srgb,var(--app-danger)_18%,transparent)] to-transparent"
       : budget.tone === "warning"
-        ? "border-[color-mix(in_srgb,var(--app-warning)_35%,transparent)] text-[var(--app-warning)] bg-[color-mix(in_srgb,var(--app-warning-soft)_55%,transparent)]"
-        : "border-[var(--app-border)] text-[var(--app-ink)] bg-[color-mix(in_srgb,var(--app-muted-surface)_72%,transparent)]";
+        ? "from-[color-mix(in_srgb,var(--app-warning)_16%,transparent)] to-transparent"
+        : "from-[color-mix(in_srgb,var(--app-success)_14%,transparent)] to-transparent";
+
+  const accentColor =
+    budget.tone === "danger"
+      ? "var(--app-danger)"
+      : budget.tone === "warning"
+        ? "var(--app-warning)"
+        : "var(--app-success)";
 
   const progressClass =
     budget.tone === "danger"
@@ -507,55 +514,97 @@ function BudgetStatusCard({
         ? "bg-[var(--app-warning)]"
         : "bg-[var(--app-success)]";
 
+  const statusBadgeClass =
+    budget.tone === "danger"
+      ? "border-[color-mix(in_srgb,var(--app-danger)_30%,transparent)] text-[var(--app-danger)] bg-[color-mix(in_srgb,var(--app-danger-soft)_55%,transparent)]"
+      : budget.tone === "warning"
+        ? "border-[color-mix(in_srgb,var(--app-warning)_35%,transparent)] text-[var(--app-warning)] bg-[color-mix(in_srgb,var(--app-warning-soft)_55%,transparent)]"
+        : "border-[var(--app-border)] text-[var(--app-success)] bg-[color-mix(in_srgb,var(--app-success-soft)_55%,transparent)]";
+
   const footerClass = budget.remaining < 0 ? "text-[var(--app-danger)]" : "text-[var(--app-success)]";
   const progressWidth = `${Math.min(Math.max(budget.usagePercent, 0), 100)}%`;
 
   return (
-    <Card className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-visible hover:z-10`}>
-      <CardHeader className="gap-3 pb-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="space-y-1">
-            <CardTitle className="text-lg">{budget.category?.name ?? "Categoría"}</CardTitle>
-            <p className="text-xs text-[var(--app-muted)]">{formatMonthLabel(budget.year, budget.month)}</p>
+    <div
+      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] transition-shadow hover:shadow-[var(--app-shadow-elevated)] hover:z-10`}
+    >
+      {/* Colored gradient top band */}
+      <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${gradientClass} pointer-events-none`} />
+
+      <div className="relative">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
+          <div className="space-y-0.5">
+            <p className="text-[11px] uppercase tracking-[0.1em] text-[var(--app-muted)]">
+              {formatMonthLabel(budget.year, budget.month)}
+            </p>
+            <h3 className="text-base font-semibold text-[var(--app-ink)]">
+              {budget.category?.name ?? "Categoría"}
+            </h3>
           </div>
-          <div className="relative z-20 flex items-center gap-2">
-            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-medium ${statusClass}`}>
+          <div className="flex items-center gap-2 pt-0.5">
+            <span className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClass}`}>
               {budget.statusLabel}
             </span>
-            <BudgetActionsMenu label={`${budget.category?.name ?? "Categoría"} ${formatMonthLabel(budget.year, budget.month)}`} onEdit={onEdit} onDelete={onDelete} />
+            <BudgetActionsMenu
+              label={`${budget.category?.name ?? "Categoría"} ${formatMonthLabel(budget.year, budget.month)}`}
+              onEdit={onEdit}
+              onDelete={onDelete}
+            />
           </div>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
-          <MetricPair label="Presupuesto" value={budget.amountNumber} currency={budget.currency} />
-          <MetricPair label="Gastado" value={budget.spent} currency={budget.currency} />
         </div>
 
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-xs text-[var(--app-muted)]">
-            <span>Uso</span>
-            <span>{budget.usagePercent.toFixed(1)}%</span>
+        {/* Big usage number + amounts row */}
+        <div className="flex items-end justify-between gap-4 px-5 pb-4">
+          <div>
+            <p
+              className="text-4xl font-black leading-none tabular-nums"
+              style={{ color: accentColor }}
+            >
+              {budget.usagePercent.toFixed(0)}
+              <span className="text-xl font-semibold">%</span>
+            </p>
+            <p className="mt-1 text-[11px] text-[var(--app-muted)]">usado</p>
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--app-muted-surface)_78%,transparent)]">
+          <div className="grid grid-cols-2 gap-x-6 text-right">
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">Presupuesto</p>
+              <p className="mt-0.5 text-sm font-semibold text-[var(--app-ink)]">
+                {formatCurrency(budget.amountNumber, budget.currency)}
+              </p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">Gastado</p>
+              <p className="mt-0.5 text-sm font-semibold text-[var(--app-ink)]">
+                {formatCurrency(budget.spent, budget.currency)}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="px-5 pb-4">
+          <div className="h-2.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--app-muted-surface)_80%,transparent)]">
             <div
-              className={`h-2 rounded-full transition-[width] duration-700 ease-out ${progressClass}`}
+              className={`h-2.5 rounded-full transition-[width] duration-700 ease-out ${progressClass}`}
               style={{ width: progressWidth, animation: "progressFill 800ms ease-out" }}
             />
           </div>
         </div>
 
-        <div className="flex items-center justify-between gap-3">
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-[var(--app-border)] px-5 py-3">
           <p className={`text-sm font-semibold ${footerClass}`}>
             {budget.remaining < 0 ? "Excedido" : "Disponible"}:{" "}
             {formatCurrency(Math.abs(budget.remaining), budget.currency)}
           </p>
           <CategoryBadge category={budget.category} fallback="Categoría" variant="inline" />
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
+
 
 function BudgetActionsMenu({
   label,
@@ -617,23 +666,6 @@ function BudgetActionsMenu({
           </button>
         </div>
       ) : null}
-    </div>
-  );
-}
-
-function MetricPair({
-  label,
-  value,
-  currency,
-}: {
-  label: string;
-  value: number;
-  currency: string;
-}) {
-  return (
-    <div>
-      <p className="text-[11px] uppercase tracking-[0.08em] text-[var(--app-muted)]">{label}</p>
-      <p className="mt-1.5 text-xl font-semibold">{formatCurrency(Math.abs(value), currency)}</p>
     </div>
   );
 }

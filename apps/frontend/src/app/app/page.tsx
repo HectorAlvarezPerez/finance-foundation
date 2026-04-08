@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, CreditCard, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
+import { ArrowRight, BarChart2, CreditCard, PiggyBank, TrendingDown, TrendingUp, Wallet } from "lucide-react";
 
 import { AmountValue } from "@/components/amount-value";
 import { CategoryBadge } from "@/components/category-badge";
@@ -242,17 +242,58 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="grid gap-2">
                   {[
-                    { href: "/app/transactions", label: "Crear una transacción" },
-                    { href: "/app/budgets", label: "Configurar presupuestos mensuales" },
-                    { href: "/app/insights", label: "Abrir análisis financiero" },
+                    {
+                      href: "/app/transactions",
+                      label: "Crear una transacción",
+                      icon: <CreditCard className="h-4 w-4" />,
+                      accentVar: "var(--app-accent)",
+                      bgVar: "var(--app-accent-soft)",
+                      borderVar: "var(--app-accent)",
+                    },
+                    {
+                      href: "/app/budgets",
+                      label: "Configurar presupuestos",
+                      icon: <PiggyBank className="h-4 w-4" />,
+                      accentVar: "var(--app-warning)",
+                      bgVar: "var(--app-warning-soft)",
+                      borderVar: "var(--app-warning)",
+                    },
+                    {
+                      href: "/app/insights",
+                      label: "Abrir análisis financiero",
+                      icon: <BarChart2 className="h-4 w-4" />,
+                      accentVar: "var(--app-success)",
+                      bgVar: "var(--app-success-soft)",
+                      borderVar: "var(--app-success)",
+                    },
                   ].map((action) => (
                     <Link
                       key={action.href}
                       href={action.href}
-                      className="flex items-center justify-between rounded-xl border border-[var(--app-border)] px-4 py-3 text-sm font-medium transition-all hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
+                      style={{
+                        borderLeftColor: action.borderVar,
+                        // @ts-expect-error CSS custom property
+                        "--action-accent": action.accentVar,
+                        "--action-bg": action.bgVar,
+                      }}
+                      className="group flex items-center justify-between gap-3 rounded-xl border border-[var(--app-border)] border-l-[3px] px-4 py-3 text-sm font-medium transition-all hover:bg-[var(--action-bg,var(--app-accent-soft))] hover:border-[var(--app-border)]"
                     >
-                      <span>{action.label}</span>
-                      <ArrowRight className="h-4 w-4 text-[var(--app-muted)]" />
+                      <span
+                        className="flex items-center gap-3"
+                        style={{ color: action.accentVar }}
+                      >
+                        <span
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                          style={{ background: action.bgVar }}
+                        >
+                          {action.icon}
+                        </span>
+                        <span className="text-[var(--app-ink)]">{action.label}</span>
+                      </span>
+                      <ArrowRight
+                        className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-0.5"
+                        style={{ color: action.accentVar }}
+                      />
                     </Link>
                   ))}
                 </CardContent>
