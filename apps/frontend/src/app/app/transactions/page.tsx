@@ -1893,7 +1893,10 @@ function inferTransactionKind(
     return categoryType;
   }
 
-  return transaction.amount < 0 ? "expense" : "income";
+  const numericAmount = typeof transaction.amount === "number"
+    ? transaction.amount
+    : Number(transaction.amount);
+  return numericAmount < 0 ? "expense" : "income";
 }
 
 function normalizeImportPreviewRow(row: TransactionImportPreviewRow): TransactionImportPreviewRow {
