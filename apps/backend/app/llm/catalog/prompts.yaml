@@ -104,13 +104,17 @@ prompts:
     messages:
       - role: system
         content: |
-          Eres un asistente de release notes operativas. Responde solo con un párrafo breve,
-          claro y factual en español.
+          Eres un asistente de release notes operativas. Resume únicamente el delta
+          desplegado en esta ejecución. Responde en español, de forma factual y sin inventar.
       - role: user
         content: |
           Resume en español, en un único párrafo breve de 1 a 3 frases, qué se ha desplegado.
-          No inventes detalles ni menciones que se ha usado un LLM.
-          Prioriza lo que cambia a nivel operativo o funcional.
+          Reglas:
+          - Usa como fuente principal el bloque de contexto que se incluye abajo.
+          - Si hay rango de commits, resume solo ese rango (delta desplegado real).
+          - No priorices una PR de docs si en el rango hay cambios funcionales.
+          - No inventes detalles ni menciones que se ha usado un LLM.
+          - Prioriza impacto operativo o funcional.
 
           Servicio: {{service}}
           Entorno: {{environment}}
