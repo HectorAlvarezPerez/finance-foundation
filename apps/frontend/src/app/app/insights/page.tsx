@@ -17,6 +17,9 @@ import {
 } from "recharts";
 
 import { AmountValue } from "@/components/amount-value";
+import { CashFlowChart } from "@/components/insights/cash-flow-chart";
+import { CategoryTreemap } from "@/components/insights/category-treemap";
+import { CumulativePacingChart } from "@/components/insights/cumulative-pacing-chart";
 import { MonthlyRecapLauncher } from "@/components/insights/monthly-recap-launcher";
 import { MonthlyRecapOverlay } from "@/components/insights/monthly-recap-overlay";
 import { ListSkeleton } from "@/components/ui/skeleton";
@@ -126,6 +129,19 @@ export default function InsightsPage() {
           total: Number(account.total),
           currency: account.currency,
         })) ?? [],
+      dailyPacing:
+        summary?.daily_pacing?.map((item) => ({
+          day: item.day,
+          current_month_cumulative: item.current_month_cumulative ? Number(item.current_month_cumulative) : null,
+          previous_month_cumulative: item.previous_month_cumulative ? Number(item.previous_month_cumulative) : null,
+        })) ?? [],
+      expenseCategories:
+        summary?.expense_categories?.map((category) => ({
+          name: category.name,
+          value: Number(category.total),
+          fill: category.color,
+        })) ?? [],
+      savingsRate: summary?.savings_rate ?? 0,
     };
   }, [currentMonthKey, summary]);
 
@@ -203,12 +219,28 @@ export default function InsightsPage() {
       bgClass: "bg-[var(--app-danger-soft)]",
     },
     {
-      title: "Transacciones totales",
+      title: "Transacciones",
       value: String(analytics.transactionCount),
-      description: "Movimientos analizados",
+      description: "Movimientos",
       icon: <CreditCard className="h-5 w-5" />,
       accentClass: "text-[var(--app-muted)]",
       bgClass: "bg-[var(--app-muted-surface)]",
+    },
+    {
+      title: "Tasa de ahorro",
+      value: `${analytics.savingsRate}%`,
+      description: "Porcentaje mensual",
+      icon: <TrendingUp className="h-5 w-5" />,
+      accentClass: "text-[var(--app-accent)]",
+      bgClass: "bg-[var(--app-accent-soft)]",
+    },
+    {
+      title: "Salud Financiera",
+      value: analytics.savingsRate >= 20 ? "Excelente" : analytics.savingsRate >= 10 ? "Buena" : "Mejorable",
+      description: "Basado en ahorro",
+      icon: <CreditCard className="h-5 w-5" />,
+      accentClass: analytics.savingsRate >= 10 ? "text-[var(--app-success)]" : "text-[var(--app-danger)]",
+      bgClass: analytics.savingsRate >= 10 ? "bg-[var(--app-success-soft)]" : "bg-[var(--app-danger-soft)]",
     },
   ];
 
@@ -247,7 +279,7 @@ export default function InsightsPage() {
               error={recapError}
             />
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
               {metricCards.map((item, index) => (
                 <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -265,97 +297,13 @@ export default function InsightsPage() {
             </div>
           </div>
 
-          <div className="grid gap-6 xl:grid-cols-2">
-            <Card className="min-w-0 animate-slideUp stagger-5">
-              <CardHeader>
-                <CardTitle>Gasto por categoría</CardTitle>
-                <CardDescription>Top categorías ordenadas por volumen total de gasto.</CardDescription>
-              </CardHeader>
-              <CardContent className="min-w-0">
-                {analytics.topCategories.length ? (
-                  <ChartFrame>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                      <BarChart
-                        data={analytics.topCategories.map((category) => ({
-                          name: category.name,
-                          total: category.total,
-                          fill: category.color,
-                        }))}
-                        layout="vertical"
-                        margin={{ top: 4, right: 16, left: 8, bottom: 4 }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" horizontal={false} />
-                        <XAxis
-                          type="number"
-                          tick={{ fill: "var(--app-muted)", fontSize: 12 }}
-                          tickFormatter={(value) => compactCurrency(Number(value))}
-                        />
-                        <YAxis
-                          type="category"
-                          dataKey="name"
-                          width={90}
-                          tick={{ fill: "var(--app-ink)", fontSize: 12 }}
-                        />
-                        <Tooltip
-                          cursor={{ fill: "var(--app-muted-surface)" }}
-                          formatter={(value) => [formatCurrency(Number(value ?? 0), "EUR"), "Gasto"]}
-                          contentStyle={tooltipStyle}
-                        />
-                        <Bar dataKey="total" radius={[0, 8, 8, 0]}>
-                          {analytics.topCategories.map((category) => (
-                            <Cell key={category.categoryId} fill={withOpacity(category.color, 0.72)} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartFrame>
-                ) : (
-                  <p className="text-sm text-[var(--app-muted)]">
-                    Aún no hay suficiente actividad para mostrar categorías con gasto.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+          <div className="animate-slideUp stagger-4">
+            <CumulativePacingChart data={analytics.dailyPacing} />
+          </div>
 
-            <Card className="min-w-0 animate-slideUp stagger-5">
-              <CardHeader>
-                <CardTitle>Comparación mensual</CardTitle>
-                <CardDescription>Ingresos y gastos de los últimos meses con datos reales.</CardDescription>
-              </CardHeader>
-              <CardContent className="min-w-0">
-                {analytics.monthlyComparison.length ? (
-                  <ChartFrame>
-                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-                      <BarChart data={analytics.monthlyComparison} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke="var(--app-border)" />
-                        <XAxis dataKey="month" tick={{ fill: "var(--app-muted)", fontSize: 12 }} />
-                        <YAxis
-                          tick={{ fill: "var(--app-muted)", fontSize: 12 }}
-                          tickFormatter={(value) => compactCurrency(Number(value))}
-                        />
-                        <Tooltip
-                          formatter={(value, name) => [
-                            formatCurrency(Number(value ?? 0), "EUR"),
-                            name === "income" ? "Ingresos" : "Gastos",
-                          ]}
-                          contentStyle={tooltipStyle}
-                        />
-                        <Legend
-                          formatter={(value: string) => (value === "income" ? "Ingresos" : "Gastos")}
-                          wrapperStyle={{ fontSize: 12 }}
-                        />
-                        <Bar dataKey="income" name="income" fill={chartPalette.success} radius={[8, 8, 0, 0]} />
-                        <Bar dataKey="expenses" name="expenses" fill={chartPalette.danger} radius={[8, 8, 0, 0]} />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </ChartFrame>
-                ) : (
-                  <p className="text-sm text-[var(--app-muted)]">
-                    No hay suficiente histórico para comparar meses.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+          <div className="grid gap-6 xl:grid-cols-2">
+            <CategoryTreemap data={analytics.expenseCategories} />
+            <CashFlowChart data={analytics.monthlyComparison} />
           </div>
 
           <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">

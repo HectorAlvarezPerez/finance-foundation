@@ -861,6 +861,90 @@
         "title": "InsightsAccountBalanceRead",
         "type": "object"
       },
+      "InsightsCategoryTotalRead": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "color": {
+            "title": "Color",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "total": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total",
+            "type": "string"
+          },
+          "type": {
+            "enum": [
+              "income",
+              "expense",
+              "transfer"
+            ],
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "category_id",
+          "name",
+          "color",
+          "type",
+          "total"
+        ],
+        "title": "InsightsCategoryTotalRead",
+        "type": "object"
+      },
+      "InsightsDailyPacingRead": {
+        "properties": {
+          "current_month_cumulative": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Current Month Cumulative"
+          },
+          "day": {
+            "title": "Day",
+            "type": "integer"
+          },
+          "previous_month_cumulative": {
+            "anyOf": [
+              {
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Month Cumulative"
+          }
+        },
+        "required": [
+          "day"
+        ],
+        "title": "InsightsDailyPacingRead",
+        "type": "object"
+      },
       "InsightsMonthlyBucketRead": {
         "properties": {
           "expenses": {
@@ -1326,6 +1410,20 @@
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
             "title": "Balance",
             "type": "string"
+          },
+          "daily_pacing": {
+            "items": {
+              "$ref": "#/components/schemas/InsightsDailyPacingRead"
+            },
+            "title": "Daily Pacing",
+            "type": "array"
+          },
+          "expense_categories": {
+            "items": {
+              "$ref": "#/components/schemas/InsightsCategoryTotalRead"
+            },
+            "title": "Expense Categories",
+            "type": "array"
           },
           "expenses": {
             "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",

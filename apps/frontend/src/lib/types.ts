@@ -77,6 +77,7 @@ export type InsightsSummaryWithRecapMonths = SharedInsightsSummary & {
   available_recap_months?: Array<
     InsightsRecapMonth | { month_key: string; month_label?: string } | string
   >;
+  savings_rate?: number;
 };
 
 export type InsightsMonthlyRecapRegenerateRequest = {

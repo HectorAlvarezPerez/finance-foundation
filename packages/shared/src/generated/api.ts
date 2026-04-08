@@ -777,6 +777,31 @@ export interface components {
             /** Total */
             total: string;
         };
+        /** InsightsCategoryTotalRead */
+        InsightsCategoryTotalRead: {
+            /** Category Id */
+            category_id: string | null;
+            /** Color */
+            color: string;
+            /** Name */
+            name: string;
+            /** Total */
+            total: string;
+            /**
+             * Type
+             * @enum {string}
+             */
+            type: "income" | "expense" | "transfer";
+        };
+        /** InsightsDailyPacingRead */
+        InsightsDailyPacingRead: {
+            /** Current Month Cumulative */
+            current_month_cumulative?: string | null;
+            /** Day */
+            day: number;
+            /** Previous Month Cumulative */
+            previous_month_cumulative?: string | null;
+        };
         /** InsightsMonthlyBucketRead */
         InsightsMonthlyBucketRead: {
             /** Expenses */
@@ -924,6 +949,10 @@ export interface components {
             available_recap_months?: components["schemas"]["InsightsMonthlyRecapMonthRead"][];
             /** Balance */
             balance: string;
+            /** Daily Pacing */
+            daily_pacing?: components["schemas"]["InsightsDailyPacingRead"][];
+            /** Expense Categories */
+            expense_categories?: components["schemas"]["InsightsCategoryTotalRead"][];
             /** Expenses */
             expenses: string;
             /** Income */
