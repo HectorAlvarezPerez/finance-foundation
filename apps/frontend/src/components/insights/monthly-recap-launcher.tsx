@@ -2,15 +2,12 @@
 
 import { RefreshCw, Sparkles, Play } from "lucide-react";
 
-import { formatMonthLabel } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import type { InsightsMonthlyRecap, InsightsRecapMonth } from "@/lib/types";
+import type { InsightsMonthlyRecap } from "@/lib/types";
 
 export function MonthlyRecapLauncher({
   compact = false,
-  months,
-  selectedMonthKey,
-  onSelectedMonthKeyChange,
+  hasSelectedMonth,
   onPlay,
   onRegenerate,
   isLoading,
@@ -18,18 +15,13 @@ export function MonthlyRecapLauncher({
   error,
 }: {
   compact?: boolean;
-  months: Array<InsightsRecapMonth | string>;
-  selectedMonthKey: string;
-  onSelectedMonthKeyChange: (monthKey: string) => void;
+  hasSelectedMonth: boolean;
   onPlay: () => void;
   onRegenerate: () => void;
   isLoading: boolean;
   recap: InsightsMonthlyRecap | null;
   error: string | null;
 }) {
-  const normalizedMonths = months.map((month) => normalizeMonth(month));
-  const selectedMonth = normalizedMonths.find((month) => month.monthKey === selectedMonthKey);
-
   return (
     <section
       className="relative overflow-hidden rounded-[2rem] border shadow-[var(--app-shadow-elevated)]"
@@ -45,26 +37,26 @@ export function MonthlyRecapLauncher({
       <div
         className={cn(
           "relative grid",
-          compact ? "gap-3 p-3 sm:p-4" : "gap-4 p-4 sm:p-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-5",
+          compact ? "gap-2.5 p-2.5 sm:p-3" : "gap-4 p-4 sm:p-5 lg:grid-cols-[1.1fr_0.9fr] lg:gap-5",
         )}
       >
-        <div className={cn("flex min-h-0 flex-col justify-between", compact ? "gap-3" : "gap-4")}>
-          <div className="space-y-3">
-            <div className="inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)] backdrop-blur">
-              <Sparkles className="h-3.5 w-3.5" />
+        <div className={cn("flex min-h-0 flex-col justify-between", compact ? "gap-2" : "gap-4")}>
+          <div className={cn(compact ? "space-y-2" : "space-y-3")}>
+            <div className={cn("inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-muted-surface)] font-semibold uppercase text-[var(--app-muted)] backdrop-blur", compact ? "gap-1.5 px-2.5 py-0.5 text-[10px] tracking-[0.16em]" : "gap-2 px-3 py-1 text-xs tracking-[0.18em]")}>
+              <Sparkles className={cn(compact ? "h-3 w-3" : "h-3.5 w-3.5")} />
               Recap mensual
             </div>
-            <div className="space-y-1.5">
+            <div className={cn(compact ? "space-y-1" : "space-y-1.5")}>
               <h2
                 className={cn(
                   "font-semibold tracking-tight text-[var(--app-ink)]",
-                  compact ? "max-w-xl text-xl sm:text-2xl" : "max-w-2xl text-2xl sm:text-[2rem]",
+                  compact ? "max-w-xl text-lg sm:text-xl" : "max-w-2xl text-2xl sm:text-[2rem]",
                 )}
               >
                 Tu mes, contado en historias.
               </h2>
-              <p className={cn("text-[var(--app-muted)]", compact ? "max-w-xl text-xs leading-5 sm:text-sm" : "max-w-xl text-sm leading-5")}>
-                Elige un mes y recorre 2-3 stories creadas con señales reales de gasto.
+              <p className={cn("text-[var(--app-muted)]", compact ? "max-w-xl text-[11px] leading-4 sm:text-xs" : "max-w-xl text-sm leading-5")}>
+                Recorre 2-3 stories creadas con señales reales del mes analizado.
               </p>
             </div>
           </div>
@@ -77,63 +69,37 @@ export function MonthlyRecapLauncher({
         <div
           className={cn(
             "relative border backdrop-blur-xl",
-            compact ? "rounded-[1.2rem] p-3" : "rounded-[1.35rem] p-3.5",
+            compact ? "rounded-[1rem] p-2.5" : "rounded-[1.35rem] p-3.5",
           )}
           style={{
             borderColor: "var(--app-border)",
             background: "color-mix(in srgb, var(--app-panel) 82%, transparent)",
           }}
         >
-          <div className={cn(compact ? "space-y-2" : "space-y-2.5")}>
-            <label className="block text-xs font-semibold uppercase tracking-[0.18em] text-[var(--app-muted)]" htmlFor="recap-month-select">
-              Mes
-            </label>
-            <select
-              id="recap-month-select"
-              value={selectedMonthKey}
-              onChange={(event) => onSelectedMonthKeyChange(event.target.value)}
-              className={cn(
-                "w-full rounded-2xl border px-4 text-sm shadow-inner outline-none transition-all",
-                compact ? "py-2" : "py-2.5",
-              )}
-              style={{
-                borderColor: "var(--app-border)",
-                background: "var(--app-panel)",
-                color: "var(--app-ink)",
-              }}
-            >
-              {normalizedMonths.map((month) => (
-                <option key={month.monthKey} value={month.monthKey}>
-                  {month.label}
-                </option>
-              ))}
-            </select>
-
+          <div className={cn(compact ? "space-y-1.5" : "space-y-2.5")}>
             <div
               className={cn(
-                compact
-                  ? "grid gap-2 sm:grid-cols-2 sm:items-stretch"
-                  : "space-y-2.5",
+                compact ? "space-y-1.5" : "space-y-2.5",
               )}
             >
               <button
                 type="button"
                 onClick={onPlay}
-                disabled={isLoading || !selectedMonthKey || normalizedMonths.length === 0}
+                disabled={isLoading || !hasSelectedMonth}
                 className={cn(
                   "inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 text-sm font-semibold transition-all",
-                  compact ? "py-2" : "py-2.5",
-                  isLoading || !selectedMonthKey || normalizedMonths.length === 0
+                  compact ? "py-1.5" : "py-2.5",
+                  isLoading || !hasSelectedMonth
                     ? "cursor-not-allowed"
                     : "hover:-translate-y-0.5",
                 )}
                 style={{
                   background:
-                    isLoading || !selectedMonthKey || normalizedMonths.length === 0
+                    isLoading || !hasSelectedMonth
                       ? "color-mix(in srgb, var(--app-muted-surface) 88%, transparent)"
                       : "var(--app-ink)",
                   color:
-                    isLoading || !selectedMonthKey || normalizedMonths.length === 0
+                    isLoading || !hasSelectedMonth
                       ? "color-mix(in srgb, var(--app-ink) 32%, transparent)"
                       : "var(--app-surface)",
                 }}
@@ -154,22 +120,22 @@ export function MonthlyRecapLauncher({
               <button
                 type="button"
                 onClick={onRegenerate}
-                disabled={isLoading || !selectedMonthKey || normalizedMonths.length === 0}
+                disabled={isLoading || !hasSelectedMonth}
                 className={cn(
                   "inline-flex w-full items-center justify-center gap-2 rounded-2xl border px-4 text-sm font-semibold transition-all",
-                  compact ? "py-2" : "py-2.5",
-                  isLoading || !selectedMonthKey || normalizedMonths.length === 0
+                  compact ? "py-1.5" : "py-2.5",
+                  isLoading || !hasSelectedMonth
                     ? "cursor-not-allowed"
                     : "hover:-translate-y-0.5 hover:bg-[var(--app-muted-surface)]",
                 )}
                 style={{
                   borderColor: "var(--app-border)",
                   background:
-                    isLoading || !selectedMonthKey || normalizedMonths.length === 0
+                    isLoading || !hasSelectedMonth
                       ? "color-mix(in srgb, var(--app-muted-surface) 70%, transparent)"
                       : "color-mix(in srgb, var(--app-panel) 92%, transparent)",
                   color:
-                    isLoading || !selectedMonthKey || normalizedMonths.length === 0
+                    isLoading || !hasSelectedMonth
                       ? "color-mix(in srgb, var(--app-ink) 38%, transparent)"
                       : "var(--app-ink)",
                 }}
@@ -202,89 +168,14 @@ export function MonthlyRecapLauncher({
                 {error}
               </div>
             ) : null}
-            {normalizedMonths.length === 0 ? (
-              <p className="text-sm text-[var(--app-muted)]">Todavía no hay meses disponibles. Añade actividad primero.</p>
+            {!hasSelectedMonth ? (
+              <p className="text-sm text-[var(--app-muted)]">No hay recap disponible para este mes. Cambia el mes del análisis.</p>
             ) : null}
           </div>
         </div>
       </div>
     </section>
   );
-}
-
-function normalizeMonth(month: InsightsRecapMonth | string) {
-  if (typeof month === "string") {
-    return { monthKey: month, label: formatMonthKeyLabel(month) };
-  }
-
-  const monthKey = month.monthKey ?? month.month_key ?? "";
-  const rawLabel = month.label ?? month.month_label ?? "";
-
-  return {
-    monthKey,
-    label: formatMonthSelectionLabel(rawLabel, monthKey),
-  };
-}
-
-function formatMonthKeyLabel(monthKey: string) {
-  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
-  if (!match) {
-    return monthKey;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  return formatMonthLabel(year, month);
-}
-
-function formatMonthSelectionLabel(label: string, monthKey: string) {
-  const normalizedLabel = label.trim();
-
-  if (normalizedLabel) {
-    const shortMonthPattern = /^(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)\s+(\d{2}|\d{4})$/i;
-    const shortMatch = normalizedLabel.toLowerCase().replace(".", "").match(shortMonthPattern);
-
-    if (shortMatch) {
-      const monthByShortName: Record<string, number> = {
-        ene: 1,
-        feb: 2,
-        mar: 3,
-        abr: 4,
-        may: 5,
-        jun: 6,
-        jul: 7,
-        ago: 8,
-        sep: 9,
-        oct: 10,
-        nov: 11,
-        dic: 12,
-      };
-
-      const month = monthByShortName[shortMatch[1]];
-      const parsedYear = Number(shortMatch[2]);
-      const year = shortMatch[2].length === 2 ? 2000 + parsedYear : parsedYear;
-
-      if (month && Number.isFinite(year)) {
-        return formatMonthLabel(year, month);
-      }
-    }
-
-    const labelAsIso = normalizedLabel.match(/^(\d{4})-(\d{2})$/);
-    if (labelAsIso) {
-      return formatMonthKeyLabel(normalizedLabel);
-    }
-
-    const longMonthPattern = /^(enero|febrero|marzo|abril|mayo|junio|julio|agosto|septiembre|octubre|noviembre|diciembre)\s+\d{4}$/i;
-    if (longMonthPattern.test(normalizedLabel)) {
-      return normalizedLabel;
-    }
-  }
-
-  if (monthKey) {
-    return formatMonthKeyLabel(monthKey);
-  }
-
-  return normalizedLabel || label;
 }
 
 function formatDateLabel(value: string) {

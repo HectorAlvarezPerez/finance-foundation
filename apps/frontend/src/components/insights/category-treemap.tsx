@@ -1,6 +1,6 @@
 "use client";
 
-import { ResponsiveContainer, Treemap, Tooltip } from "recharts";
+import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 type CategoryData = {
@@ -43,7 +43,7 @@ const CustomizedContent = (props: any) => {
         fill="#fff"
         fontSize={Math.min(width / 6, 12)}
         fontWeight="600"
-        style={{ pointerEvents: "none", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}
+        style={{ pointerEvents: "none" }}
       >
         {name}
       </text>
@@ -53,6 +53,17 @@ const CustomizedContent = (props: any) => {
 
 export function CategoryTreemap({ data, className }: CategoryTreemapProps) {
   if (!data || data.length === 0) return null;
+
+  const sorted = [...data].sort((left, right) => right.value - left.value);
+  const topCategories = sorted.slice(0, 6);
+  const remainingTotal = sorted.slice(6).reduce((sum, item) => sum + item.value, 0);
+
+  const distribution =
+    remainingTotal > 0
+      ? [...topCategories, { name: "Otras", value: remainingTotal, fill: "var(--app-muted)" }]
+      : topCategories;
+
+  const total = distribution.reduce((sum, item) => sum + item.value, 0);
 
   return (
     <div
@@ -67,41 +78,71 @@ export function CategoryTreemap({ data, className }: CategoryTreemapProps) {
     >
       <div className="mb-6 flex flex-col gap-1 relative z-10">
         <h3 className="text-lg font-bold text-[var(--app-ink)]">Distribución de Gasto</h3>
-        <p className="text-sm text-[var(--app-muted)]">Mapa de calor por volumen de categorías</p>
+        <p className="text-sm text-[var(--app-muted)]">Ranking de categorías por peso relativo</p>
       </div>
 
-      <div className="relative flex-1 w-full min-h-[300px]">
-        <ResponsiveContainer width="100%" height="100%">
-          <Treemap
-            data={data}
-            dataKey="value"
-            aspectRatio={4 / 3}
-            stroke="#fff"
-            content={<CustomizedContent />}
-          >
-            <Tooltip
-              content={({ active, payload }: any) => {
-                if (!active || !payload?.length) return null;
-                const data = payload[0].payload;
-                return (
-                  <div
-                    className="rounded-xl border p-3 py-2 shadow-sm backdrop-blur-md"
+      <div className="relative flex-1 w-full min-h-[300px] space-y-3">
+        {distribution.map((category) => {
+          const share = total > 0 ? (category.value / total) * 100 : 0;
+
+          return (
+            <div key={category.name} className="space-y-1.5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 rounded-full"
                     style={{
-                      borderColor: "var(--app-border)",
-                      background: "color-mix(in srgb, var(--app-surface) 90%, transparent)",
+                      backgroundColor: category.fill,
                     }}
-                  >
-                    <p className="text-sm font-bold text-[var(--app-text)]">{data.name}</p>
-                    <p className="text-sm font-semibold text-[var(--app-accent)]">
-                      €{Number(data.value).toFixed(2)}
-                    </p>
-                  </div>
-                );
-              }}
-            />
-          </Treemap>
-        </ResponsiveContainer>
+                  />
+                  <span className="truncate text-sm font-medium text-[var(--app-ink)]">{category.name}</span>
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-xs font-semibold text-[var(--app-muted)]">{share.toFixed(1)}%</p>
+                  <p className="text-xs text-[var(--app-muted)]">{formatCurrency(category.value, "EUR")}</p>
+                </div>
+              </div>
+
+              <div
+                className="h-2.5 w-full overflow-hidden rounded-full"
+                style={{
+                  background: "color-mix(in srgb, var(--app-muted-surface) 88%, transparent)",
+                }}
+              >
+                <div
+                  className="h-full rounded-full transition-all duration-300"
+                  style={{
+                    width: `${Math.max(share, 2)}%`,
+                    background: buildPastelBarFill(category.fill),
+                    border: `1px solid ${category.fill}`,
+                  }}
+                />
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
+}
+
+function buildPastelBarFill(color: string) {
+  if (color.startsWith("var(")) {
+    return `color-mix(in srgb, ${color} 26%, white)`;
+  }
+
+  if (color.startsWith("rgb") || color.startsWith("hsl")) {
+    return `color-mix(in srgb, ${color} 26%, white)`;
+  }
+
+  const normalized = color.replace("#", "");
+  if (normalized.length === 6) {
+    const value = Number.parseInt(normalized, 16);
+    const red = (value >> 16) & 255;
+    const green = (value >> 8) & 255;
+    const blue = value & 255;
+    return `rgba(${red}, ${green}, ${blue}, 0.24)`;
+  }
+
+  return color;
 }
