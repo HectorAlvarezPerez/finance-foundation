@@ -1442,6 +1442,11 @@
             "title": "Monthly Comparison",
             "type": "array"
           },
+          "savings_rate": {
+            "default": 0.0,
+            "title": "Savings Rate",
+            "type": "number"
+          },
           "top_categories": {
             "items": {
               "$ref": "#/components/schemas/InsightsTopCategoryRead"

@@ -28,6 +28,18 @@ type CumulativePacingChartProps = {
   className?: string;
 };
 
+type ChartTooltipEntry = {
+  dataKey?: string;
+  color?: string;
+  value?: number | string;
+};
+
+type ChartTooltipContent = {
+  active?: boolean;
+  payload?: ChartTooltipEntry[];
+  label?: string | number;
+};
+
 export function CumulativePacingChart({ data, className }: CumulativePacingChartProps) {
   const formattedData = useMemo(() => {
     return data.map((item) => ({
@@ -101,7 +113,7 @@ export function CumulativePacingChart({ data, className }: CumulativePacingChart
               tick={{ fontSize: 11, fill: "var(--app-muted)" }}
             />
             <Tooltip
-              content={({ active, payload, label }: any) => {
+              content={({ active, payload, label }: ChartTooltipContent) => {
                 if (!active || !payload?.length) return null;
                 return (
                   <div
@@ -112,9 +124,9 @@ export function CumulativePacingChart({ data, className }: CumulativePacingChart
                     }}
                   >
                     <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-[var(--app-muted)]">
-                      Día {label}
+                      Día {String(label ?? "")}
                     </p>
-                    {payload.map((entry: any, idx: number) => (
+                    {payload.map((entry, idx) => (
                       <div key={idx} className="flex items-center justify-between gap-4 py-0.5">
                         <span className="text-sm text-[var(--app-text)]">
                           {entry.dataKey === "current_month_cumulative" ? "Actual" : "Anterior"}

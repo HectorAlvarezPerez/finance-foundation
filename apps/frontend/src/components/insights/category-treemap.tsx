@@ -14,43 +14,6 @@ type CategoryTreemapProps = {
   className?: string;
 };
 
-const CustomizedContent = (props: any) => {
-  const { x, y, width, height, index, name, fill } = props;
-
-  if (width < 30 || height < 20) return null;
-
-  return (
-    <g>
-      <rect
-        x={x}
-        y={y}
-        width={width}
-        height={height}
-        style={{
-          fill,
-          stroke: "var(--app-surface)",
-          strokeWidth: 2,
-          strokeOpacity: 0.2,
-        }}
-        rx={8}
-        ry={8}
-      />
-      <text
-        x={x + width / 2}
-        y={y + height / 2}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        fill="#fff"
-        fontSize={Math.min(width / 6, 12)}
-        fontWeight="600"
-        style={{ pointerEvents: "none" }}
-      >
-        {name}
-      </text>
-    </g>
-  );
-};
-
 export function CategoryTreemap({ data, className }: CategoryTreemapProps) {
   if (!data || data.length === 0) return null;
 

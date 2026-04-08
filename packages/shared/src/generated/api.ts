@@ -959,6 +959,11 @@ export interface components {
             income: string;
             /** Monthly Comparison */
             monthly_comparison: components["schemas"]["InsightsMonthlyBucketRead"][];
+            /**
+             * Savings Rate
+             * @default 0
+             */
+            savings_rate: number;
             /** Top Categories */
             top_categories: components["schemas"]["InsightsTopCategoryRead"][];
             /** Transaction Count */
