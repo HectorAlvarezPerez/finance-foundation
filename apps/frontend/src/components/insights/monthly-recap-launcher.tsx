@@ -29,8 +29,6 @@ export function MonthlyRecapLauncher({
 }) {
   const normalizedMonths = months.map((month) => normalizeMonth(month));
   const selectedMonth = normalizedMonths.find((month) => month.monthKey === selectedMonthKey);
-  const activeRecapStatus = recap ? getStatusLabel(recap.is_stale) : "Sin recap";
-  const compactStatusText = recap ? getStatusLabel(recap.is_stale) : "Sin recap";
 
   return (
     <section
@@ -72,7 +70,6 @@ export function MonthlyRecapLauncher({
           </div>
 
           <div className={cn("flex flex-wrap text-xs text-[var(--app-muted)]", compact ? "gap-1.5" : "gap-2")}>
-            <StatusPill label={activeRecapStatus} active />
             {recap?.generated_at ? <StatusPill label={`Actualizado ${formatDateLabel(recap.generated_at)}`} /> : null}
           </div>
         </div>
@@ -163,7 +160,7 @@ export function MonthlyRecapLauncher({
                   compact ? "py-2" : "py-2.5",
                   isLoading || !selectedMonthKey || normalizedMonths.length === 0
                     ? "cursor-not-allowed"
-                    : "",
+                    : "hover:-translate-y-0.5 hover:bg-[var(--app-muted-surface)]",
                 )}
                 style={{
                   borderColor: "var(--app-border)",
