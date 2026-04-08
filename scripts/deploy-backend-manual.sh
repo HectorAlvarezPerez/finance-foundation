@@ -54,12 +54,12 @@ notify_deploy() {
   fi
 
   if command -v uv >/dev/null 2>&1; then
-    if uv run --with "langfuse>=3.0.0" python3 scripts/deploy-notify.py "${args[@]}"; then
+    if uv run --with "langfuse>=3.0.0" python3 scripts/deploy/notify.py "${args[@]}"; then
       return 0
     fi
   fi
 
-  python3 scripts/deploy-notify.py "${args[@]}" || true
+  python3 scripts/deploy/notify.py "${args[@]}" || true
 }
 
 require_cmd az

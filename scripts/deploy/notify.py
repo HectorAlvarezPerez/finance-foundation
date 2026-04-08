@@ -10,15 +10,23 @@ import re
 import shutil
 import subprocess
 import sys
-import textwrap
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
 from typing import Any
 from urllib import error, parse, request
 
 HEX_SHA_RE = re.compile(r"^[0-9a-f]{7,40}$", re.IGNORECASE)
 TRUE_VALUES = {"1", "true", "yes", "on"}
 DEFAULT_LANGFUSE_DEPLOY_PROMPT_NAME = "deploy_summary_notification"
+PROMPT_CATALOG_PATH = Path(__file__).resolve().parents[2] / "apps/backend/app/llm/catalog/prompts.yaml"
+DOC_SUBJECT_HINTS = (
+    "docs",
+    "readme",
+    "documentation",
+    "documentación",
+    "changelog",
+)
 
 
 @dataclass
@@ -340,6 +348,60 @@ def git_output(*args: str) -> str | None:
     return run_command(["git", *args])
 
 
+def service_paths(service: str) -> tuple[list[str], list[str]]:
+    if service == "backend":
+        primary = [
+            "apps/backend",
+            "scripts/deploy-backend-manual.sh",
+            ".github/workflows/backend-deploy.yml",
+        ]
+        shared = [
+            "scripts/deploy/notify.py",
+            "scripts/azure-bootstrap.sh",
+            "scripts/azure-setup-github-oidc.sh",
+            "infra/azure/deploy-notifications.env.example",
+            "infra/azure/README.md",
+        ]
+        return primary, shared
+    if service == "frontend":
+        primary = [
+            "apps/frontend",
+            "scripts/deploy-frontend-manual.sh",
+            ".github/workflows/frontend-deploy.yml",
+        ]
+        shared = [
+            "scripts/deploy/notify.py",
+            "scripts/azure-bootstrap.sh",
+            "scripts/azure-setup-github-oidc.sh",
+            "infra/azure/deploy-notifications.env.example",
+            "infra/azure/README.md",
+        ]
+        return primary, shared
+    return [], []
+
+
+def merge_paths(primary_paths: list[str], shared_paths: list[str]) -> list[str]:
+    merged: list[str] = []
+    for path in [*primary_paths, *shared_paths]:
+        if path not in merged:
+            merged.append(path)
+    return merged
+
+
+def extract_subject_from_commit_line(line: str) -> str:
+    parts = line.split(" ", 1)
+    if len(parts) == 2:
+        return parts[1].strip()
+    return line.strip()
+
+
+def is_docs_like_subject(subject: str) -> bool:
+    lowered = compact_text(subject).lower()
+    if not lowered:
+        return False
+    return any(hint in lowered for hint in DOC_SUBJECT_HINTS)
+
+
 def get_repo_slug() -> str | None:
     remote = git_output("config", "--get", "remote.origin.url")
     if not remote:
@@ -414,7 +476,13 @@ def extract_commit_from_image(image: str | None) -> str | None:
     return tag
 
 
-def resolve_range_context(previous_image: str | None, commit_sha: str) -> NarrativeContext | None:
+def resolve_range_context(
+    previous_image: str | None,
+    commit_sha: str,
+    *,
+    primary_paths: list[str] | None = None,
+    shared_paths: list[str] | None = None,
+) -> NarrativeContext | None:
     previous_commit = extract_commit_from_image(previous_image)
     if not previous_commit:
         return None
@@ -422,12 +490,20 @@ def resolve_range_context(previous_image: str | None, commit_sha: str) -> Narrat
     if not git_output("rev-parse", "--verify", "--quiet", f"{commit_sha}^{{commit}}"):
         return None
 
-    output = git_output(
-        "log",
-        "--reverse",
-        "--pretty=format:%h %s",
-        f"{previous_commit}..{commit_sha}",
-    )
+    def range_log(paths: list[str] | None) -> str | None:
+        command = [
+            "log",
+            "--reverse",
+            "--pretty=format:%h %s",
+            f"{previous_commit}..{commit_sha}",
+        ]
+        if paths:
+            command.extend(["--", *paths])
+        return git_output(*command)
+
+    output = range_log(primary_paths)
+    if not output:
+        output = range_log(merge_paths(primary_paths or [], shared_paths or []))
     if not output:
         return None
 
@@ -435,10 +511,13 @@ def resolve_range_context(previous_image: str | None, commit_sha: str) -> Narrat
     if not commits:
         return None
 
-    visible_commits = commits[:6]
+    ranked_commits = sorted(commits, key=lambda item: is_docs_like_subject(extract_subject_from_commit_line(item)))
+    visible_commits = ranked_commits[:6]
     details = [f"Rango de commits: {previous_commit[:7]}..{commit_sha[:7]}"]
     details.extend(visible_commits)
-    summary_hint = "; ".join(item.split(" ", 1)[1] if " " in item else item for item in commits[:3])
+    subjects = [extract_subject_from_commit_line(item) for item in commits]
+    prioritized_subjects = [subject for subject in subjects if not is_docs_like_subject(subject)] or subjects
+    summary_hint = "; ".join(prioritized_subjects[:3])
     return NarrativeContext(
         kind="commit-range",
         heading="Contexto detectado a partir del rango de commits entre la imagen previa y el commit desplegado.",
@@ -447,7 +526,23 @@ def resolve_range_context(previous_image: str | None, commit_sha: str) -> Narrat
     )
 
 
-def resolve_commit_context(commit_sha: str) -> NarrativeContext | None:
+def resolve_commit_context(
+    commit_sha: str,
+    *,
+    primary_paths: list[str] | None = None,
+    shared_paths: list[str] | None = None,
+) -> NarrativeContext | None:
+    effective_paths = primary_paths or []
+    touched = None
+    if effective_paths:
+        touched = git_output("show", "--name-only", "--pretty=format:", commit_sha, "--", *effective_paths)
+    if not touched:
+        fallback_paths = merge_paths(primary_paths or [], shared_paths or [])
+        if fallback_paths:
+            touched = git_output("show", "--name-only", "--pretty=format:", commit_sha, "--", *fallback_paths)
+    if (primary_paths or shared_paths) and not touched:
+        return None
+
     subject = compact_text(git_output("show", "-s", "--format=%s", commit_sha))
     body = compact_text(git_output("show", "-s", "--format=%b", commit_sha))
     if not subject and not body:
@@ -465,32 +560,59 @@ def resolve_commit_context(commit_sha: str) -> NarrativeContext | None:
     )
 
 
-def collect_recent_commit_titles(commit_sha: str, *, limit: int = 6) -> list[str]:
-    output = git_output(
-        "log",
-        f"-n{limit}",
-        "--pretty=format:%h %s",
-        commit_sha,
-    )
+def collect_recent_commit_titles(
+    commit_sha: str,
+    *,
+    limit: int = 6,
+    primary_paths: list[str] | None = None,
+    shared_paths: list[str] | None = None,
+) -> list[str]:
+    def recent_log(paths: list[str] | None) -> str | None:
+        command = [
+            "log",
+            f"-n{limit}",
+            "--pretty=format:%h %s",
+            commit_sha,
+        ]
+        if paths:
+            command.extend(["--", *paths])
+        return git_output(*command)
+
+    output = recent_log(primary_paths)
+    if not output:
+        output = recent_log(merge_paths(primary_paths or [], shared_paths or []))
     if not output:
         return []
 
     return [line.strip() for line in output.splitlines() if line.strip()]
 
 
-def resolve_context(commit_sha: str, previous_image: str | None) -> NarrativeContext | None:
-    repo_slug = get_repo_slug()
+def resolve_context(service: str, commit_sha: str, previous_image: str | None) -> NarrativeContext | None:
+    primary_paths, shared_paths = service_paths(service)
     context = (
-        resolve_pr_context(repo_slug, commit_sha)
-        or resolve_range_context(previous_image, commit_sha)
-        or resolve_commit_context(commit_sha)
+        resolve_range_context(
+            previous_image,
+            commit_sha,
+            primary_paths=primary_paths,
+            shared_paths=shared_paths,
+        )
+        or resolve_commit_context(
+            commit_sha,
+            primary_paths=primary_paths,
+            shared_paths=shared_paths,
+        )
     )
 
     if context is None:
         return None
 
     if context.kind != "commit-range":
-        recent_titles = collect_recent_commit_titles(commit_sha, limit=6)
+        recent_titles = collect_recent_commit_titles(
+            commit_sha,
+            limit=6,
+            primary_paths=primary_paths,
+            shared_paths=shared_paths,
+        )
         if recent_titles:
             context.details.append("Commits recientes (títulos):")
             context.details.extend(recent_titles)
@@ -527,6 +649,10 @@ def build_fallback_summary(
 
 
 def azure_openai_enabled() -> bool:
+    llm_enabled = os.environ.get("DEPLOY_NOTIFY_LLM_ENABLED", "true").strip().lower() in TRUE_VALUES
+    if not llm_enabled:
+        return False
+
     return all(
         [
             os.environ.get("AZURE_OPENAI_ENDPOINT"),
@@ -536,35 +662,80 @@ def azure_openai_enabled() -> bool:
     )
 
 
+@lru_cache(maxsize=8)
+def load_catalog_prompt_messages(prompt_name: str) -> list[dict[str, str]]:
+    try:
+        content = PROMPT_CATALOG_PATH.read_text(encoding="utf-8")
+    except OSError as exc:
+        log(f"No se pudo leer prompts.yaml para '{prompt_name}': {exc}")
+        return []
+
+    lines = content.splitlines()
+    block_lines: list[str] = []
+    in_target = False
+    target_prefix = f"  - name: {prompt_name}"
+
+    for line in lines:
+        if line.startswith("  - name: "):
+            if in_target and not line.startswith(target_prefix):
+                break
+            in_target = line.startswith(target_prefix)
+            if in_target:
+                block_lines.append(line)
+            continue
+        if in_target:
+            block_lines.append(line)
+
+    if not block_lines:
+        log(f"Prompt '{prompt_name}' no encontrado en prompts.yaml")
+        return []
+
+    messages: list[dict[str, str]] = []
+    index = 0
+    while index < len(block_lines):
+        line = block_lines[index]
+        stripped = line.strip()
+        if stripped.startswith("- role:"):
+            role = stripped.split(":", 1)[1].strip()
+            index += 1
+            if index >= len(block_lines):
+                break
+
+            content_line = block_lines[index].strip()
+            if not content_line.startswith("content: |"):
+                continue
+
+            index += 1
+            content_lines: list[str] = []
+            while index < len(block_lines):
+                candidate = block_lines[index]
+                candidate_stripped = candidate.strip()
+                if candidate_stripped.startswith("- role:"):
+                    break
+                if candidate.startswith("          "):
+                    content_lines.append(candidate[10:])
+                elif candidate.strip() == "":
+                    content_lines.append("")
+                else:
+                    break
+                index += 1
+
+            messages.append(
+                {
+                    "role": role,
+                    "content": "\n".join(content_lines).strip(),
+                }
+            )
+            continue
+        index += 1
+
+    if not messages:
+        log(f"Prompt '{prompt_name}' en prompts.yaml no contiene mensajes válidos")
+    return messages
+
+
 def build_deploy_summary_prompt_messages() -> list[dict[str, str]]:
-    return [
-        {
-            "role": "system",
-            "content": (
-                "Eres un asistente de release notes operativas. Responde solo con un párrafo breve, "
-                "claro y factual en español."
-            ),
-        },
-        {
-            "role": "user",
-            "content": textwrap.dedent(
-                """
-                Resume en español, en un único párrafo breve de 1 a 3 frases, qué se ha desplegado.
-                No inventes detalles ni menciones que se ha usado un LLM.
-                Prioriza lo que cambia a nivel operativo o funcional.
-
-                Servicio: {{service}}
-                Entorno: {{environment}}
-                Commit: {{commit_sha_short}}
-                Imagen: {{image}}
-                URL: {{url}}
-
-                {{context_heading}}
-                {{context_block}}
-                """
-            ).strip(),
-        },
-    ]
+    return load_catalog_prompt_messages(DEFAULT_LANGFUSE_DEPLOY_PROMPT_NAME)
 
 
 def build_deploy_summary_prompt_variables(
@@ -900,7 +1071,7 @@ def parse_args() -> argparse.Namespace:
 def main() -> int:
     args = parse_args()
     langfuse_client = get_langfuse_client()
-    context = resolve_context(args.commit_sha, args.previous_image)
+    context = resolve_context(args.service, args.commit_sha, args.previous_image)
     summary = generate_llm_summary(
         service=args.service,
         environment=args.environment,
