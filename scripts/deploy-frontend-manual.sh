@@ -53,10 +53,9 @@ notify_deploy() {
     args+=(--previous-image "$previous_image")
   fi
 
-  if [ "${LANGFUSE_ENABLED:-false}" = "true" ] && [ -n "${LANGFUSE_PUBLIC_KEY:-}" ] && [ -n "${LANGFUSE_SECRET_KEY:-}" ] && [ -n "${LANGFUSE_HOST:-}" ]; then
-    if ! python3 -c "import langfuse" >/dev/null 2>&1; then
-      echo "Installing langfuse SDK for deploy notifications..." >&2
-      python3 -m pip install --quiet "langfuse>=3.0.0" || echo "Warning: unable to install langfuse SDK; continuing without Langfuse integration." >&2
+  if command -v uv >/dev/null 2>&1; then
+    if uv run --with "langfuse>=3.0.0" python3 scripts/deploy-notify.py "${args[@]}"; then
+      return 0
     fi
   fi
 
@@ -71,6 +70,7 @@ AZURE_BACKEND_CONTAINER_APP_NAME="${AZURE_BACKEND_CONTAINER_APP_NAME:-finance-fo
 AZURE_FRONTEND_CONTAINER_APP_NAME="${AZURE_FRONTEND_CONTAINER_APP_NAME:-finance-foundation-frontend}"
 FRONTEND_IMAGE_NAME="${FRONTEND_IMAGE_NAME:-finance-foundation-frontend}"
 IMAGE_TAG_SUFFIX="${IMAGE_TAG_SUFFIX:-manual-$(date +%Y%m%d%H%M%S)}"
+AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT="${AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT:-${AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT:-}}"
 COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 
 echo "Resolving ACR login server..."

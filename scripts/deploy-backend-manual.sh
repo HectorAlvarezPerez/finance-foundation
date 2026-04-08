@@ -53,10 +53,9 @@ notify_deploy() {
     args+=(--previous-image "$previous_image")
   fi
 
-  if [ "${LANGFUSE_ENABLED:-false}" = "true" ] && [ -n "${LANGFUSE_PUBLIC_KEY:-}" ] && [ -n "${LANGFUSE_SECRET_KEY:-}" ] && [ -n "${LANGFUSE_HOST:-}" ]; then
-    if ! python3 -c "import langfuse" >/dev/null 2>&1; then
-      echo "Installing langfuse SDK for deploy notifications..." >&2
-      python3 -m pip install --quiet "langfuse>=3.0.0" || echo "Warning: unable to install langfuse SDK; continuing without Langfuse integration." >&2
+  if command -v uv >/dev/null 2>&1; then
+    if uv run --with "langfuse>=3.0.0" python3 scripts/deploy-notify.py "${args[@]}"; then
+      return 0
     fi
   fi
 
@@ -76,6 +75,7 @@ AZURE_DOCUMENT_INTELLIGENCE_API_KEY="${AZURE_DOCUMENT_INTELLIGENCE_API_KEY:-}"
 AZURE_OPENAI_ENDPOINT="${AZURE_OPENAI_ENDPOINT:-}"
 AZURE_OPENAI_PDF_PARSER_DEPLOYMENT="${AZURE_OPENAI_PDF_PARSER_DEPLOYMENT:-}"
 AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT="${AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT:-}"
+AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT="${AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT:-${AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT:-}}"
 AZURE_OPENAI_API_VERSION="${AZURE_OPENAI_API_VERSION:-2025-03-01-preview}"
 AZURE_OPENAI_API_KEY="${AZURE_OPENAI_API_KEY:-}"
 LANGFUSE_ENABLED="${LANGFUSE_ENABLED:-false}"

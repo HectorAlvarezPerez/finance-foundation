@@ -73,7 +73,7 @@ class DeployLangfuseClient:
             return None
 
         try:
-            from langfuse import Langfuse
+            from langfuse import Langfuse  # type: ignore[import-not-found]
         except Exception as exc:
             log(f"Langfuse SDK unavailable: {exc}")
             return None
@@ -117,8 +117,18 @@ class DeployLangfuseClient:
                 messages=rendered_fallback,
             )
 
+        client = self.client
+        if client is None:
+            return ResolvedSummaryPrompt(
+                name=self.deploy_prompt_name,
+                label=self.prompt_label,
+                version=None,
+                source="local_fallback",
+                messages=rendered_fallback,
+            )
+
         try:
-            prompt_client = self.client.get_prompt(
+            prompt_client = client.get_prompt(
                 self.deploy_prompt_name,
                 label=self.prompt_label,
                 type="chat",
@@ -166,14 +176,17 @@ class DeployLangfuseClient:
         if not self.is_enabled:
             return None
 
+        client = self.client
+        if client is None:
+            return None
+
         try:
-            context_manager = self.client.start_as_current_observation(
+            context_manager = client.start_as_current_observation(
                 name=name,
                 as_type="span",
                 input=input_payload,
                 metadata=metadata,
                 end_on_exit=False,
-                environment=self.env,
             )
             span = context_manager.__enter__()
             return LangfuseFlowHandle(name=name, span=span, context_manager=context_manager)
@@ -226,6 +239,10 @@ class DeployLangfuseClient:
         if not self.is_enabled:
             return
 
+        client = self.client
+        if client is None:
+            return
+
         trace_context: dict[str, str] | None = None
         if handle and handle.trace_id and handle.observation_id:
             trace_context = {
@@ -234,7 +251,7 @@ class DeployLangfuseClient:
             }
 
         try:
-            with self.client.start_as_current_observation(
+            with client.start_as_current_observation(
                 trace_context=trace_context,
                 name=name,
                 as_type="generation",
@@ -246,7 +263,6 @@ class DeployLangfuseClient:
                 prompt=prompt.prompt_client,
                 status_message=status_message,
                 level=level,
-                environment=self.env,
             ):
                 return None
         except Exception as exc:
@@ -256,8 +272,12 @@ class DeployLangfuseClient:
         if not self.is_enabled:
             return
 
+        client = self.client
+        if client is None:
+            return
+
         try:
-            self.client.flush()
+            client.flush()
         except Exception as exc:
             log(f"Failed to flush Langfuse client: {exc}")
 
@@ -367,7 +387,7 @@ def resolve_pr_context(repo_slug: str | None, commit_sha: str) -> NarrativeConte
 
     details = [f"PR #{number}: {title}"]
     if body:
-        details.append(f"Resumen de la PR: {shorten(body, 500)}")
+        details.append(f"Resumen de la PR: {body}")
     if link:
         details.append(f"URL de la PR: {link}")
 
@@ -435,7 +455,7 @@ def resolve_commit_context(commit_sha: str) -> NarrativeContext | None:
 
     details = [f"Commit: {commit_sha[:7]} {subject or 'sin asunto disponible'}"]
     if body:
-        details.append(f"Detalle del commit: {shorten(body, 500)}")
+        details.append(f"Detalle del commit: {body}")
 
     return NarrativeContext(
         kind="commit",
@@ -445,13 +465,37 @@ def resolve_commit_context(commit_sha: str) -> NarrativeContext | None:
     )
 
 
+def collect_recent_commit_titles(commit_sha: str, *, limit: int = 6) -> list[str]:
+    output = git_output(
+        "log",
+        f"-n{limit}",
+        "--pretty=format:%h %s",
+        commit_sha,
+    )
+    if not output:
+        return []
+
+    return [line.strip() for line in output.splitlines() if line.strip()]
+
+
 def resolve_context(commit_sha: str, previous_image: str | None) -> NarrativeContext | None:
     repo_slug = get_repo_slug()
-    return (
+    context = (
         resolve_pr_context(repo_slug, commit_sha)
         or resolve_range_context(previous_image, commit_sha)
         or resolve_commit_context(commit_sha)
     )
+
+    if context is None:
+        return None
+
+    if context.kind != "commit-range":
+        recent_titles = collect_recent_commit_titles(commit_sha, limit=6)
+        if recent_titles:
+            context.details.append("Commits recientes (títulos):")
+            context.details.extend(recent_titles)
+
+    return context
 
 
 def build_fallback_summary(
@@ -586,7 +630,10 @@ def generate_llm_summary(
     context: NarrativeContext | None,
     langfuse_client: DeployLangfuseClient,
 ) -> str | None:
-    if not context or not azure_openai_enabled():
+    if not context:
+        return None
+
+    if not azure_openai_enabled():
         return None
 
     endpoint = os.environ["AZURE_OPENAI_ENDPOINT"].rstrip("/")
@@ -629,31 +676,53 @@ def generate_llm_summary(
         },
     )
 
-    payload = {
-        "messages": resolved_prompt.messages,
-        "max_tokens": 180,
-        "temperature": 0.2,
-    }
+    payload_variants = [
+        {
+            "messages": resolved_prompt.messages,
+            "max_tokens": 180,
+            "temperature": 0.2,
+        },
+        {
+            "messages": resolved_prompt.messages,
+            "max_completion_tokens": 180,
+            "temperature": 0.2,
+        },
+    ]
 
     request_url = (
         f"{endpoint}/openai/deployments/{parse.quote(deployment)}/chat/completions"
         f"?api-version={parse.quote(api_version)}"
     )
-    body = json.dumps(payload).encode("utf-8")
-    req = request.Request(
-        request_url,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "api-key": os.environ["AZURE_OPENAI_API_KEY"],
-        },
-        method="POST",
-    )
+    response_payload: dict[str, Any] | None = None
+    last_error: Exception | None = None
+    for variant_index, payload in enumerate(payload_variants):
+        body = json.dumps(payload).encode("utf-8")
+        req = request.Request(
+            request_url,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "api-key": os.environ["AZURE_OPENAI_API_KEY"],
+            },
+            method="POST",
+        )
 
-    try:
-        with request.urlopen(req, timeout=20) as response:
-            response_payload = json.loads(response.read().decode("utf-8"))
-    except (error.URLError, error.HTTPError, TimeoutError, json.JSONDecodeError) as exc:
+        try:
+            with request.urlopen(req, timeout=20) as response:
+                response_payload = json.loads(response.read().decode("utf-8"))
+                break
+        except error.HTTPError as exc:
+            last_error = exc
+            should_retry_next = exc.code == 400 and variant_index + 1 < len(payload_variants)
+            if should_retry_next:
+                continue
+            break
+        except (error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+            last_error = exc
+            break
+
+    if response_payload is None:
+        exc = last_error or RuntimeError("unknown Azure OpenAI error")
         log(f"Azure OpenAI summary failed: {exc}")
         langfuse_client.record_generation(
             handle=flow_handle,
@@ -751,7 +820,7 @@ def generate_llm_summary(
         },
     )
 
-    return shorten(summary, 700)
+    return summary
 
 
 def post_to_slack(payload: dict[str, Any]) -> None:
@@ -792,7 +861,7 @@ def build_slack_payload(
         f"*Servicio:* `{service}`\n"
         f"*Entorno:* `{environment}`\n"
         f"*Commit:* `{short_sha}`\n"
-        f"*Imagen:* `{shorten(image, 150)}`\n"
+        f"*Imagen:* `{image}`\n"
         f"*URL:* <{url}|{url}>"
     )
 
