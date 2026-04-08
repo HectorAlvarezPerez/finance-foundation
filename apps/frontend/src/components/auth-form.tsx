@@ -3,9 +3,10 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Eye, EyeOff, LockKeyhole, Sparkles, Wallet } from "lucide-react";
+import { Eye, EyeOff, LockKeyhole, Sparkles } from "lucide-react";
 
 import { useAuth } from "@/components/auth-provider";
+import { BrandLogo } from "@/components/brand-logo";
 import { apiRequest } from "@/lib/api";
 import { API_BASE_URL } from "@/lib/config";
 import type { AuthProvidersRead } from "@/lib/types";
@@ -103,9 +104,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
         <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[var(--app-shadow-elevated)]">
           <div className="space-y-1.5 px-6 pt-8 text-center">
             <div className="mb-5 flex justify-center">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--app-accent)] shadow-lg">
-                <Wallet className="h-7 w-7 text-white" />
-              </div>
+              <BrandLogo />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">{isLogin ? "Bienvenido de nuevo" : "Crea tu cuenta"}</h1>
             <p className="text-sm text-[var(--app-muted)]">

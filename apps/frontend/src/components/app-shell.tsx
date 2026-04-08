@@ -17,6 +17,7 @@ import {
   Wallet,
 } from "lucide-react";
 
+import { BrandLogo } from "@/components/brand-logo";
 import { useTheme } from "@/components/theme-provider";
 
 import { useAuth } from "@/components/auth-provider";
@@ -89,11 +90,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       <header className="sticky top-0 z-40 border-b border-[var(--app-border)] bg-[var(--app-glass)] backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[var(--app-content-max-width)] flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start sm:gap-6">
-            <Link href="/app" className="flex min-w-0 items-center gap-2.5 text-lg font-semibold">
-              <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-[var(--app-accent)]">
-                <Wallet className="h-4 w-4 text-white" />
-              </div>
-              <span className="truncate">Finance</span>
+            <Link href="/app" className="flex min-w-0 items-center">
+              <BrandLogo compact className="min-w-0" />
             </Link>
 
             <nav className="hidden items-center gap-0.5 md:flex">
