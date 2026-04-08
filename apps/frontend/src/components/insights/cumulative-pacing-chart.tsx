@@ -55,11 +55,22 @@ export function CumulativePacingChart({ data, className }: CumulativePacingChart
     return null;
   }
 
-  // Calculate if pacing is better (less cumulative spend) or worse (more) than previous month.
-  const currentTotal =
-    data.filter((d) => d.current_month_cumulative !== null).slice(-1)[0]?.current_month_cumulative || 0;
+  // Compare at the same day of month (or nearest available previous point up to that day).
+  const currentPoint = [...data].reverse().find((d) => d.current_month_cumulative !== null);
+  const currentTotal = currentPoint?.current_month_cumulative ?? 0;
+  const prevPointAtCurrentDay = currentPoint
+    ? data.find((d) => d.day === currentPoint.day)
+    : undefined;
   const prevTotal =
-    data.filter((d) => d.previous_month_cumulative !== null).slice(-1)[0]?.previous_month_cumulative || 0;
+    prevPointAtCurrentDay?.previous_month_cumulative ??
+    (currentPoint
+      ? [...data]
+          .reverse()
+          .find(
+            (d) =>
+              d.day <= currentPoint.day && d.previous_month_cumulative !== null,
+          )?.previous_month_cumulative ?? 0
+      : 0);
 
   const isWorse = currentTotal > prevTotal;
 

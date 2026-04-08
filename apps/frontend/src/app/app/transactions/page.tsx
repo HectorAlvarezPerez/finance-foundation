@@ -254,18 +254,19 @@ function TransactionsContent() {
     event.preventDefault();
 
     try {
-      // Apply sign based on kind: expenses are negative, income/transfer are positive
+      // Apply sign based on kind only for fresh creations.
+      // For duplicate/edit, preserve the exact user-entered sign/value.
       const rawAmount = parseFloat(form.amount.replace(",", "."));
-      const signedAmount =
-        editorMode === "edit"
-          ? form.amount  // when editing keep user's raw value
-          : transactionKind === "expense"
+      const normalizedAmount =
+        editorMode === "create"
+          ? transactionKind === "expense"
             ? -Math.abs(rawAmount)
-            : Math.abs(rawAmount);
+            : Math.abs(rawAmount)
+          : form.amount;
 
       const payload = {
         ...form,
-        amount: editorMode === "edit" ? form.amount : String(signedAmount),
+        amount: String(normalizedAmount),
         category_id: form.category_id || null,
       };
 
@@ -560,6 +561,8 @@ function TransactionsContent() {
   }
 
   function handleOpenDuplicate(transaction: Transaction) {
+    const sourceKind = inferTransactionKind(transaction, categoryMap);
+    setTransactionKind(sourceKind);
     setEditorMode("duplicate");
     setEditingTransactionId(null);
     setForm(transactionToForm(transaction));
@@ -755,9 +758,16 @@ function TransactionsContent() {
                 required
                 aria-label="Cuenta de la transacción"
                 value={form.account_id}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, account_id: event.target.value }))
-                }
+                onChange={(event) => {
+                  const nextAccountId = event.target.value;
+                  const nextAccountCurrency =
+                    accounts.find((account) => account.id === nextAccountId)?.currency ?? form.currency;
+                  setForm((current) => ({
+                    ...current,
+                    account_id: nextAccountId,
+                    currency: nextAccountCurrency,
+                  }));
+                }}
                 className={inputClasses}
               >
                 <option value="">Selecciona cuenta</option>
@@ -1869,6 +1879,21 @@ function defaultImportMapping(): TransactionImportMapping {
     category: "",
     notes: "",
   };
+}
+
+function inferTransactionKind(
+  transaction: Transaction,
+  categoryById: Map<string, Category>,
+): TransactionKind {
+  const categoryType = transaction.category_id
+    ? categoryById.get(transaction.category_id)?.type
+    : null;
+
+  if (categoryType === "income" || categoryType === "expense" || categoryType === "transfer") {
+    return categoryType;
+  }
+
+  return transaction.amount < 0 ? "expense" : "income";
 }
 
 function normalizeImportPreviewRow(row: TransactionImportPreviewRow): TransactionImportPreviewRow {
