@@ -73,11 +73,6 @@ export function MonthlyRecapLauncher({
 
           <div className={cn("flex flex-wrap text-xs text-[var(--app-muted)]", compact ? "gap-1.5" : "gap-2")}>
             <StatusPill label={activeRecapStatus} active />
-            {selectedMonth ? (
-              <StatusPill label={selectedMonth.label} />
-            ) : (
-              <StatusPill label="Elige un mes" />
-            )}
             {recap?.generated_at ? <StatusPill label={`Actualizado ${formatDateLabel(recap.generated_at)}`} /> : null}
           </div>
         </div>
@@ -120,7 +115,7 @@ export function MonthlyRecapLauncher({
             <div
               className={cn(
                 compact
-                  ? "grid gap-2 sm:grid-cols-[1fr_1fr_auto] sm:items-stretch"
+                  ? "grid gap-2 sm:grid-cols-2 sm:items-stretch"
                   : "space-y-2.5",
               )}
             >
@@ -185,21 +180,6 @@ export function MonthlyRecapLauncher({
                 <RefreshCw className="h-4 w-4" />
                 Regenerar
               </button>
-
-              {compact ? (
-                <div
-                  className="rounded-2xl border px-3 py-2 text-left"
-                  style={{
-                    borderColor: "var(--app-border)",
-                    background: "color-mix(in srgb, var(--app-muted-surface) 80%, transparent)",
-                  }}
-                >
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--app-muted)]">
-                    Estado
-                  </p>
-                  <p className="mt-0.5 text-sm font-medium text-[var(--app-text)]">{compactStatusText}</p>
-                </div>
-              ) : null}
             </div>
           </div>
 

@@ -9,11 +9,15 @@ import {
   LineChart,
   LogOut,
   Menu,
+  MoonStar,
+  Sun,
   PiggyBank,
   Settings,
   Tag,
   Wallet,
 } from "lucide-react";
+
+import { useTheme } from "@/components/theme-provider";
 
 import { useAuth } from "@/components/auth-provider";
 import { cn } from "@/lib/utils";
@@ -33,6 +37,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { logout, user } = useAuth();
   const [isMoreOpen, setIsMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
+  const { theme, setTheme } = useTheme();
+
+  function toggleTheme() {
+    setTheme(theme === "dark" ? "light" : "dark");
+  }
 
   async function handleLogout() {
     setIsMoreOpen(false);
@@ -130,6 +139,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </Link>
               <button
                 type="button"
+                onClick={toggleTheme}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--app-muted)] transition-all hover:bg-[var(--app-muted-surface)] hover:text-[var(--app-ink)]"
+                title="Cambiar tema"
+                aria-label="Cambiar tema"
+              >
+                {theme === "dark" ? <Sun className="h-[18px] w-[18px]" /> : <MoonStar className="h-[18px] w-[18px]" />}
+              </button>
+              <button
+                type="button"
                 onClick={handleLogout}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-xl text-[var(--app-muted)] transition-all hover:bg-[var(--app-danger-soft)] hover:text-[var(--app-danger)]"
                 title="Cerrar sesión"
@@ -225,6 +243,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <Settings className="h-4 w-4" />
                   <span>Preferencias</span>
                 </Link>
+
+                <div className="mx-2 my-1.5 border-t border-[var(--app-border)]" />
+
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition-all text-[var(--app-ink)] hover:bg-[var(--app-muted-surface)]"
+                >
+                  {theme === "dark" ? <Sun className="h-4 w-4" /> : <MoonStar className="h-4 w-4" />}
+                  <span>{theme === "dark" ? "Modo claro" : "Modo oscuro"}</span>
+                </button>
 
                 <div className="mx-2 my-1.5 border-t border-[var(--app-border)]" />
 

@@ -23,7 +23,7 @@ import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { apiRequest } from "@/lib/api";
-import type { Account, AccountType, PaginatedResponse, Transaction } from "@/lib/types";
+import type { Account, AccountType, PaginatedResponse, Transaction, Settings } from "@/lib/types";
 
 type AccountFormState = {
   name: string;
@@ -93,13 +93,19 @@ export default function AccountsPage() {
 
   async function loadAccounts() {
     try {
-      const [accountsResponse, transactionsResponse] = await Promise.all([
+      const [accountsResponse, transactionsResponse, settingsResponse] = await Promise.all([
         apiRequest<PaginatedResponse<Account>>("/accounts?sort_by=name&sort_order=asc&limit=100"),
         apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100"),
+        apiRequest<Settings>("/settings").catch(() => null),
       ]);
 
       setAccounts(accountsResponse.items);
       setTransactions(transactionsResponse.items);
+
+      if (settingsResponse) {
+        defaultForm.currency = settingsResponse.default_currency;
+        setForm((current) => ({ ...current, currency: settingsResponse.default_currency }));
+      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar las cuentas");
     } finally {
@@ -303,20 +309,17 @@ export default function AccountsPage() {
           <form className="space-y-4" onSubmit={handleSubmit}>
             <input required aria-label="Nombre de la cuenta" value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} placeholder="Nombre de la cuenta" className={inputClasses} />
             <input aria-label="Banco" value={form.bank_name} onChange={(event) => setForm((current) => ({ ...current, bank_name: event.target.value }))} placeholder="Banco (opcional)" className={inputClasses} />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <select
-                aria-label="Tipo de cuenta"
-                value={form.type}
-                onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as AccountType }))}
-                className={inputClasses}
-              >
-                <option value="checking">{accountTypeLabels.checking}</option>
-                <option value="savings">{accountTypeLabels.savings}</option>
-                <option value="shared">{accountTypeLabels.shared}</option>
-                <option value="other">{accountTypeLabels.other}</option>
-              </select>
-              <input required aria-label="Divisa" value={form.currency} onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value.toUpperCase() }))} maxLength={3} placeholder="EUR" className={`${inputClasses} uppercase`} />
-            </div>
+            <select
+              aria-label="Tipo de cuenta"
+              value={form.type}
+              onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as AccountType }))}
+              className={inputClasses}
+            >
+              <option value="checking">{accountTypeLabels.checking}</option>
+              <option value="savings">{accountTypeLabels.savings}</option>
+              <option value="shared">{accountTypeLabels.shared}</option>
+              <option value="other">{accountTypeLabels.other}</option>
+            </select>
             {editingAccountId ? null : (
               <input aria-label="Saldo inicial" value={form.initial_balance} onChange={(event) => setForm((current) => ({ ...current, initial_balance: event.target.value }))} inputMode="decimal" placeholder="Saldo inicial (opcional)" className={inputClasses} />
             )}

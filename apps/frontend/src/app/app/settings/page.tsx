@@ -30,9 +30,6 @@ const DEFAULT_FORM: SettingsForm = {
 const LOCALE_OPTIONS = [
   { value: "es-ES", label: "Español (España)" },
   { value: "en-US", label: "English (US)" },
-  { value: "en-GB", label: "English (UK)" },
-  { value: "fr-FR", label: "Français (France)" },
-  { value: "de-DE", label: "Deutsch (Deutschland)" },
 ];
 
 export default function SettingsPage() {
@@ -187,21 +184,23 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               <label className="grid gap-2">
-                <span className="text-sm font-medium">Moneda por defecto</span>
-                <input
+                <span className="text-sm font-medium">Moneda principal (Global)</span>
+                <select
                   required
                   value={form.default_currency}
-                  maxLength={3}
                   onChange={(event) =>
                     setForm((current) => ({
                       ...current,
                       default_currency: event.target.value.toUpperCase(),
                     }))
                   }
-                  className={`${inputClasses} uppercase`}
-                />
+                  className={inputClasses}
+                >
+                  <option value="EUR">Euros (EUR)</option>
+                  <option value="USD">Dólares Estadounidenses (USD)</option>
+                </select>
                 <span className="text-xs text-[var(--app-muted)]">
-                  Se usa como referencia al crear nuevas cuentas, transacciones y presupuestos.
+                  Esta será la única moneda utilizada en todas las cuentas y transacciones.
                 </span>
               </label>
 

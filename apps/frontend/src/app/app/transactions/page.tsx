@@ -1,11 +1,13 @@
 "use client";
 
-import { FormEvent, Suspense, useMemo, useRef, useState } from "react";
+import { FormEvent, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import useSWR from "swr";
 import {
   AlertCircle,
+  ArrowLeftRight,
   Check,
+  ChevronDown,
   Copy,
   CreditCard,
   FileSpreadsheet,
@@ -13,6 +15,8 @@ import {
   LoaderCircle,
   Pencil,
   Plus,
+  TrendingDown,
+  TrendingUp,
   Trash2,
   Upload,
   X,
@@ -47,6 +51,7 @@ type TransactionFilters = {
 };
 
 type TransactionEditorMode = "create" | "edit" | "duplicate";
+type TransactionKind = "expense" | "income" | "transfer";
 
 type TransactionImportMapping = {
   date: string;
@@ -147,6 +152,9 @@ function TransactionsContent() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editorMode, setEditorMode] = useState<TransactionEditorMode>("create");
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
+  const [transactionKind, setTransactionKind] = useState<TransactionKind>("expense");
+  const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
+  const typePickerRef = useRef<HTMLDivElement | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; ids: string[] }>({
     open: false,
@@ -169,6 +177,24 @@ function TransactionsContent() {
   const accountMap = new Map(accounts.map((account) => [account.id, account]));
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
   const selectedCount = selectedIds.length;
+
+  // Close type picker on outside click
+  useEffect(() => {
+    if (!isTypePickerOpen) return;
+    function onDown(e: MouseEvent) {
+      if (typePickerRef.current && !typePickerRef.current.contains(e.target as Node)) {
+        setIsTypePickerOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [isTypePickerOpen]);
+
+  // Filtered categories for the selected transaction kind
+  const kindCategories = useMemo(
+    () => categories.filter((c) => c.type === transactionKind),
+    [categories, transactionKind],
+  );
   const allVisibleSelected =
     transactions.length > 0 &&
     transactions.every((transaction) => selectedIds.includes(transaction.id));
@@ -228,8 +254,18 @@ function TransactionsContent() {
     event.preventDefault();
 
     try {
+      // Apply sign based on kind: expenses are negative, income/transfer are positive
+      const rawAmount = parseFloat(form.amount.replace(",", "."));
+      const signedAmount =
+        editorMode === "edit"
+          ? form.amount  // when editing keep user's raw value
+          : transactionKind === "expense"
+            ? -Math.abs(rawAmount)
+            : Math.abs(rawAmount);
+
       const payload = {
         ...form,
+        amount: editorMode === "edit" ? form.amount : String(signedAmount),
         category_id: form.category_id || null,
       };
 
@@ -260,10 +296,12 @@ function TransactionsContent() {
     }
   }
 
-  function handleOpenCreate() {
+  function handleOpenCreate(kind: TransactionKind) {
+    setTransactionKind(kind);
     setEditorMode("create");
     setEditingTransactionId(null);
     setForm(defaultTransactionForm(form.currency, form.account_id));
+    setIsTypePickerOpen(false);
     setIsDialogOpen(true);
   }
 
@@ -603,14 +641,51 @@ function TransactionsContent() {
               <FileUp className="h-4 w-4" />
               Import transactions
             </button>
-            <button
-              type="button"
-              onClick={handleOpenCreate}
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
-            >
-              <Plus className="h-4 w-4" />
-              Nueva transacción
-            </button>
+            <div ref={typePickerRef} className="relative">
+              <div className="inline-flex rounded-xl bg-[var(--app-accent)] shadow-sm transition-all hover:brightness-110">
+                <button
+                  type="button"
+                  onClick={() => handleOpenCreate("expense")}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-l-xl outline-none"
+                >
+                  <Plus className="h-4 w-4" />
+                  Nueva transacción
+                </button>
+                <div className="my-1.5 w-[1px] bg-white/20" />
+                <button
+                  type="button"
+                  onClick={() => setIsTypePickerOpen((v) => !v)}
+                  className="inline-flex items-center justify-center px-2 text-white rounded-r-xl outline-none"
+                  aria-label="Seleccionar tipo de transacción"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </div>
+              {isTypePickerOpen && (
+                <div className="animate-slideDown absolute right-0 top-full z-50 mt-2 w-52 overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-glass)] shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
+                  {([
+                    { kind: "expense" as const, label: "Gasto", icon: <TrendingDown className="h-4 w-4" />, color: "var(--app-danger)", bg: "var(--app-danger-soft)" },
+                    { kind: "income" as const, label: "Ingreso", icon: <TrendingUp className="h-4 w-4" />, color: "var(--app-success)", bg: "var(--app-success-soft)" },
+                    { kind: "transfer" as const, label: "Transferencia", icon: <ArrowLeftRight className="h-4 w-4" />, color: "var(--app-accent)", bg: "var(--app-accent-soft)" },
+                  ] as const).map((opt) => (
+                    <button
+                      key={opt.kind}
+                      type="button"
+                      onClick={() => handleOpenCreate(opt.kind)}
+                      className="flex w-full items-center gap-3 px-4 py-3 text-sm font-medium transition-colors hover:bg-[var(--app-muted-surface)]"
+                    >
+                      <span
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg"
+                        style={{ background: opt.bg, color: opt.color }}
+                      >
+                        {opt.icon}
+                      </span>
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -638,17 +713,43 @@ function TransactionsContent() {
               ? "Editar transacción"
               : editorMode === "duplicate"
                 ? "Duplicar transacción"
-                : "Nueva transacción"
+                : (
+                  <div className="flex items-center gap-2">
+                    <span>Nueva transacción</span>
+                    {(() => {
+                      const kinds = [
+                        { kind: "expense" as const, label: "Gasto", icon: <TrendingDown className="h-3.5 w-3.5" />, color: "var(--app-danger)", bg: "var(--app-danger-soft)" },
+                        { kind: "income" as const, label: "Ingreso", icon: <TrendingUp className="h-3.5 w-3.5" />, color: "var(--app-success)", bg: "var(--app-success-soft)" },
+                        { kind: "transfer" as const, label: "Transferencia", icon: <ArrowLeftRight className="h-3.5 w-3.5" />, color: "var(--app-accent)", bg: "var(--app-accent-soft)" },
+                      ] as const;
+                      const active = kinds.find((k) => k.kind === transactionKind)!;
+                      return (
+                        <span
+                          className="flex items-center gap-1.5 rounded-lg px-2 py-0.5 text-xs font-semibold"
+                          style={{ background: active.bg, color: active.color }}
+                        >
+                          {active.icon}
+                          {active.label}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                )
           }
           description={
             editorMode === "edit"
               ? "Actualiza la información y guarda los cambios."
               : editorMode === "duplicate"
                 ? "Partimos de una transacción existente para crear una nueva."
-                : "Añade un ingreso, gasto o movimiento y actualiza el dashboard al instante."
+                : transactionKind === "expense"
+                  ? "El importe se registrará como negativo automáticamente."
+                  : transactionKind === "income"
+                    ? "El importe se registrará como positivo automáticamente."
+                    : "Movimiento entre tus propias cuentas."
           }
         >
           <form className="space-y-4" onSubmit={handleSubmit}>
+
             <div className="grid gap-4 sm:grid-cols-2">
               <select
                 required
@@ -676,14 +777,15 @@ function TransactionsContent() {
                 className={inputClasses}
               >
                 <option value="">Sin categoría</option>
-                {categories.map((category) => (
+                {(editorMode === "create" ? kindCategories : categories).map((category) => (
                   <option key={category.id} value={category.id}>
                     {category.name}
                   </option>
                 ))}
               </select>
             </div>
-            <div className="grid gap-4 sm:grid-cols-3">
+
+            <div className="grid gap-4 sm:grid-cols-2">
               <input
                 required
                 aria-label="Fecha de la transacción"
@@ -692,25 +794,25 @@ function TransactionsContent() {
                 onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
                 className={inputClasses}
               />
-              <input
-                required
-                aria-label="Importe de la transacción"
-                value={form.amount}
-                onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
-                placeholder="48.90"
-                className={inputClasses}
-              />
-              <input
-                required
-                aria-label="Divisa de la transacción"
-                value={form.currency}
-                maxLength={3}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, currency: event.target.value.toUpperCase() }))
-                }
-                className={`${inputClasses} uppercase`}
-              />
+              {/* Amount: user enters positive value; sign applied from kind on submit */}
+              <div className="relative">
+                <span
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold"
+                  style={{ color: transactionKind === "expense" ? "var(--app-danger)" : transactionKind === "income" ? "var(--app-success)" : "var(--app-accent)" }}
+                >
+                  {editorMode === "create" ? (transactionKind === "expense" ? "−" : "+") : ""}
+                </span>
+                <input
+                  required
+                  aria-label="Importe de la transacción"
+                  value={form.amount}
+                  onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))}
+                  placeholder="48.90"
+                  className={`${inputClasses} pl-8`}
+                />
+              </div>
             </div>
+
             <input
               required
               aria-label="Descripción de la transacción"
@@ -725,8 +827,8 @@ function TransactionsContent() {
               aria-label="Notas de la transacción"
               value={form.notes}
               onChange={(event) => setForm((current) => ({ ...current, notes: event.target.value }))}
-              rows={3}
-              placeholder="Notas"
+              rows={2}
+              placeholder="Notas (opcional)"
               className={inputClasses}
             />
             <button
@@ -1283,9 +1385,9 @@ function TransactionsContent() {
           </Card>
         ) : null}
 
-        <div className="animate-fadeIn overflow-hidden rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)]">
+        <div className="animate-fadeIn overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--app-accent)_15%,var(--app-border))] bg-[color-mix(in_srgb,var(--app-panel-strong)_70%,var(--app-muted-surface))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
           <div className="flex items-stretch">
-            <div className="flex shrink-0 items-center border-r border-[var(--app-border)] bg-[var(--app-muted-surface)] px-4 text-xs font-semibold text-[var(--app-muted)]">
+            <div className="flex shrink-0 items-center border-r border-[color-mix(in_srgb,var(--app-accent)_20%,var(--app-border))] bg-[color-mix(in_srgb,var(--app-accent)_8%,var(--app-muted-surface))] px-4 text-xs font-bold tracking-wider text-[var(--app-accent)] uppercase">
               Filtros
             </div>
             <div className="min-w-0 flex-1 p-2">
@@ -1524,7 +1626,7 @@ function TransactionsContent() {
                   description="Crea la primera para empezar a poblar el dashboard."
                   icon={CreditCard}
                   actionLabel="Nueva transacción"
-                  onAction={handleOpenCreate}
+                  onAction={() => handleOpenCreate("expense")}
                   variant="plain"
                 />
               )}
