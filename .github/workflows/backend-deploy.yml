@@ -6,6 +6,7 @@ on:
 permissions:
   contents: read
   id-token: write
+  pull-requests: read
 
 env:
   AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
@@ -17,11 +18,13 @@ env:
   AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
   AZURE_OPENAI_PDF_PARSER_DEPLOYMENT: ${{ vars.AZURE_OPENAI_PDF_PARSER_DEPLOYMENT }}
   AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT: ${{ vars.AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT }}
+  AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT }}
   AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
   LANGFUSE_ENABLED: ${{ vars.LANGFUSE_ENABLED }}
   LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
   LANGFUSE_ENV: ${{ vars.LANGFUSE_ENV }}
   LANGFUSE_PROMPT_LABEL: ${{ vars.LANGFUSE_PROMPT_LABEL }}
+  LANGFUSE_DEPLOY_SUMMARY_PROMPT_NAME: ${{ vars.LANGFUSE_DEPLOY_SUMMARY_PROMPT_NAME }}
   AZURE_DOCUMENT_INTELLIGENCE_API_KEY: ${{ secrets.AZURE_DOCUMENT_INTELLIGENCE_API_KEY }}
   AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
   LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
@@ -38,6 +41,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Azure login
         uses: azure/login@v2
@@ -47,99 +52,8 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Build backend image and deploy to Azure Container Apps
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -euo pipefail
-
-            ACR_LOGIN_SERVER="$(az acr show --name "$AZURE_CONTAINER_REGISTRY_NAME" --query loginServer -o tsv)"
-            IMAGE_TAG="$ACR_LOGIN_SERVER/$BACKEND_IMAGE_NAME:${GITHUB_SHA}"
-
-            az acr build \
-              --registry "$AZURE_CONTAINER_REGISTRY_NAME" \
-              --image "$BACKEND_IMAGE_NAME:${GITHUB_SHA}" \
-              --file apps/backend/Dockerfile \
-              .
-
-            SECRET_ARGS=()
-            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY:-}" ]; then
-              SECRET_ARGS+=("docintel-key=${AZURE_DOCUMENT_INTELLIGENCE_API_KEY}")
-            fi
-            if [ -n "${AZURE_OPENAI_API_KEY:-}" ]; then
-              SECRET_ARGS+=("openai-key=${AZURE_OPENAI_API_KEY}")
-            fi
-            if [ -n "${LANGFUSE_PUBLIC_KEY:-}" ]; then
-              SECRET_ARGS+=("langfuse-public-key=${LANGFUSE_PUBLIC_KEY}")
-            fi
-            if [ -n "${LANGFUSE_SECRET_KEY:-}" ]; then
-              SECRET_ARGS+=("langfuse-secret-key=${LANGFUSE_SECRET_KEY}")
-            fi
-
-            if [ "${#SECRET_ARGS[@]}" -gt 0 ]; then
-              az containerapp secret set \
-                --name "$AZURE_BACKEND_CONTAINER_APP_NAME" \
-                --resource-group "$AZURE_RESOURCE_GROUP" \
-                --secrets "${SECRET_ARGS[@]}"
-            fi
-
-            ENV_ARGS=()
-            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT:-}" ]; then
-              ENV_ARGS+=("AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT=${AZURE_DOCUMENT_INTELLIGENCE_ENDPOINT}")
-            fi
-            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID:-}" ]; then
-              ENV_ARGS+=("AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID=${AZURE_DOCUMENT_INTELLIGENCE_MODEL_ID}")
-            fi
-            if [ -n "${AZURE_DOCUMENT_INTELLIGENCE_API_KEY:-}" ]; then
-              ENV_ARGS+=("AZURE_DOCUMENT_INTELLIGENCE_API_KEY=secretref:docintel-key")
-            fi
-            if [ -n "${AZURE_OPENAI_ENDPOINT:-}" ]; then
-              ENV_ARGS+=("AZURE_OPENAI_ENDPOINT=${AZURE_OPENAI_ENDPOINT}")
-            fi
-            if [ -n "${AZURE_OPENAI_PDF_PARSER_DEPLOYMENT:-}" ]; then
-              ENV_ARGS+=("AZURE_OPENAI_PDF_PARSER_DEPLOYMENT=${AZURE_OPENAI_PDF_PARSER_DEPLOYMENT}")
-            fi
-            if [ -n "${AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT:-}" ]; then
-              ENV_ARGS+=("AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT=${AZURE_OPENAI_TRANSACTION_CATEGORY_DEPLOYMENT}")
-            fi
-            if [ -n "${AZURE_OPENAI_API_VERSION:-}" ]; then
-              ENV_ARGS+=("AZURE_OPENAI_API_VERSION=${AZURE_OPENAI_API_VERSION}")
-            fi
-            if [ -n "${AZURE_OPENAI_API_KEY:-}" ]; then
-              ENV_ARGS+=("AZURE_OPENAI_API_KEY=secretref:openai-key")
-            fi
-            ENV_ARGS+=("LANGFUSE_ENABLED=${LANGFUSE_ENABLED:-false}")
-            if [ -n "${LANGFUSE_PUBLIC_KEY:-}" ]; then
-              ENV_ARGS+=("LANGFUSE_PUBLIC_KEY=secretref:langfuse-public-key")
-            fi
-            if [ -n "${LANGFUSE_SECRET_KEY:-}" ]; then
-              ENV_ARGS+=("LANGFUSE_SECRET_KEY=secretref:langfuse-secret-key")
-            fi
-            if [ -n "${LANGFUSE_HOST:-}" ]; then
-              ENV_ARGS+=("LANGFUSE_HOST=${LANGFUSE_HOST}")
-            fi
-            if [ -n "${LANGFUSE_ENV:-}" ]; then
-              ENV_ARGS+=("LANGFUSE_ENV=${LANGFUSE_ENV}")
-            fi
-            if [ -n "${LANGFUSE_PROMPT_LABEL:-}" ]; then
-              ENV_ARGS+=("LANGFUSE_PROMPT_LABEL=${LANGFUSE_PROMPT_LABEL}")
-            fi
-
-            UPDATE_ARGS=(
-              --name "$AZURE_BACKEND_CONTAINER_APP_NAME"
-              --resource-group "$AZURE_RESOURCE_GROUP"
-              --image "$IMAGE_TAG"
-            )
-
-            if [ "${#ENV_ARGS[@]}" -gt 0 ]; then
-              UPDATE_ARGS+=(--set-env-vars "${ENV_ARGS[@]}")
-            fi
-
-            az containerapp update "${UPDATE_ARGS[@]}"
-
-            BACKEND_FQDN="$(az containerapp show \
-              --name "$AZURE_BACKEND_CONTAINER_APP_NAME" \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --query properties.configuration.ingress.fqdn \
-              -o tsv)"
-
-            echo "Backend desplegado en: https://$BACKEND_FQDN"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG_SUFFIX: ${{ github.sha }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: bash scripts/deploy-backend-manual.sh

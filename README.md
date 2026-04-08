@@ -222,15 +222,19 @@ La base de despliegue de Fase 7 vive en [infra/azure/README.md](/home/hector/Esc
 Incluye:
 
 - Dockerfiles listos para producción para frontend y backend
-- workflows manuales de GitHub Actions para desplegar a Azure Container Apps
-- plantillas de entorno para backend y frontend
+- scripts manuales para desplegar a Azure Container Apps
+- workflows manuales de GitHub Actions que reutilizan esos scripts
+- plantillas de entorno para backend, frontend y notificaciones operativas
+- integración opcional de Slack con resumen narrativo generado por Azure OpenAI
+
+Los despliegues pueden ejecutarse tanto desde terminal como desde GitHub Actions, pero la lógica real vive en los scripts de deploy. Si configuras Slack, la notificación se envía al final de un deploy exitoso y no rompe el flujo si falla.
 
 Workflows disponibles:
 
 - [backend-deploy.yml](/home/hector/Escritorio/GitHub/finance-foundation/.github/workflows/backend-deploy.yml)
 - [frontend-deploy.yml](/home/hector/Escritorio/GitHub/finance-foundation/.github/workflows/frontend-deploy.yml)
 
-Estos workflows asumen que la infraestructura de Azure ya existe y actualizan las Container Apps con una imagen nueva construida en ACR.
+Estos workflows asumen que la infraestructura de Azure ya existe y actualizan las Container Apps con una imagen nueva construida en ACR, reutilizando los mismos scripts que el despliegue manual.
 
 ## Estado actual
 
