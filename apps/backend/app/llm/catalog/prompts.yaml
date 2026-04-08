@@ -96,3 +96,27 @@ prompts:
 
           Stories to write:
           {{stories_payload}}
+
+  - name: deploy_summary_notification
+    description: Generate a short operational deploy summary for Slack notifications.
+    labels:
+      - production
+    messages:
+      - role: system
+        content: |
+          Eres un asistente de release notes operativas. Responde solo con un párrafo breve,
+          claro y factual en español.
+      - role: user
+        content: |
+          Resume en español, en un único párrafo breve de 1 a 3 frases, qué se ha desplegado.
+          No inventes detalles ni menciones que se ha usado un LLM.
+          Prioriza lo que cambia a nivel operativo o funcional.
+
+          Servicio: {{service}}
+          Entorno: {{environment}}
+          Commit: {{commit_sha_short}}
+          Imagen: {{image}}
+          URL: {{url}}
+
+          {{context_heading}}
+          {{context_block}}

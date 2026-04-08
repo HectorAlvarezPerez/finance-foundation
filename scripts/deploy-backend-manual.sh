@@ -9,8 +9,61 @@ require_cmd() {
   fi
 }
 
+get_containerapp_image() {
+  local app_name="$1"
+  local image
+
+  image="$(
+    az containerapp show \
+      --name "$app_name" \
+      --resource-group "$AZURE_RESOURCE_GROUP" \
+      --query properties.template.containers[0].image \
+      --output tsv \
+      2>/dev/null || true
+  )"
+
+  if [ "$image" = "null" ]; then
+    image=""
+  fi
+
+  printf '%s' "$image"
+}
+
+notify_deploy() {
+  local service="$1"
+  local environment="$2"
+  local image="$3"
+  local url="$4"
+  local commit_sha="$5"
+  local previous_image="$6"
+  local args=(
+    --service "$service"
+    --environment "$environment"
+    --image "$image"
+    --url "$url"
+    --commit-sha "$commit_sha"
+  )
+
+  if ! command -v python3 >/dev/null 2>&1; then
+    echo "Skipping Slack notification: python3 is not available." >&2
+    return 0
+  fi
+
+  if [ -n "$previous_image" ]; then
+    args+=(--previous-image "$previous_image")
+  fi
+
+  if [ "${LANGFUSE_ENABLED:-false}" = "true" ] && [ -n "${LANGFUSE_PUBLIC_KEY:-}" ] && [ -n "${LANGFUSE_SECRET_KEY:-}" ] && [ -n "${LANGFUSE_HOST:-}" ]; then
+    if ! python3 -c "import langfuse" >/dev/null 2>&1; then
+      echo "Installing langfuse SDK for deploy notifications..." >&2
+      python3 -m pip install --quiet "langfuse>=3.0.0" || echo "Warning: unable to install langfuse SDK; continuing without Langfuse integration." >&2
+    fi
+  fi
+
+  python3 scripts/deploy-notify.py "${args[@]}" || true
+}
+
 require_cmd az
-require_cmd docker
 
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-finance-foundation-rg}"
 AZURE_CONTAINER_REGISTRY_NAME="${AZURE_CONTAINER_REGISTRY_NAME:-financefoundationacr}"
@@ -31,6 +84,7 @@ LANGFUSE_SECRET_KEY="${LANGFUSE_SECRET_KEY:-}"
 LANGFUSE_HOST="${LANGFUSE_HOST:-}"
 LANGFUSE_ENV="${LANGFUSE_ENV:-}"
 LANGFUSE_PROMPT_LABEL="${LANGFUSE_PROMPT_LABEL:-production}"
+COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD 2>/dev/null || echo unknown)}"
 
 echo "Resolving ACR login server..."
 ACR_LOGIN_SERVER="$(
@@ -41,6 +95,7 @@ ACR_LOGIN_SERVER="$(
 )"
 
 IMAGE_TAG="${ACR_LOGIN_SERVER}/${BACKEND_IMAGE_NAME}:${IMAGE_TAG_SUFFIX}"
+PREVIOUS_IMAGE="$(get_containerapp_image "$AZURE_BACKEND_CONTAINER_APP_NAME")"
 
 echo "Building backend image in ACR as ${IMAGE_TAG}..."
 if az acr build \
@@ -51,6 +106,7 @@ if az acr build \
   echo "Remote build completed via ACR Tasks."
 else
   echo "ACR Tasks not available in this subscription. Falling back to local Docker build + push..."
+  require_cmd docker
   az acr login --name "$AZURE_CONTAINER_REGISTRY_NAME" >/dev/null
   docker build \
     -f apps/backend/Dockerfile \
@@ -146,8 +202,11 @@ BACKEND_FQDN="$(
     --query properties.configuration.ingress.fqdn \
     --output tsv
 )"
+BACKEND_URL="https://${BACKEND_FQDN}"
 
 echo
 echo "Backend deploy completed."
 echo "Image:  ${IMAGE_TAG}"
-echo "URL:    https://${BACKEND_FQDN}"
+echo "URL:    ${BACKEND_URL}"
+
+notify_deploy "backend" "prod" "$IMAGE_TAG" "$BACKEND_URL" "$COMMIT_SHA" "$PREVIOUS_IMAGE"

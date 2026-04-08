@@ -6,13 +6,25 @@ on:
 permissions:
   contents: read
   id-token: write
+  pull-requests: read
 
 env:
   AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
   AZURE_CONTAINER_REGISTRY_NAME: ${{ vars.AZURE_CONTAINER_REGISTRY_NAME }}
   AZURE_FRONTEND_CONTAINER_APP_NAME: ${{ vars.AZURE_FRONTEND_CONTAINER_APP_NAME }}
-  NEXT_PUBLIC_API_BASE_URL_PROD: ${{ vars.NEXT_PUBLIC_API_BASE_URL_PROD }}
+  NEXT_PUBLIC_API_BASE_URL: ${{ vars.NEXT_PUBLIC_API_BASE_URL_PROD }}
   FRONTEND_IMAGE_NAME: finance-foundation-frontend
+  AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+  AZURE_OPENAI_API_VERSION: ${{ vars.AZURE_OPENAI_API_VERSION }}
+  AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT: ${{ vars.AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT }}
+  AZURE_OPENAI_API_KEY: ${{ secrets.AZURE_OPENAI_API_KEY }}
+  LANGFUSE_ENABLED: ${{ vars.LANGFUSE_ENABLED }}
+  LANGFUSE_HOST: ${{ vars.LANGFUSE_HOST }}
+  LANGFUSE_ENV: ${{ vars.LANGFUSE_ENV }}
+  LANGFUSE_PROMPT_LABEL: ${{ vars.LANGFUSE_PROMPT_LABEL }}
+  LANGFUSE_DEPLOY_SUMMARY_PROMPT_NAME: ${{ vars.LANGFUSE_DEPLOY_SUMMARY_PROMPT_NAME }}
+  LANGFUSE_PUBLIC_KEY: ${{ secrets.LANGFUSE_PUBLIC_KEY }}
+  LANGFUSE_SECRET_KEY: ${{ secrets.LANGFUSE_SECRET_KEY }}
 
 jobs:
   deploy-frontend:
@@ -25,6 +37,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Azure login
         uses: azure/login@v2
@@ -34,30 +48,8 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Build frontend image and deploy to Azure Container Apps
-        uses: azure/cli@v2
-        with:
-          inlineScript: |
-            set -euo pipefail
-
-            ACR_LOGIN_SERVER="$(az acr show --name "$AZURE_CONTAINER_REGISTRY_NAME" --query loginServer -o tsv)"
-            IMAGE_TAG="$ACR_LOGIN_SERVER/$FRONTEND_IMAGE_NAME:${GITHUB_SHA}"
-
-            az acr build \
-              --registry "$AZURE_CONTAINER_REGISTRY_NAME" \
-              --image "$FRONTEND_IMAGE_NAME:${GITHUB_SHA}" \
-              --file apps/frontend/Dockerfile \
-              --build-arg NEXT_PUBLIC_API_BASE_URL="$NEXT_PUBLIC_API_BASE_URL_PROD" \
-              .
-
-            az containerapp update \
-              --name "$AZURE_FRONTEND_CONTAINER_APP_NAME" \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --image "$IMAGE_TAG"
-
-            FRONTEND_FQDN="$(az containerapp show \
-              --name "$AZURE_FRONTEND_CONTAINER_APP_NAME" \
-              --resource-group "$AZURE_RESOURCE_GROUP" \
-              --query properties.configuration.ingress.fqdn \
-              -o tsv)"
-
-            echo "Frontend desplegado en: https://$FRONTEND_FQDN"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          IMAGE_TAG_SUFFIX: ${{ github.sha }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: bash scripts/deploy-frontend-manual.sh

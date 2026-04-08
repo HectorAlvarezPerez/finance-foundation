@@ -261,5 +261,7 @@ echo "Google redirect URI:   ${GOOGLE_REDIRECT_URI}"
 echo
 echo "Next steps:"
 echo "1. Add GitHub vars: AZURE_RESOURCE_GROUP, AZURE_CONTAINER_REGISTRY_NAME, AZURE_BACKEND_CONTAINER_APP_NAME, AZURE_FRONTEND_CONTAINER_APP_NAME, NEXT_PUBLIC_API_BASE_URL_PROD=https://${BACKEND_FQDN}/api/v1"
+echo "   Optional vars for deploy notifications: AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, AZURE_OPENAI_DEPLOY_SUMMARY_DEPLOYMENT, LANGFUSE_DEPLOY_SUMMARY_PROMPT_NAME"
+echo "   Optional secrets for deploy notifications: SLACK_WEBHOOK_URL, AZURE_OPENAI_API_KEY"
 echo "2. Configure GitHub OIDC with scripts/azure-setup-github-oidc.sh"
 echo "3. Trigger backend and frontend deploy workflows from GitHub Actions"
