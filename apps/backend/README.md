@@ -81,6 +81,44 @@ GOOGLE_OAUTH_REDIRECT_URI=http://localhost:8000/api/v1/auth/google/callback
 
 This keeps the same session model as local auth while adding social login with very little surface area.
 
+## Slack docs bot MVP
+
+The backend now includes a minimal Slack bot endpoint for demo purposes:
+
+- `POST /api/v1/slack/events`
+- responds to `app_mention` events and direct messages
+- uses a Notion demo knowledge base as its only source of truth
+- answers with short Spanish replies plus 1-3 cited Notion pages
+
+This bot is intentionally narrow:
+
+- it does not claim to read the repo live
+- it does not execute actions in the product
+- it rejects undocumented questions instead of inventing answers
+
+### Required env vars
+
+```bash
+NOTION_API_TOKEN=...
+NOTION_DOCS_DATA_SOURCE_ID=...
+NOTION_API_VERSION=2026-03-11
+
+SLACK_BOT_TOKEN=...
+SLACK_SIGNING_SECRET=...
+SLACK_BOT_USER_ID=...
+
+AZURE_OPENAI_ENDPOINT=...
+AZURE_OPENAI_API_KEY=...
+AZURE_OPENAI_DOCS_QA_DEPLOYMENT=...
+AZURE_OPENAI_API_VERSION=2025-03-01-preview
+```
+
+Notes:
+
+- `NOTION_DOCS_DATA_SOURCE_ID` should point to the demo docs data source, not the database page URL.
+- The bot still works without Azure OpenAI, but it falls back to extractive answers and becomes more conservative.
+- Langfuse, if configured, records the Slack docs QA flow in the same observability stack as the other LLM features.
+
 ## Microsoft Entra External ID (future)
 
 ### Required env vars

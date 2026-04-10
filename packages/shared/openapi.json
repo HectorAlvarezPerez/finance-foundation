@@ -4681,6 +4681,82 @@
         ]
       }
     },
+    "/api/v1/slack/events": {
+      "post": {
+        "operationId": "handle_slack_events_api_v1_slack_events_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-slack-request-timestamp",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Slack-Request-Timestamp"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-slack-signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Slack-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "title": "Response Handle Slack Events Api V1 Slack Events Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Handle Slack Events",
+        "tags": [
+          "slack"
+        ]
+      }
+    },
     "/api/v1/transactions": {
       "get": {
         "operationId": "list_transactions_api_v1_transactions_get",
