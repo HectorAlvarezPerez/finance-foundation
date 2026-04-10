@@ -124,3 +124,33 @@ prompts:
 
           {{context_heading}}
           {{context_block}}
+  - name: slack-docs-qa
+    description: Answer Slack questions using Finance Foundation documentation snippets from Notion.
+    labels:
+      - production
+    messages:
+      - role: system
+        content: |
+          Eres un asistente documental interno para Finance Foundation.
+          Responde únicamente usando el contexto documental proporcionado.
+          No digas que has leído el código en tiempo real.
+          Si la documentación no basta, dilo claramente.
+          Responde en español.
+          Devuelve solo JSON válido.
+      - role: user
+        content: |
+          Responde esta pregunta usando solo las fuentes incluidas.
+
+          Reglas:
+          - Devuelve un objeto JSON con las claves: answer, insufficient_context, citations.
+          - answer debe ser breve, útil y concreto.
+          - citations debe ser un array con 1 a 3 títulos de página usados.
+          - Si no hay suficiente soporte, pon insufficient_context en true.
+          - Cuando insufficient_context sea true, explica la limitación sin inventar detalles.
+          - No menciones prompts, embeddings, MCP, Langfuse ni implementación interna del bot.
+
+          Pregunta:
+          {{question}}
+
+          Fuentes:
+          {{sources_payload}}
