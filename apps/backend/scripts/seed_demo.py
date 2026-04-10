@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from calendar import monthrange
 from datetime import date
 from decimal import Decimal
@@ -19,8 +20,7 @@ from app.models.user_credential import UserCredential
 
 DEMO_EMAIL = "demo@finance-foundation.app"
 DEMO_PASSWORD = "Demo12345"
-DEMO_NAME = "Demo User"
-
+DEMO_NAME = "Berta (Estudiante Mates)"
 
 def add_months(base_date: date, offset: int) -> date:
     month_index = base_date.month - 1 + offset
@@ -28,7 +28,6 @@ def add_months(base_date: date, offset: int) -> date:
     month = month_index % 12 + 1
     day = min(base_date.day, monthrange(year, month)[1])
     return date(year, month, day)
-
 
 def seed_demo_data() -> None:
     today = date.today()
@@ -63,22 +62,22 @@ def seed_demo_data() -> None:
 
         main_account = Account(
             user_id=user.id,
-            name="Cuenta principal",
-            bank_name="Santander",
+            name="ImaginBank (Principal)",
+            bank_name="CaixaBank",
             type=AccountType.CHECKING,
             currency="EUR",
         )
         savings_account = Account(
             user_id=user.id,
-            name="Ahorro",
-            bank_name="Openbank",
+            name="Hucha (Viaje Verano)",
+            bank_name="Revolut",
             type=AccountType.SAVINGS,
             currency="EUR",
         )
         shared_account = Account(
             user_id=user.id,
-            name="Compartida",
-            bank_name="BBVA",
+            name="Fondo Piso (Gràcia)",
+            bank_name="N26",
             type=AccountType.SHARED,
             currency="EUR",
         )
@@ -86,358 +85,178 @@ def seed_demo_data() -> None:
         session.flush()
 
         salary_category = Category(
-            user_id=user.id,
-            name="Nómina",
-            type=CategoryType.INCOME,
-            color="#16a34a",
-            icon="wallet",
+            user_id=user.id, name="Nómina Camarera", type=CategoryType.INCOME, color="#16a34a", icon="wallet"
         )
         food_category = Category(
-            user_id=user.id,
-            name="Comida",
-            type=CategoryType.EXPENSE,
-            color="#2563eb",
-            icon="utensils",
+            user_id=user.id, name="Comida", type=CategoryType.EXPENSE, color="#2563eb", icon="utensils"
         )
         housing_category = Category(
-            user_id=user.id,
-            name="Vivienda",
-            type=CategoryType.EXPENSE,
-            color="#7c3aed",
-            icon="house",
+            user_id=user.id, name="Piso Gràcia", type=CategoryType.EXPENSE, color="#7c3aed", icon="house"
         )
         transport_category = Category(
-            user_id=user.id,
-            name="Transporte",
-            type=CategoryType.EXPENSE,
-            color="#ea580c",
-            icon="car",
+            user_id=user.id, name="Transporte", type=CategoryType.EXPENSE, color="#ea580c", icon="car"
         )
         leisure_category = Category(
-            user_id=user.id,
-            name="Ocio",
-            type=CategoryType.EXPENSE,
-            color="#db2777",
-            icon="gamepad-2",
+            user_id=user.id, name="Ocio", type=CategoryType.EXPENSE, color="#db2777", icon="glass-water"
+        )
+        education_category = Category(
+            user_id=user.id, name="Universidad", type=CategoryType.EXPENSE, color="#eab308", icon="book"
         )
         transfer_category = Category(
-            user_id=user.id,
-            name="Transferencia",
-            type=CategoryType.TRANSFER,
-            color="#64748b",
-            icon="arrow-right-left",
+            user_id=user.id, name="Transferencia", type=CategoryType.TRANSFER, color="#64748b", icon="arrow-right-left"
         )
-        session.add_all(
-            [
-                salary_category,
-                food_category,
-                housing_category,
-                transport_category,
-                leisure_category,
-                transfer_category,
-            ]
-        )
+        
+        session.add_all([
+            salary_category, food_category, housing_category, 
+            transport_category, leisure_category, education_category, transfer_category
+        ])
         session.flush()
 
-        monthly_templates = [
-            (
-                1,
-                main_account.id,
-                salary_category.id,
-                Decimal("2450.00"),
-                "Nómina mensual",
-                "Ingreso principal del mes",
-            ),
-            (
-                2,
-                main_account.id,
-                housing_category.id,
-                Decimal("-950.00"),
-                "Alquiler",
-                "Pago recurrente mensual",
-            ),
-            (
-                3,
-                main_account.id,
-                transport_category.id,
-                Decimal("-18.50"),
-                "Abono transporte",
-                "Recarga mensual",
-            ),
-            (
-                4,
-                main_account.id,
-                food_category.id,
-                Decimal("-62.30"),
-                "Compra semanal",
-                "Supermercado",
-            ),
-            (
-                5,
-                main_account.id,
-                food_category.id,
-                Decimal("-9.80"),
-                "Café y desayuno",
-                "Antes de entrar a la oficina",
-            ),
-            (
-                6,
-                shared_account.id,
-                leisure_category.id,
-                Decimal("-24.00"),
-                "Cine",
-                "Plan viernes",
-            ),
-            (
-                8,
-                main_account.id,
-                food_category.id,
-                Decimal("-41.20"),
-                "Mercado del barrio",
-                "Fruta y verdura",
-            ),
-            (
-                9,
-                main_account.id,
-                transfer_category.id,
-                Decimal("-350.00"),
-                "Transferencia a ahorro",
-                "Aportación automática al colchón",
-            ),
-            (
-                9,
-                savings_account.id,
-                transfer_category.id,
-                Decimal("350.00"),
-                "Transferencia desde cuenta principal",
-                "Movimiento espejo a ahorro",
-            ),
-            (
-                11,
-                main_account.id,
-                transport_category.id,
-                Decimal("-12.40"),
-                "Taxi al aeropuerto",
-                "Llegaba justo a una reunión",
-            ),
-            (
-                12,
-                main_account.id,
-                food_category.id,
-                Decimal("-28.75"),
-                "Glovo",
-                "Cena rápida en casa",
-            ),
-            (
-                13,
-                shared_account.id,
-                leisure_category.id,
-                Decimal("-46.00"),
-                "Cena con amigos",
-                "Cuenta compartida",
-            ),
-            (
-                15,
-                main_account.id,
-                food_category.id,
-                Decimal("-57.60"),
-                "Compra semanal",
-                "Supermercado",
-            ),
-            (
-                16,
-                shared_account.id,
-                housing_category.id,
-                Decimal("-64.50"),
-                "Internet y streaming",
-                "Gastos del piso compartido",
-            ),
-            (
-                19,
-                main_account.id,
-                transport_category.id,
-                Decimal("-6.90"),
-                "Bicimad",
-                "Dos desplazamientos urbanos",
-            ),
-            (
-                20,
-                main_account.id,
-                food_category.id,
-                Decimal("-14.20"),
-                "Menú del día",
-                "Comida cerca de la oficina",
-            ),
-            (
-                21,
-                shared_account.id,
-                leisure_category.id,
-                Decimal("-32.00"),
-                "Copas sábado",
-                "Salida con amigos",
-            ),
-            (
-                23,
-                main_account.id,
-                food_category.id,
-                Decimal("-44.10"),
-                "Compra semanal",
-                "Supermercado",
-            ),
-            (
-                24,
-                main_account.id,
-                transfer_category.id,
-                Decimal("-150.00"),
-                "Ajuste a ahorro",
-                "Segunda aportación del mes",
-            ),
-            (
-                24,
-                savings_account.id,
-                transfer_category.id,
-                Decimal("150.00"),
-                "Ajuste desde cuenta principal",
-                "Entrada correspondiente en ahorro",
-            ),
-            (
-                25,
-                main_account.id,
-                transport_category.id,
-                Decimal("-22.30"),
-                "Gasolina",
-                "Fin de semana fuera",
-            ),
-            (
-                27,
-                main_account.id,
-                food_category.id,
-                Decimal("-39.95"),
-                "Mercadona",
-                "Reposición fin de mes",
-            ),
-            (
-                28,
-                shared_account.id,
-                leisure_category.id,
-                Decimal("-58.00"),
-                "Brunch y museo",
-                "Plan de domingo",
-            ),
-            (
-                29,
-                main_account.id,
-                food_category.id,
-                Decimal("-11.50"),
-                "Café de especialidad",
-                "Trabajo en remoto",
-            ),
-            (
-                30,
-                main_account.id,
-                transport_category.id,
-                Decimal("-18.50"),
-                "Recarga transporte",
-                "Último desplazamiento del mes",
-            ),
-        ]
-        monthly_bonus = [
-            (1, Decimal("0.00"), "Arranque de ciclo", "Mes sin ingreso variable"),
-            (0, Decimal("120.00"), "Bonus cierre trimestral", "Incentivo por objetivos"),
-            (0, Decimal("0.00"), "Mes sin bonus", "Solo ingreso fijo"),
-            (1, Decimal("180.00"), "Bonus proyecto", "Pago variable puntual"),
-            (0, Decimal("90.00"), "Guardia técnica", "Compensación por soporte"),
-            (0, Decimal("240.00"), "Retribución variable", "Buen cierre del mes"),
-        ]
         transactions: list[Transaction] = []
 
+        # --- AÑADIR SALDO INICIAL PARA EVITAR CUENTAS EN NEGATIVO ---
+        initial_date = add_months(today.replace(day=1), -6)
+        transactions.append(Transaction(
+            user_id=user.id, account_id=main_account.id, category_id=salary_category.id,
+            date=initial_date, amount=Decimal("1250.00"), currency="EUR",
+            description="Saldo Inicial", notes="Ahorros acumulados pre-curso"
+        ))
+        transactions.append(Transaction(
+            user_id=user.id, account_id=savings_account.id, category_id=salary_category.id,
+            date=initial_date, amount=Decimal("350.00"), currency="EUR",
+            description="Ahorro Inicial", notes="Fondo reservado"
+        ))
+        transactions.append(Transaction(
+            user_id=user.id, account_id=shared_account.id, category_id=salary_category.id,
+            date=initial_date, amount=Decimal("150.00"), currency="EUR",
+            description="Fondo Piso Inicial", notes="Bote común piso"
+        ))
+
+        # Generar 6 meses de historial
         for month_offset in range(-5, 1):
             month_reference = add_months(today.replace(day=1), month_offset)
             last_day_of_month = monthrange(month_reference.year, month_reference.month)[1]
 
-            def month_date(
-                day: int,
-                *,
-                base_month: date = month_reference,
-                last_day: int = last_day_of_month,
-            ) -> date:
-                return date(base_month.year, base_month.month, min(day, last_day))
+            def month_date(day: int) -> date:
+                return date(month_reference.year, month_reference.month, min(day, last_day_of_month))
 
-            month_index = month_offset + 5
+            savings_goal = Decimal(str(random.choice([0, 20, 50, 80])))
+            
+            # 1. INGRESOS (Incrementados para mantener la cuenta en positivo)
+            base_salary = 780.00
+            extra_hours = random.choice([0, 0, 40, 60, 90])
+            monthly_income = Decimal(str(base_salary + extra_hours))
+            
+            transactions.append(Transaction(
+                user_id=user.id, account_id=main_account.id, category_id=salary_category.id,
+                date=month_date(1), amount=monthly_income, currency="EUR",
+                description="Nómina Cafetería", notes="Ingreso fijo + propinas mes anterior"
+            ))
 
-            for day, account_id, category_id, amount, description, notes in monthly_templates:
-                transactions.append(
-                    Transaction(
-                        user_id=user.id,
-                        account_id=account_id,
-                        category_id=category_id,
-                        date=month_date(day),
-                        amount=amount,
-                        currency="EUR",
-                        description=description,
-                        notes=notes,
-                    )
-                )
+            # 2. GASTOS FIJOS (Alquiler rebajado un poco para equilibrar balanza)
+            transactions.append(Transaction(
+                user_id=user.id, account_id=main_account.id, category_id=housing_category.id,
+                date=month_date(2), amount=Decimal("-380.00"), currency="EUR",
+                description="Alquiler habitación", notes="Transferencia compañero de piso"
+            ))
+            
+            utilities = Decimal(str(random.randint(35, 50)))
+            transactions.append(Transaction(
+                user_id=user.id, account_id=shared_account.id, category_id=housing_category.id,
+                date=month_date(15), amount=-utilities, currency="EUR",
+                description="Luz e Internet", notes="Parte proporcional"
+            ))
 
-            bonus_day, bonus_amount, bonus_description, bonus_notes = monthly_bonus[month_index]
-            if bonus_amount != Decimal("0.00"):
-                transactions.append(
-                    Transaction(
-                        user_id=user.id,
-                        account_id=main_account.id,
-                        category_id=salary_category.id,
-                        date=month_date(18 + bonus_day),
-                        amount=bonus_amount,
-                        currency="EUR",
-                        description=bonus_description,
-                        notes=bonus_notes,
-                    )
-                )
+            if month_offset in [-5, -3, -1]:
+                transactions.append(Transaction(
+                    user_id=user.id, account_id=main_account.id, category_id=education_category.id,
+                    date=month_date(10), amount=Decimal("-180.00"), currency="EUR",
+                    description="Pago fraccionado UB", notes="Tercer plazo matrícula"
+                ))
+
+            if month_offset in [-5, -2, 1]:
+                 transactions.append(Transaction(
+                    user_id=user.id, account_id=main_account.id, category_id=transport_category.id,
+                    date=month_date(5), amount=Decimal("-40.00"), currency="EUR",
+                    description="T-Jove TMB", notes="Abono trimestral zonas 1-6"
+                ))
+            else:
+                 bicing = Decimal(str(random.randint(3, 10)))
+                 transactions.append(Transaction(
+                    user_id=user.id, account_id=main_account.id, category_id=transport_category.id,
+                    date=month_date(14), amount=-bicing, currency="EUR",
+                    description="Bicing", notes="Trayectos extra"
+                ))
+
+            groceries_total = Decimal("0.00")
+            for day in sorted(random.sample(range(6, 28), random.randint(3, 4))):
+                amount = Decimal(str(random.randint(25, 55))) + Decimal(str(random.randint(0, 99))) / 100
+                groceries_total += amount
+                store = random.choice(["Mercadona", "BonÀrea", "Ametller (Poco)"])
+                transactions.append(Transaction(
+                    user_id=user.id, account_id=main_account.id, category_id=food_category.id,
+                    date=month_date(day), amount=-amount, currency="EUR",
+                    description=f"Compra {store}", notes="Supermercado semana"
+                ))
+
+            leisure_events = random.randint(3, 6) if extra_hours > 0 else random.randint(1, 3)
+            for day in sorted(random.sample(range(3, 28), leisure_events)):
+                events = [
+                    ("Bravas Tomás", random.randint(12, 18)),
+                    ("Cervezas Razzmattazz", random.randint(15, 30)),
+                    ("Cine Phenomena", random.randint(9, 12)),
+                    ("Café libreria Itaca", random.randint(4, 8)),
+                    ("Pizza a medias", random.randint(10, 15)),
+                    ("Cena barata VIPS", random.randint(15, 22))
+                ]
+                event_name, event_amount = random.choice(events)
+                amount_dec = Decimal(str(event_amount)) + Decimal(str(random.randint(0, 99))) / 100
+                account_to_charge = shared_account.id if "medias" in event_name.lower() else main_account.id
+                
+                transactions.append(Transaction(
+                    user_id=user.id, account_id=account_to_charge, category_id=leisure_category.id,
+                    date=month_date(day), amount=-amount_dec, currency="EUR",
+                    description=event_name, notes="Salida con la uni"
+                ))
+
+            if savings_goal > 0 and monthly_income > 700:
+                transactions.append(Transaction(
+                    user_id=user.id, account_id=main_account.id, category_id=transfer_category.id,
+                    date=month_date(28), amount=-savings_goal, currency="EUR",
+                    description="Hucha Viaje", notes="Objetivo verano"
+                ))
+                transactions.append(Transaction(
+                    user_id=user.id, account_id=savings_account.id, category_id=transfer_category.id,
+                    date=month_date(28), amount=savings_goal, currency="EUR",
+                    description="Ingreso hucha", notes="Desde cuenta principal"
+                ))
 
         session.add_all(transactions)
 
         budgets = [
             Budget(
-                user_id=user.id,
-                category_id=food_category.id,
-                year=today.year,
-                month=today.month,
-                currency="EUR",
-                amount=Decimal("350.00"),
+                user_id=user.id, category_id=food_category.id, year=today.year, month=today.month,
+                currency="EUR", amount=Decimal("180.00")
             ),
             Budget(
-                user_id=user.id,
-                category_id=transport_category.id,
-                year=today.year,
-                month=today.month,
-                currency="EUR",
-                amount=Decimal("120.00"),
+                user_id=user.id, category_id=transport_category.id, year=today.year, month=today.month,
+                currency="EUR", amount=Decimal("40.00")
             ),
             Budget(
-                user_id=user.id,
-                category_id=leisure_category.id,
-                year=today.year,
-                month=today.month,
-                currency="EUR",
-                amount=Decimal("180.00"),
+                user_id=user.id, category_id=leisure_category.id, year=today.year, month=today.month,
+                currency="EUR", amount=Decimal("100.00")
             ),
             Budget(
-                user_id=user.id,
-                category_id=housing_category.id,
-                year=today.year,
-                month=today.month,
-                currency="EUR",
-                amount=Decimal("950.00"),
+                user_id=user.id, category_id=housing_category.id, year=today.year, month=today.month,
+                currency="EUR", amount=Decimal("450.00")
             ),
         ]
         session.add_all(budgets)
-
         session.commit()
 
-    print("Demo data seeded successfully.")
+    print("Demo data seeded successfully (Student Profile Barcelona).")
     print(f"Email: {DEMO_EMAIL}")
     print(f"Password: {DEMO_PASSWORD}")
-
 
 if __name__ == "__main__":
     seed_demo_data()
