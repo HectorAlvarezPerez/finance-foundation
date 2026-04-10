@@ -34,9 +34,17 @@ class Settings(BaseSettings):
     azure_openai_pdf_parser_deployment: str | None = None
     azure_openai_transaction_category_deployment: str | None = None
     azure_openai_monthly_recap_deployment: str | None = None
+    azure_openai_docs_qa_deployment: str | None = None
     monthly_recap_require_llm: bool = False
     azure_openai_api_version: str = "2025-03-01-preview"
     classification_debug: bool = False
+    notion_api_token: str | None = None
+    notion_docs_data_source_id: str | None = None
+    notion_api_version: str = "2026-03-11"
+    notion_docs_cache_ttl_seconds: int = 300
+    slack_bot_token: str | None = None
+    slack_signing_secret: str | None = None
+    slack_bot_user_id: str | None = None
     langfuse_enabled: bool = False
     langfuse_public_key: str | None = None
     langfuse_secret_key: str | None = None
@@ -118,6 +126,27 @@ class Settings(BaseSettings):
             and self.azure_openai_api_key
             and self.azure_openai_monthly_recap_deployment
             and self.azure_openai_api_version
+        )
+
+    @property
+    def azure_openai_docs_qa_enabled(self) -> bool:
+        return bool(
+            self.azure_openai_endpoint
+            and self.azure_openai_api_key
+            and self.azure_openai_docs_qa_deployment
+            and self.azure_openai_api_version
+        )
+
+    @property
+    def notion_docs_enabled(self) -> bool:
+        return bool(self.notion_api_token and self.notion_docs_data_source_id)
+
+    @property
+    def slack_docs_bot_enabled(self) -> bool:
+        return bool(
+            self.slack_bot_token
+            and self.slack_signing_secret
+            and self.notion_docs_enabled
         )
 
     @property
