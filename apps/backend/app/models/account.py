@@ -36,6 +36,8 @@ class Account(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
     )
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(7), nullable=True)
+    icon: Mapped[str | None] = mapped_column(String(50), nullable=True)
 
     user: Mapped["User"] = relationship(back_populates="accounts")
     transactions: Mapped[list["Transaction"]] = relationship(back_populates="account")

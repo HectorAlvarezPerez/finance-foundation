@@ -485,8 +485,12 @@ export interface components {
         AccountCreate: {
             /** Bank Name */
             bank_name?: string | null;
+            /** Color */
+            color?: string | null;
             /** Currency */
             currency: string;
+            /** Icon */
+            icon?: string | null;
             /**
              * Initial Balance
              * @default 0.00
@@ -511,6 +515,8 @@ export interface components {
         AccountRead: {
             /** Bank Name */
             bank_name: string | null;
+            /** Color */
+            color: string | null;
             /**
              * Created At
              * Format: date-time
@@ -518,6 +524,8 @@ export interface components {
             created_at: string;
             /** Currency */
             currency: string;
+            /** Icon */
+            icon: string | null;
             /**
              * Id
              * Format: uuid
@@ -541,8 +549,12 @@ export interface components {
         AccountUpdate: {
             /** Bank Name */
             bank_name?: string | null;
+            /** Color */
+            color?: string | null;
             /** Currency */
             currency?: string | null;
+            /** Icon */
+            icon?: string | null;
             /** Name */
             name?: string | null;
             type?: components["schemas"]["AccountType"] | null;

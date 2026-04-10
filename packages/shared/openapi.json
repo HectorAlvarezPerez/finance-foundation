@@ -16,11 +16,36 @@
             ],
             "title": "Bank Name"
           },
+          "color": {
+            "anyOf": [
+              {
+                "pattern": "^#([A-Fa-f0-9]{6})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
           "currency": {
             "maxLength": 3,
             "minLength": 3,
             "title": "Currency",
             "type": "string"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
           },
           "initial_balance": {
             "anyOf": [
@@ -97,6 +122,17 @@
             ],
             "title": "Bank Name"
           },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -105,6 +141,17 @@
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
           },
           "id": {
             "format": "uuid",
@@ -130,6 +177,8 @@
           "bank_name",
           "type",
           "currency",
+          "color",
+          "icon",
           "created_at",
           "updated_at"
         ],
@@ -161,6 +210,18 @@
             ],
             "title": "Bank Name"
           },
+          "color": {
+            "anyOf": [
+              {
+                "pattern": "^#([A-Fa-f0-9]{6})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
           "currency": {
             "anyOf": [
               {
@@ -173,6 +234,19 @@
               }
             ],
             "title": "Currency"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
           },
           "name": {
             "anyOf": [

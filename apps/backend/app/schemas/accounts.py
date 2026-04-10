@@ -13,6 +13,8 @@ class AccountBase(BaseModel):
     bank_name: str | None = Field(default=None, min_length=1, max_length=255)
     type: AccountType
     currency: str = Field(min_length=3, max_length=3)
+    color: str | None = Field(default=None, pattern=r"^#([A-Fa-f0-9]{6})$")
+    icon: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class AccountCreate(AccountBase):
@@ -24,6 +26,8 @@ class AccountUpdate(BaseModel):
     bank_name: str | None = Field(default=None, min_length=1, max_length=255)
     type: AccountType | None = None
     currency: str | None = Field(default=None, min_length=3, max_length=3)
+    color: str | None = Field(default=None, pattern=r"^#([A-Fa-f0-9]{6})$")
+    icon: str | None = Field(default=None, min_length=1, max_length=50)
 
 
 class AccountRead(ORMBaseModel):
@@ -32,6 +36,8 @@ class AccountRead(ORMBaseModel):
     bank_name: str | None
     type: AccountType
     currency: str
+    color: str | None
+    icon: str | None
     created_at: datetime
     updated_at: datetime
 
