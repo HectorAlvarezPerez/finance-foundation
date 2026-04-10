@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 
 import { AuthProvider } from "@/components/auth-provider";
+import { FatalErrorProvider } from "@/components/fatal-error-provider";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ToastProvider } from "@/components/ui/toast";
 
@@ -39,9 +40,11 @@ export default function RootLayout({
     >
       <body className="min-h-full bg-[var(--background)] text-[var(--app-ink)]">
         <ThemeProvider>
-          <AuthProvider>
-            <ToastProvider>{children}</ToastProvider>
-          </AuthProvider>
+          <FatalErrorProvider>
+            <AuthProvider>
+              <ToastProvider>{children}</ToastProvider>
+            </AuthProvider>
+          </FatalErrorProvider>
         </ThemeProvider>
       </body>
     </html>

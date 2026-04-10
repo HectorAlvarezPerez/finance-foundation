@@ -249,9 +249,7 @@ class NotionDocsService:
         raw_value = property_value.get(str(property_type))
         if property_type in {"title", "rich_text"} and isinstance(raw_value, list):
             text = "".join(
-                str(item.get("plain_text", ""))
-                for item in raw_value
-                if isinstance(item, dict)
+                str(item.get("plain_text", "")) for item in raw_value if isinstance(item, dict)
             ).strip()
             return text or None
         if property_type in {"select", "status"} and isinstance(raw_value, dict):

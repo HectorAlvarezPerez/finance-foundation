@@ -40,6 +40,10 @@ def build_match(title: str, snippet: str) -> NotionDocumentMatch:
 
 
 def test_docs_qa_falls_back_to_extractive_answer_when_llm_is_not_configured() -> None:
+    class StubChatClient:
+        is_configured = False
+        deployment = ""
+
     service = DocsQaService(
         notion_docs_service=cast(
             Any,
@@ -53,6 +57,7 @@ def test_docs_qa_falls_back_to_extractive_answer_when_llm_is_not_configured() ->
             ),
         ),
         observability_client=NoOpLlmObservabilityClient(),
+        chat_client=cast(Any, StubChatClient()),
     )
 
     answer = service.answer_question("¿Cómo importo un PDF?")
@@ -66,11 +71,14 @@ def test_slack_signature_verification_matches_slack_scheme() -> None:
     body = b'{"type":"url_verification","challenge":"abc"}'
     timestamp = str(int(time.time()))
     secret = "super-secret"
-    signature = "v0=" + hmac.new(
-        secret.encode("utf-8"),
-        f"v0:{timestamp}:{body.decode('utf-8')}".encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
+    signature = (
+        "v0="
+        + hmac.new(
+            secret.encode("utf-8"),
+            f"v0:{timestamp}:{body.decode('utf-8')}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+    )
 
     service = SlackDocsBotService(
         docs_qa_service=None,
