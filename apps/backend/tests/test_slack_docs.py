@@ -40,6 +40,10 @@ def build_match(title: str, snippet: str) -> NotionDocumentMatch:
 
 
 def test_docs_qa_falls_back_to_extractive_answer_when_llm_is_not_configured() -> None:
+    class StubChatClient:
+        is_configured = False
+        deployment = ""
+
     service = DocsQaService(
         notion_docs_service=cast(
             Any,
@@ -53,6 +57,7 @@ def test_docs_qa_falls_back_to_extractive_answer_when_llm_is_not_configured() ->
             ),
         ),
         observability_client=NoOpLlmObservabilityClient(),
+        chat_client=cast(Any, StubChatClient()),
     )
 
     answer = service.answer_question("¿Cómo importo un PDF?")

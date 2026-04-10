@@ -17,6 +17,7 @@
     "demo:backend": "bash -lc 'cd apps/backend && DATABASE_URL=\"sqlite:///./dev-app.db\" FRONTEND_ORIGIN=\"http://localhost:3000,http://localhost:3100\" uv run uvicorn app.main:app --host 127.0.0.1 --port 8100'",
     "demo:frontend": "bash -lc 'cd apps/frontend && NEXT_PUBLIC_API_BASE_URL=\"http://localhost:8100/api/v1\" npm run start -- --port 3100'",
     "demo:start": "npm run demo:setup && concurrently -k -n backend,frontend -c blue,green \"npm run demo:backend\" \"npm run demo:frontend\"",
+    "e2e:backend": "bash -lc 'cd apps/backend && rm -f e2e-app.db && DATABASE_URL=\"sqlite:///./e2e-app.db\" uv run alembic upgrade head && DATABASE_URL=\"sqlite:///./e2e-app.db\" uv run python scripts/seed_demo.py && DATABASE_URL=\"sqlite:///./e2e-app.db\" FRONTEND_ORIGIN=\"http://localhost:3000,http://localhost:3100\" uv run uvicorn app.main:app --host 127.0.0.1 --port 8000'",
     "build:frontend": "npm --workspace apps/frontend run build",
     "lint:frontend": "npm --workspace apps/frontend run lint",
     "typecheck:frontend": "npm --workspace apps/frontend run typecheck",

@@ -54,12 +54,18 @@ def enable_dev_user_header_for_tests() -> Generator[None, None, None]:
 
 @pytest.fixture(autouse=True)
 def disable_require_llm_for_tests() -> Generator[None, None, None]:
-    original = settings.monthly_recap_require_llm
+    original_recap = settings.monthly_recap_require_llm
+    original_docs = settings.azure_openai_docs_qa_deployment
+    original_cat = settings.azure_openai_transaction_category_deployment
     settings.monthly_recap_require_llm = False
+    settings.azure_openai_docs_qa_deployment = ""
+    settings.azure_openai_transaction_category_deployment = ""
     try:
         yield
     finally:
-        settings.monthly_recap_require_llm = original
+        settings.monthly_recap_require_llm = original_recap
+        settings.azure_openai_docs_qa_deployment = original_docs
+        settings.azure_openai_transaction_category_deployment = original_cat
 
 
 @pytest.fixture
