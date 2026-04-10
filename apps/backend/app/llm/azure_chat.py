@@ -46,6 +46,31 @@ class AzureChatCompletionClient:
         messages: list[ChatMessage],
         temperature: int | float = 0,
     ) -> ChatCompletionResult:
+        return self._complete(
+            messages=messages,
+            temperature=temperature,
+            response_format={"type": "json_object"},
+        )
+
+    def complete_text(
+        self,
+        *,
+        messages: list[ChatMessage],
+        temperature: int | float = 0,
+    ) -> ChatCompletionResult:
+        return self._complete(
+            messages=messages,
+            temperature=temperature,
+            response_format=None,
+        )
+
+    def _complete(
+        self,
+        *,
+        messages: list[ChatMessage],
+        temperature: int | float,
+        response_format: dict[str, Any] | None,
+    ) -> ChatCompletionResult:
         if not self.is_configured:
             raise RuntimeError("Azure chat completion client is not configured")
 
@@ -60,8 +85,9 @@ class AzureChatCompletionClient:
         request_payload = {
             "messages": messages,
             "temperature": temperature,
-            "response_format": {"type": "json_object"},
         }
+        if response_format is not None:
+            request_payload["response_format"] = response_format
 
         started_at = time.perf_counter()
         with httpx.Client(timeout=self.timeout_seconds) as client:
