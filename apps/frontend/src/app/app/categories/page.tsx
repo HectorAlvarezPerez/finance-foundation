@@ -406,20 +406,21 @@ function CategorySection({
       <CardContent className="flex-1">
         {categories.length ? (
           <div
-            className={`space-y-3 ${
+            className={
               columns === 3
-                ? "grid gap-3 space-y-0 sm:grid-cols-2 lg:grid-cols-3"
-                : ""
-            }`}
+                ? "grid w-full grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                : "flex flex-col gap-3"
+            }
           >
             {categories.map((category, index) => (
-              <CategoryRow
-                key={category.id}
-                category={category}
-                index={index}
-                onEdit={() => onEditCategory(category)}
-                onDelete={() => onDeleteCategory(category)}
-              />
+              <div key={category.id} className="min-w-0">
+                <CategoryRow
+                  category={category}
+                  index={index}
+                  onEdit={() => onEditCategory(category)}
+                  onDelete={() => onDeleteCategory(category)}
+                />
+              </div>
             ))}
           </div>
         ) : (
