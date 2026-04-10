@@ -143,11 +143,7 @@ class Settings(BaseSettings):
 
     @property
     def slack_docs_bot_enabled(self) -> bool:
-        return bool(
-            self.slack_bot_token
-            and self.slack_signing_secret
-            and self.notion_docs_enabled
-        )
+        return bool(self.slack_bot_token and self.slack_signing_secret and self.notion_docs_enabled)
 
     @property
     def resolved_langfuse_env(self) -> str:

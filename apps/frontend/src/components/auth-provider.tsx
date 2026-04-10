@@ -49,7 +49,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         return;
       }
 
-      setError(requestError instanceof Error ? requestError.message : "Session check failed");
+      setError(requestError instanceof ApiError && requestError.isFatal ? null : requestError instanceof Error ? requestError.message : "Session check failed");
       setStatus("unauthenticated");
     }
   }, []);

@@ -66,11 +66,14 @@ def test_slack_signature_verification_matches_slack_scheme() -> None:
     body = b'{"type":"url_verification","challenge":"abc"}'
     timestamp = str(int(time.time()))
     secret = "super-secret"
-    signature = "v0=" + hmac.new(
-        secret.encode("utf-8"),
-        f"v0:{timestamp}:{body.decode('utf-8')}".encode("utf-8"),
-        hashlib.sha256,
-    ).hexdigest()
+    signature = (
+        "v0="
+        + hmac.new(
+            secret.encode("utf-8"),
+            f"v0:{timestamp}:{body.decode('utf-8')}".encode("utf-8"),
+            hashlib.sha256,
+        ).hexdigest()
+    )
 
     service = SlackDocsBotService(
         docs_qa_service=None,
