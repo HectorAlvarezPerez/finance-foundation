@@ -13,6 +13,14 @@ import {
   Trash2,
   Users,
   Wallet,
+  Home,
+  Car,
+  Briefcase,
+  ShoppingCart,
+  Coins,
+  Plane,
+  Smartphone,
+  GraduationCap,
 } from "lucide-react";
 
 import { AmountValue } from "@/components/amount-value";
@@ -31,6 +39,8 @@ type AccountFormState = {
   type: AccountType;
   currency: string;
   initial_balance: string;
+  color?: string | null;
+  icon?: string | null;
 };
 
 const defaultForm: AccountFormState = {
@@ -39,6 +49,26 @@ const defaultForm: AccountFormState = {
   type: "checking",
   currency: "EUR",
   initial_balance: "",
+  color: "#1d1d1f",
+  icon: "credit-card",
+};
+
+const ACCOUNT_COLORS = [
+  "#0071e3", "#ff3b30", "#34c759", "#ff9f0a", "#af52de",
+  "#5856d6", "#ff2d55", "#1d1d1f", "#86868b", "#00c7be"
+];
+
+const ACCOUNT_ICONS: Record<string, React.ElementType> = {
+  "credit-card": CreditCard,
+  "piggy-bank": PiggyBank,
+  "home": Home,
+  "car": Car,
+  "briefcase": Briefcase,
+  "shopping-cart": ShoppingCart,
+  "coins": Coins,
+  "plane": Plane,
+  "smartphone": Smartphone,
+  "graduation-cap": GraduationCap,
 };
 
 const accountTypeLabels: Record<AccountType, string> = {
@@ -184,6 +214,8 @@ export default function AccountsPage() {
         bank_name: form.bank_name.trim() || null,
         type: form.type,
         currency: form.currency.trim().toUpperCase(),
+        color: form.color || null,
+        icon: form.icon || null,
       };
 
       if (editingAccountId) {
@@ -234,6 +266,8 @@ export default function AccountsPage() {
       type: account.type,
       currency: account.currency,
       initial_balance: "",
+      color: account.color ?? defaultForm.color,
+      icon: account.icon ?? defaultForm.icon,
     });
     setIsDialogOpen(true);
   }
@@ -323,6 +357,45 @@ export default function AccountsPage() {
             {editingAccountId ? null : (
               <input aria-label="Saldo inicial" value={form.initial_balance} onChange={(event) => setForm((current) => ({ ...current, initial_balance: event.target.value }))} inputMode="decimal" placeholder="Saldo inicial (opcional)" className={inputClasses} />
             )}
+
+            <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--app-muted)]">Icono de la cuenta</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {Object.entries(ACCOUNT_ICONS).map(([key, IconCmp]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, icon: key }))}
+                    className={`flex h-8 w-8 items-center justify-center rounded-full text-lg transition-transform ${
+                      form.icon === key
+                        ? "scale-110 bg-[var(--app-surface)] shadow-[var(--app-shadow)] ring-2 ring-[var(--app-accent)] ring-offset-1 text-[var(--app-accent)]"
+                        : "hover:scale-110 hover:bg-[var(--app-surface)] hover:shadow-sm text-[var(--app-muted)]"
+                    }`}
+                  >
+                    <IconCmp className="h-4 w-4" strokeWidth={1.8} />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3">
+              <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--app-muted)]">Color de la tarjeta</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {ACCOUNT_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    type="button"
+                    onClick={() => setForm((current) => ({ ...current, color }))}
+                    className={`h-8 w-8 rounded-full shadow-sm transition-transform ${
+                      form.color === color ? "scale-110 ring-2 ring-[var(--app-accent)] ring-offset-2" : "hover:scale-110"
+                    }`}
+                    style={{ backgroundColor: color }}
+                    aria-label={`Seleccionar color ${color}`}
+                  />
+                ))}
+              </div>
+            </div>
+
             {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}
             <button type="submit" className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110">
               {editingAccountId ? "Guardar cambios" : "Crear cuenta"}
@@ -385,9 +458,9 @@ export default function AccountsPage() {
                   if (absOffset > 2) return null;
 
                   const cardStyle: React.CSSProperties = {
-                    "--card-from": gradient.from,
-                    "--card-to": gradient.to,
-                    "--card-glow": gradient.glow,
+                    "--card-from": account.color || gradient.from,
+                    "--card-to": account.color || gradient.to,
+                    "--card-glow": account.color ? "rgba(0,0,0,0.15)" : gradient.glow,
                     transform: isActive
                       ? "translateX(0) scale(1) rotateY(0deg)"
                       : `translateX(${offset * 70}%) scale(${1 - absOffset * 0.1}) rotateY(${offset * -8}deg)`,
@@ -412,7 +485,13 @@ export default function AccountsPage() {
                         {/* Top section: Icon + Type + Actions */}
                         <div className="wallet-card__header">
                           <div className="wallet-card__icon-wrap">
-                            <Icon className="h-5 w-5" strokeWidth={1.8} />
+                            {(() => {
+                              if (account.icon && ACCOUNT_ICONS[account.icon]) {
+                                const CustomIcon = ACCOUNT_ICONS[account.icon];
+                                return <CustomIcon className="h-5 w-5" strokeWidth={1.8} />;
+                              }
+                              return <Icon className="h-5 w-5" strokeWidth={1.8} />;
+                            })()}
                           </div>
                           {isActive && (
                             <AccountActionsMenu

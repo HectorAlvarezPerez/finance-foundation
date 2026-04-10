@@ -372,6 +372,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/slack/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Handle Slack Events */
+        post: operations["handle_slack_events_api_v1_slack_events_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/transactions": {
         parameters: {
             query?: never;
@@ -468,8 +485,12 @@ export interface components {
         AccountCreate: {
             /** Bank Name */
             bank_name?: string | null;
+            /** Color */
+            color?: string | null;
             /** Currency */
             currency: string;
+            /** Icon */
+            icon?: string | null;
             /**
              * Initial Balance
              * @default 0.00
@@ -494,6 +515,8 @@ export interface components {
         AccountRead: {
             /** Bank Name */
             bank_name: string | null;
+            /** Color */
+            color: string | null;
             /**
              * Created At
              * Format: date-time
@@ -501,6 +524,8 @@ export interface components {
             created_at: string;
             /** Currency */
             currency: string;
+            /** Icon */
+            icon: string | null;
             /**
              * Id
              * Format: uuid
@@ -524,8 +549,12 @@ export interface components {
         AccountUpdate: {
             /** Bank Name */
             bank_name?: string | null;
+            /** Color */
+            color?: string | null;
             /** Currency */
             currency?: string | null;
+            /** Icon */
+            icon?: string | null;
             /** Name */
             name?: string | null;
             type?: components["schemas"]["AccountType"] | null;
@@ -2319,6 +2348,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["SettingsRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    handle_slack_events_api_v1_slack_events_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-slack-request-timestamp"?: string | null;
+                "x-slack-signature"?: string | null;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string | boolean;
+                    };
                 };
             };
             /** @description Validation Error */

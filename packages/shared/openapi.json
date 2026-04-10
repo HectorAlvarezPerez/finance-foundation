@@ -16,11 +16,36 @@
             ],
             "title": "Bank Name"
           },
+          "color": {
+            "anyOf": [
+              {
+                "pattern": "^#([A-Fa-f0-9]{6})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
           "currency": {
             "maxLength": 3,
             "minLength": 3,
             "title": "Currency",
             "type": "string"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
           },
           "initial_balance": {
             "anyOf": [
@@ -97,6 +122,17 @@
             ],
             "title": "Bank Name"
           },
+          "color": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -105,6 +141,17 @@
           "currency": {
             "title": "Currency",
             "type": "string"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
           },
           "id": {
             "format": "uuid",
@@ -130,6 +177,8 @@
           "bank_name",
           "type",
           "currency",
+          "color",
+          "icon",
           "created_at",
           "updated_at"
         ],
@@ -161,6 +210,18 @@
             ],
             "title": "Bank Name"
           },
+          "color": {
+            "anyOf": [
+              {
+                "pattern": "^#([A-Fa-f0-9]{6})$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Color"
+          },
           "currency": {
             "anyOf": [
               {
@@ -173,6 +234,19 @@
               }
             ],
             "title": "Currency"
+          },
+          "icon": {
+            "anyOf": [
+              {
+                "maxLength": 50,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Icon"
           },
           "name": {
             "anyOf": [
@@ -4604,6 +4678,82 @@
         "summary": "Upsert Settings",
         "tags": [
           "settings"
+        ]
+      }
+    },
+    "/api/v1/slack/events": {
+      "post": {
+        "operationId": "handle_slack_events_api_v1_slack_events_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-slack-request-timestamp",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Slack-Request-Timestamp"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-slack-signature",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Slack-Signature"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "boolean"
+                      }
+                    ]
+                  },
+                  "title": "Response Handle Slack Events Api V1 Slack Events Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Handle Slack Events",
+        "tags": [
+          "slack"
         ]
       }
     },
