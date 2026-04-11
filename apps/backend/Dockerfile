@@ -8,10 +8,11 @@ WORKDIR /app
 
 RUN pip install --no-cache-dir uv
 
-COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/.python-version apps/backend/README.md ./
+COPY apps/backend/pyproject.toml apps/backend/uv.lock apps/backend/.python-version apps/backend/README.md apps/backend/alembic.ini ./
 RUN uv sync --frozen --no-dev --no-install-project
 
 COPY apps/backend/app ./app
+COPY apps/backend/alembic ./alembic
 RUN uv sync --frozen --no-dev
 
 FROM python:3.12-slim AS runner
@@ -26,6 +27,8 @@ RUN useradd --system --uid 1001 appuser
 
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app/app /app/app
+COPY --from=builder /app/alembic /app/alembic
+COPY --from=builder /app/alembic.ini /app/alembic.ini
 
 USER appuser
 

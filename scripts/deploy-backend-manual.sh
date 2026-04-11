@@ -63,6 +63,48 @@ notify_deploy() {
 }
 
 require_cmd az
+require_cmd curl
+require_cmd script
+
+run_backend_migrations() {
+  local attempt
+  local max_attempts=10
+  local command="az containerapp exec --name ${AZURE_BACKEND_CONTAINER_APP_NAME} --resource-group ${AZURE_RESOURCE_GROUP} --command 'bash -lc \"cd /app && ./.venv/bin/alembic -c /app/alembic.ini upgrade head\"'"
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    echo "Running Alembic migrations (attempt ${attempt}/${max_attempts})..."
+    if script -q -c "$command" /dev/null; then
+      return 0
+    fi
+
+    sleep 5
+  done
+
+  echo "Backend migrations failed after ${max_attempts} attempts." >&2
+  return 1
+}
+
+verify_backend_health() {
+  local attempt
+  local max_attempts=20
+  local health_url="$1/api/v1/health"
+
+  for attempt in $(seq 1 "$max_attempts"); do
+    local status_code
+    status_code="$(curl -sS -o /tmp/finance-foundation-backend-health.json -w "%{http_code}" "$health_url" || true)"
+    if [ "$status_code" = "200" ]; then
+      echo "Backend healthcheck passed."
+      return 0
+    fi
+
+    echo "Healthcheck not ready yet (attempt ${attempt}/${max_attempts}, status ${status_code:-unknown})."
+    sleep 5
+  done
+
+  echo "Backend healthcheck failed after migrations. Last response:" >&2
+  cat /tmp/finance-foundation-backend-health.json >&2 || true
+  return 1
+}
 
 AZURE_RESOURCE_GROUP="${AZURE_RESOURCE_GROUP:-finance-foundation-rg}"
 AZURE_CONTAINER_REGISTRY_NAME="${AZURE_CONTAINER_REGISTRY_NAME:-financefoundationacr}"
@@ -240,6 +282,9 @@ BACKEND_FQDN="$(
     --output tsv
 )"
 BACKEND_URL="https://${BACKEND_FQDN}"
+
+run_backend_migrations
+verify_backend_health "$BACKEND_URL"
 
 echo
 echo "Backend deploy completed."
