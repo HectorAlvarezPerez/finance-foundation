@@ -110,6 +110,7 @@ class TransactionImportCommitRequest(BaseModel):
 
 class TransactionImportCommitResponse(BaseModel):
     imported_count: int
+    skipped_duplicates: int = 0
 
 
 class PdfParsedTransaction(BaseModel):

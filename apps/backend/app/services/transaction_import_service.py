@@ -13,6 +13,7 @@ from datetime import UTC, date, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
+from zipfile import BadZipFile
 
 from fastapi import HTTPException, UploadFile, status
 from openpyxl import load_workbook
@@ -32,6 +33,7 @@ from app.schemas.transactions import (
     TransactionCreate,
     TransactionImportAnalysisResponse,
     TransactionImportColumnMapping,
+    TransactionImportCommitItem,
     TransactionImportCommitRequest,
     TransactionImportCommitResponse,
     TransactionImportDraft,
@@ -123,6 +125,16 @@ class CategorySuggestion:
 class CategoryHistoryIndex:
     exact_matches: dict[str, Counter[uuid.UUID]]
     merchant_patterns: dict[str, Counter[uuid.UUID]]
+
+
+@dataclass(frozen=True)
+class TransactionImportFingerprint:
+    account_id: uuid.UUID
+    date: date
+    amount: Decimal
+    currency: str
+    description: str
+    notes: str
 
 
 class TransactionImportService:
@@ -222,6 +234,14 @@ class TransactionImportService:
         user_id: uuid.UUID,
         payload: TransactionImportCommitRequest,
     ) -> TransactionImportCommitResponse:
+        existing_fingerprints = self._existing_import_fingerprints(
+            user_id=user_id,
+            items=payload.items,
+        )
+        seen_fingerprints = set(existing_fingerprints)
+        imported_count = 0
+        skipped_duplicates = 0
+
         for item in payload.items:
             account = self._require_account(user_id=user_id, account_id=item.account_id)
             category = self._require_category_if_present(
@@ -237,6 +257,18 @@ class TransactionImportService:
                 # Category compatibility is intentionally permissive in this v1.
                 pass
 
+            fingerprint = self._transaction_fingerprint(
+                account_id=item.account_id,
+                date_value=item.date,
+                amount=item.amount,
+                currency=item.currency,
+                description=item.description,
+                notes=item.notes,
+            )
+            if fingerprint in seen_fingerprints:
+                skipped_duplicates += 1
+                continue
+
             create_payload = TransactionCreate(
                 account_id=item.account_id,
                 category_id=item.category_id,
@@ -247,9 +279,14 @@ class TransactionImportService:
                 notes=item.notes,
             )
             self.repository.create(user_id=user_id, payload=create_payload.model_dump())
+            seen_fingerprints.add(fingerprint)
+            imported_count += 1
 
         self.db.commit()
-        return TransactionImportCommitResponse(imported_count=len(payload.items))
+        return TransactionImportCommitResponse(
+            imported_count=imported_count,
+            skipped_duplicates=skipped_duplicates,
+        )
 
     async def _parse_upload(
         self,
@@ -278,7 +315,7 @@ class TransactionImportService:
         return self._parse_pdf(content, user_id=user_id)
 
     def _parse_csv(self, content: bytes) -> ParsedImportFile:
-        text = content.decode("utf-8-sig")
+        text = self._decode_csv_content(content)
         sample = text[:4096]
         try:
             dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
@@ -302,7 +339,13 @@ class TransactionImportService:
         return ParsedImportFile(source_type="csv", columns=columns, rows=rows)
 
     def _parse_excel(self, content: bytes) -> ParsedImportFile:
-        workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        try:
+            workbook = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+        except (BadZipFile, OSError, ValueError) as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="The uploaded spreadsheet is not a valid Excel workbook",
+            ) from exc
         sheet = workbook.active
         if sheet is None:
             raise HTTPException(
@@ -484,8 +527,13 @@ class TransactionImportService:
         description_raw = self._mapped_value(raw_row, mapping.description)
         notes_raw = self._mapped_value(raw_row, mapping.notes)
         category_raw = self._mapped_value(raw_row, mapping.category)
+        raw_date = self._mapped_value(raw_row, mapping.date)
 
-        parsed_date = self._parse_date(self._mapped_value(raw_row, mapping.date))
+        parsed_date = (
+            None
+            if self._date_requires_manual_review(raw_date=raw_date, column_name=mapping.date)
+            else self._parse_date(raw_date)
+        )
         parsed_amount = self._parse_amount(self._mapped_value(raw_row, mapping.amount))
 
         validation_errors: list[str] = []
@@ -1062,6 +1110,34 @@ class TransactionImportService:
         except (ValueError, OverflowError):
             return None
 
+    def _date_requires_manual_review(self, *, raw_date: str, column_name: str | None) -> bool:
+        if not self._is_ambiguous_slash_date(raw_date):
+            return False
+
+        normalized_column = self._normalize_column_name(column_name or "")
+        if "fecha" in normalized_column:
+            return False
+
+        return normalized_column in {
+            "date",
+            "startdate",
+            "transactiondate",
+            "bookingdate",
+            "posteddate",
+            "valuedate",
+        }
+
+    def _is_ambiguous_slash_date(self, value: str) -> bool:
+        match = re.fullmatch(
+            r"\s*(\d{1,2})/(\d{1,2})/(\d{4})(?:\s+\d{1,2}:\d{2}(?::\d{2})?)?\s*",
+            value,
+        )
+        if match is None:
+            return False
+
+        first, second = (int(part) for part in match.groups()[:2])
+        return first <= 12 and second <= 12 and first != second
+
     def _normalize_human_date(self, value: str) -> str:
         normalized = unicodedata.normalize("NFKD", value.strip().lower())
         normalized = "".join(char for char in normalized if not unicodedata.combining(char))
@@ -1126,6 +1202,20 @@ class TransactionImportService:
             char for char in normalized if char.isalnum() and not unicodedata.combining(char)
         )
 
+    def _decode_csv_content(self, content: bytes) -> str:
+        decode_attempts = ("utf-8-sig", "utf-8", "latin-1")
+        last_error: UnicodeDecodeError | None = None
+        for encoding in decode_attempts:
+            try:
+                return content.decode(encoding)
+            except UnicodeDecodeError as exc:
+                last_error = exc
+
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="The uploaded CSV could not be decoded with a supported text encoding",
+        ) from last_error
+
     def _normalize_description_key(self, value: str) -> str:
         normalized = unicodedata.normalize("NFKD", value.strip().lower())
         normalized = "".join(char for char in normalized if not unicodedata.combining(char))
@@ -1178,3 +1268,56 @@ class TransactionImportService:
                 detail="The selected category does not exist for the current user",
             )
         return category
+
+    def _existing_import_fingerprints(
+        self,
+        *,
+        user_id: uuid.UUID,
+        items: list[TransactionImportCommitItem],
+    ) -> set[TransactionImportFingerprint]:
+        if not items:
+            return set()
+
+        date_from = min(item.date for item in items)
+        date_to = max(item.date for item in items)
+        account_ids = {item.account_id for item in items}
+
+        fingerprints: set[TransactionImportFingerprint] = set()
+        for account_id in account_ids:
+            transactions = self.repository.list_all_for_user(
+                user_id=user_id,
+                account_id=account_id,
+                date_from=date_from,
+                date_to=date_to,
+            )
+            for transaction in transactions:
+                fingerprints.add(
+                    self._transaction_fingerprint(
+                        account_id=transaction.account_id,
+                        date_value=transaction.date,
+                        amount=transaction.amount,
+                        currency=transaction.currency,
+                        description=transaction.description,
+                        notes=transaction.notes,
+                    )
+                )
+        return fingerprints
+
+    def _transaction_fingerprint(
+        self,
+        *,
+        account_id: uuid.UUID,
+        date_value: date,
+        amount: Decimal,
+        currency: str,
+        description: str,
+        notes: str | None,
+    ) -> TransactionImportFingerprint:
+        return TransactionImportFingerprint(
+            account_id=account_id,
+            date=date_value,
+            amount=amount,
+            currency=currency.strip().upper(),
+            description=" ".join(description.split()).casefold(),
+            notes=" ".join((notes or "").split()).casefold(),
+        )

@@ -95,6 +95,23 @@ type TransactionImportPreview = {
   rows: TransactionImportPreviewRow[];
 };
 
+type TransactionImportFileMeta = {
+  name: string;
+  size: number;
+};
+
+type PersistedImportDialogState = {
+  isOpen: boolean;
+  accountId: string;
+  analysis: TransactionImportAnalysis | null;
+  mapping: TransactionImportMapping;
+  step: 1 | 2;
+  fileMeta: TransactionImportFileMeta | null;
+};
+
+const IMPORT_PREVIEW_STORAGE_KEY = "transactions-import-preview-v1";
+const IMPORT_DIALOG_STORAGE_KEY = "transactions-import-dialog-v1";
+
 function parseCategoryType(
   value: string | null,
 ): TransactionFilters["category_type"] {
@@ -163,6 +180,7 @@ function TransactionsContent() {
 
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
+  const [importFileMeta, setImportFileMeta] = useState<TransactionImportFileMeta | null>(null);
   const [importAccountId, setImportAccountId] = useState("");
   const [importAnalysis, setImportAnalysis] = useState<TransactionImportAnalysis | null>(null);
   const [importMapping, setImportMapping] = useState<TransactionImportMapping>(defaultImportMapping());
@@ -172,6 +190,7 @@ function TransactionsContent() {
   const [isConfirmingImport, setIsConfirmingImport] = useState(false);
   const [importStep, setImportStep] = useState<1 | 2>(1);
   const [isDragging, setIsDragging] = useState(false);
+  const [isReplaceImportDialogOpen, setIsReplaceImportDialogOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const accountMap = new Map(accounts.map((account) => [account.id, account]));
@@ -221,6 +240,71 @@ function TransactionsContent() {
     const currentYear = new Date().getFullYear();
     return Array.from({ length: 4 }, (_, index) => String(currentYear - index));
   }, []);
+
+  useEffect(() => {
+    const storedPreview = window.sessionStorage.getItem(IMPORT_PREVIEW_STORAGE_KEY);
+    if (storedPreview) {
+      try {
+        setImportPreview(JSON.parse(storedPreview) as TransactionImportPreview);
+        toast("Se ha recuperado una revisión de importación pendiente", "info");
+      } catch {
+        window.sessionStorage.removeItem(IMPORT_PREVIEW_STORAGE_KEY);
+      }
+    }
+
+    const storedDialog = window.sessionStorage.getItem(IMPORT_DIALOG_STORAGE_KEY);
+    if (!storedDialog) {
+      return;
+    }
+
+    try {
+      const dialogState = JSON.parse(storedDialog) as PersistedImportDialogState;
+      setIsImportDialogOpen(dialogState.isOpen);
+      setImportAccountId(dialogState.accountId);
+      setImportAnalysis(dialogState.analysis);
+      setImportMapping(dialogState.mapping);
+      setImportStep(dialogState.step);
+      setImportFileMeta(dialogState.fileMeta);
+      if (dialogState.isOpen) {
+        toast("Se ha recuperado el borrador del flujo de importación", "info");
+      }
+    } catch {
+      window.sessionStorage.removeItem(IMPORT_DIALOG_STORAGE_KEY);
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    if (importPreview) {
+      window.sessionStorage.setItem(IMPORT_PREVIEW_STORAGE_KEY, JSON.stringify(importPreview));
+      return;
+    }
+
+    window.sessionStorage.removeItem(IMPORT_PREVIEW_STORAGE_KEY);
+  }, [importPreview]);
+
+  useEffect(() => {
+    const shouldPersistDialog =
+      isImportDialogOpen ||
+      importAnalysis !== null ||
+      importStep !== 1 ||
+      importAccountId !== "" ||
+      importFileMeta !== null;
+
+    if (!shouldPersistDialog) {
+      window.sessionStorage.removeItem(IMPORT_DIALOG_STORAGE_KEY);
+      return;
+    }
+
+    const dialogState: PersistedImportDialogState = {
+      isOpen: isImportDialogOpen,
+      accountId: importAccountId,
+      analysis: importAnalysis,
+      mapping: importMapping,
+      step: importStep,
+      fileMeta: importFileMeta,
+    };
+    window.sessionStorage.setItem(IMPORT_DIALOG_STORAGE_KEY, JSON.stringify(dialogState));
+  }, [importAccountId, importAnalysis, importFileMeta, importMapping, importStep, isImportDialogOpen]);
 
   function updateFilter(key: keyof TransactionFilters, value: string) {
     const params = new URLSearchParams(searchParams);
@@ -312,6 +396,18 @@ function TransactionsContent() {
       return;
     }
 
+    if (importPreview) {
+      setIsReplaceImportDialogOpen(true);
+      return;
+    }
+
+    setIsImportDialogOpen(true);
+    setImportAccountId((current) => current || filters.account_id || accounts[0]?.id || "");
+  }
+
+  function handleConfirmReplaceImport() {
+    setImportPreview(null);
+    setIsReplaceImportDialogOpen(false);
     setIsImportDialogOpen(true);
     setImportAccountId((current) => current || filters.account_id || accounts[0]?.id || "");
   }
@@ -319,6 +415,7 @@ function TransactionsContent() {
   function resetImportDialog() {
     setIsImportDialogOpen(false);
     setImportFile(null);
+    setImportFileMeta(null);
     setImportAnalysis(null);
     setImportMapping(defaultImportMapping());
     setIsAnalyzingImport(false);
@@ -339,6 +436,7 @@ function TransactionsContent() {
 
   function removeImportFile() {
     setImportFile(null);
+    setImportFileMeta(null);
     setImportAnalysis(null);
     setImportMapping(defaultImportMapping());
     setImportStep(1);
@@ -355,6 +453,7 @@ function TransactionsContent() {
 
   async function handleImportFileChange(file: File | null) {
     setImportFile(file);
+    setImportFileMeta(file ? { name: file.name, size: file.size } : null);
     setImportAnalysis(null);
     setImportMapping(defaultImportMapping());
 
@@ -395,7 +494,7 @@ function TransactionsContent() {
     event.preventDefault();
 
     if (!importFile) {
-      toast("Selecciona un archivo antes de continuar", "error");
+      toast("Vuelve a seleccionar el archivo para continuar con la importación", "error");
       return;
     }
 
@@ -416,6 +515,7 @@ function TransactionsContent() {
         account_id: string;
         account_currency: string;
         imported_count: number;
+        skipped_duplicates: number;
         rows: Array<{
           source_row_number: number;
           account_id: string;
@@ -530,7 +630,10 @@ function TransactionsContent() {
         })),
       };
 
-      const response = await apiRequest<{ imported_count: number }>("/transactions/import/commit", {
+      const response = await apiRequest<{
+        imported_count: number;
+        skipped_duplicates: number;
+      }>("/transactions/import/commit", {
         method: "POST",
         body: JSON.stringify(payload),
       });
@@ -542,7 +645,14 @@ function TransactionsContent() {
           : null,
       );
       await mutateTrans();
-      toast(`${response.imported_count} transacciones añadidas`, "success");
+      if (response.skipped_duplicates) {
+        toast(
+          `${response.imported_count} transacciones añadidas y ${response.skipped_duplicates} duplicadas omitidas`,
+          "success",
+        );
+      } else {
+        toast(`${response.imported_count} transacciones añadidas`, "success");
+      }
     } catch (requestError) {
       toast(
         requestError instanceof Error ? requestError.message : "No se pudieron importar las filas",
@@ -702,6 +812,15 @@ function TransactionsContent() {
           }
           onConfirm={() => void handleDeleteConfirmed()}
           onCancel={() => setConfirmDelete({ open: false, ids: [] })}
+        />
+
+        <ConfirmDialog
+          open={isReplaceImportDialogOpen}
+          title="Descartar revisión pendiente"
+          description="Ya tienes una revisión temporal sin confirmar. Si sigues, se descartará ese borrador y empezarás una nueva importación."
+          confirmLabel="Descartar y continuar"
+          onConfirm={handleConfirmReplaceImport}
+          onCancel={() => setIsReplaceImportDialogOpen(false)}
         />
 
         <Modal
@@ -945,60 +1064,72 @@ function TransactionsContent() {
 
                 {/* Drag-and-drop zone OR file chip */}
                 {!importFile ? (
-                  <div
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(false);
-                    }}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setIsDragging(false);
-                      const file = e.dataTransfer.files[0];
-                      if (file) handleFileDrop(file);
-                    }}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`group flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all duration-300 ${
-                      isDragging
-                        ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)] scale-[1.01]"
-                        : "border-[var(--app-border)] bg-[var(--app-muted-surface)] hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
-                    }`}
-                  >
+                  <div className="space-y-4">
+                    {importFileMeta ? (
+                      <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                        <p className="font-medium text-[var(--app-foreground)]">
+                          Archivo recuperado: {importFileMeta.name}
+                        </p>
+                        <p className="mt-1 text-xs">
+                          Por seguridad, vuelve a seleccionarlo antes de preparar la revisión.
+                        </p>
+                      </div>
+                    ) : null}
                     <div
-                      className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-300 ${
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files[0];
+                        if (file) handleFileDrop(file);
+                      }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`group flex cursor-pointer flex-col items-center justify-center gap-4 rounded-2xl border-2 border-dashed px-6 py-12 text-center transition-all duration-300 ${
                         isDragging
-                          ? "bg-[var(--app-accent)] text-white scale-110"
-                          : "bg-[var(--app-panel)] text-[var(--app-muted)] group-hover:bg-[var(--app-accent)] group-hover:text-white"
+                          ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)] scale-[1.01]"
+                          : "border-[var(--app-border)] bg-[var(--app-muted-surface)] hover:border-[var(--app-accent)] hover:bg-[var(--app-accent-soft)]"
                       }`}
                     >
-                      <Upload className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-[var(--app-foreground)]">
-                        {isDragging
-                          ? "Suelta el archivo aquí"
-                          : "Arrastra tu archivo aquí"}
-                      </p>
-                      <p className="mt-1 text-xs text-[var(--app-muted)]">
-                        o haz clic para seleccionar
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
-                        CSV
-                      </span>
-                      <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
-                        Excel
-                      </span>
-                      <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
-                        PDF
-                      </span>
+                      <div
+                        className={`flex h-14 w-14 items-center justify-center rounded-2xl transition-all duration-300 ${
+                          isDragging
+                            ? "bg-[var(--app-accent)] text-white scale-110"
+                            : "bg-[var(--app-panel)] text-[var(--app-muted)] group-hover:bg-[var(--app-accent)] group-hover:text-white"
+                        }`}
+                      >
+                        <Upload className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-[var(--app-foreground)]">
+                          {isDragging
+                            ? "Suelta el archivo aquí"
+                            : "Arrastra tu archivo aquí"}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--app-muted)]">
+                          o haz clic para seleccionar
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                          CSV
+                        </span>
+                        <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                          Excel
+                        </span>
+                        <span className="rounded-lg bg-[var(--app-panel)] px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--app-muted)]">
+                          PDF
+                        </span>
+                      </div>
                     </div>
                   </div>
                 ) : (
@@ -1077,12 +1208,18 @@ function TransactionsContent() {
                 <div className="flex items-center gap-3 rounded-xl bg-[var(--app-muted-surface)] px-4 py-3">
                   <FileSpreadsheet className="h-4 w-4 flex-shrink-0 text-[var(--app-accent)]" />
                   <span className="truncate text-sm text-[var(--app-foreground)]">
-                    {importFile?.name}
+                    {importFile?.name ?? importFileMeta?.name ?? "Archivo pendiente"}
                   </span>
                   <span className="text-xs text-[var(--app-muted)]">
                     · {importAnalysis.total_rows} filas · {importAnalysis.source_type.toUpperCase()}
                   </span>
                 </div>
+
+                {!importFile ? (
+                  <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-4 py-3 text-sm text-[var(--app-muted)]">
+                    Vuelve al paso anterior y selecciona el archivo otra vez para preparar la revisión.
+                  </div>
+                ) : null}
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,420px)_minmax(0,1fr)] xl:items-start">
                   {/* Mapping section */}
@@ -1196,7 +1333,7 @@ function TransactionsContent() {
                 ) : null}
                 <button
                   type="submit"
-                  disabled={isPreparingPreview}
+                  disabled={isPreparingPreview || !importFile}
                   className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--app-accent)] px-4 py-3 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {isPreparingPreview ? (
@@ -1204,7 +1341,11 @@ function TransactionsContent() {
                   ) : (
                     <Check className="h-4 w-4" />
                   )}
-                  {isPreparingPreview ? "Classifying transactions by category" : "Preparar revisión"}
+                  {isPreparingPreview
+                    ? "Classifying transactions by category"
+                    : !importFile
+                      ? "Vuelve a seleccionar el archivo"
+                      : "Preparar revisión"}
                 </button>
               </div>
             ) : null}
