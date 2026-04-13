@@ -1142,6 +1142,11 @@ export interface components {
         TransactionImportCommitResponse: {
             /** Imported Count */
             imported_count: number;
+            /**
+             * Skipped Duplicates
+             * @default 0
+             */
+            skipped_duplicates: number;
         };
         /** TransactionImportDraft */
         TransactionImportDraft: {

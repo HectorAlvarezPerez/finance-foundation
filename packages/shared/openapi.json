@@ -1966,6 +1966,11 @@
           "imported_count": {
             "title": "Imported Count",
             "type": "integer"
+          },
+          "skipped_duplicates": {
+            "default": 0,
+            "title": "Skipped Duplicates",
+            "type": "integer"
           }
         },
         "required": [
