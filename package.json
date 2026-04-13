@@ -9,7 +9,7 @@
   "scripts": {
     "dev:backend": "bash -lc 'cd apps/backend && uv run uvicorn app.main:app --reload'",
     "dev:backend:local": "bash -lc 'cd apps/backend && DATABASE_URL=\"sqlite:///./dev-app.db\" uv run alembic upgrade head && DATABASE_URL=\"sqlite:///./dev-app.db\" FRONTEND_ORIGIN=\"http://localhost:3000,http://localhost:3100\" uv run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000'",
-    "dev:frontend": "npm --workspace apps/frontend run dev",
+    "dev:frontend": "bash -lc 'unset npm_config_prefix && source ~/.nvm/nvm.sh || true && nvm use 20 || true && npm --workspace apps/frontend run dev'",
     "just": "uvx --from rust-just just --justfile ./Justfile",
     "up": "npm run just -- up",
     "demo-up": "npm run just -- demo-up",
