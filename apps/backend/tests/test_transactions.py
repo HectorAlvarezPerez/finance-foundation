@@ -1114,6 +1114,71 @@ def test_preview_uses_assisted_category_classification_when_enabled(
     assert row["category_is_suggested"] is True
 
 
+def test_preview_skips_assisted_category_classification_when_user_disables_it(
+    client,
+    user_id,
+    monkeypatch,
+) -> None:
+    class FakeAzureOpenAITransactionCategoryService:
+        def __init__(self, **_: object) -> None:
+            return None
+
+        @property
+        def enabled(self) -> bool:
+            return True
+
+        def classify_rows(self, *, rows, categories):
+            raise AssertionError("Assisted classification should be disabled by user settings")
+
+    monkeypatch.setattr(
+        transaction_import_module,
+        "AzureOpenAITransactionCategoryService",
+        FakeAzureOpenAITransactionCategoryService,
+    )
+
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Refund Detection Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    settings_response = client.put(
+        "/api/v1/settings",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "default_currency": "EUR",
+            "locale": "es-ES",
+            "theme": "system",
+            "auto_categorization_enabled": False,
+        },
+    )
+    assert settings_response.status_code == 200
+
+    csv_content = "Fecha,Importe,Merchant\n15/03/2026,-9.90,Unknown Corner Shop\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    row = preview_response.json()["rows"][0]
+    assert row["category_id"] is None
+    assert row["category_is_suggested"] is False
+    assert row["category_suggestion_source"] is None
+
+
 def test_preview_includes_debug_reason_and_model_when_classification_debug_is_enabled(
     client,
     user_id,

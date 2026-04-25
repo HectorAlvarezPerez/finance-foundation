@@ -153,9 +153,7 @@ def upgrade() -> None:
             server_default=sa.text("(CURRENT_TIMESTAMP)"),
             nullable=False,
         ),
-        sa.CheckConstraint(
-            "month >= 1 AND month <= 12", name=op.f("ck_budgets_budget_month_range")
-        ),
+        sa.CheckConstraint("month >= 1 AND month <= 12", name="budget_month_range"),
         sa.ForeignKeyConstraint(
             ["category_id"],
             ["categories.id"],

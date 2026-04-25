@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 import { MoreVertical, Pencil, PiggyBank, Plus, Trash2 } from "lucide-react";
 
+import { AmountValue } from "@/components/amount-value";
 import { CategoryBadge } from "@/components/category-badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
@@ -12,8 +13,9 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
 import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useToast } from "@/components/ui/toast";
+import { useSettings } from "@/components/settings-provider";
 import { apiRequest } from "@/lib/api";
-import { formatCurrency, formatMonthLabel } from "@/lib/format";
+import { formatMonthLabel } from "@/lib/format";
 import type {
   Budget,
   BudgetBulkCreateResponse,
@@ -25,7 +27,7 @@ import type {
 type BudgetFormState = {
   category_id: string;
   year: string;
-  scope: "single" | "year";
+  scope: "single" | "year" | "annual";
   month: string;
   currency: string;
   amount: string;
@@ -36,8 +38,25 @@ const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
   label: formatMonthLabel(2026, index + 1),
 }));
 
+function getBudgetPeriodLabel(budget: Pick<Budget, "period_type" | "year" | "month">): string {
+  if (budget.period_type === "annual") {
+    return `Anual ${budget.year}`;
+  }
+
+  return formatMonthLabel(budget.year, budget.month ?? 1);
+}
+
+function getBudgetSpendKey(budget: Pick<Budget, "category_id" | "period_type" | "year" | "month">): string {
+  if (budget.period_type === "annual") {
+    return `${budget.category_id}-${budget.year}-annual`;
+  }
+
+  return `${budget.category_id}-${budget.year}-monthly-${budget.month ?? 1}`;
+}
+
 export default function BudgetsPage() {
   const { toast } = useToast();
+  const { settings } = useSettings();
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth() + 1;
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -59,7 +78,7 @@ export default function BudgetsPage() {
     year: String(currentYear),
     scope: "single",
     month: String(currentMonth),
-    currency: "EUR",
+    currency: settings?.default_currency || "EUR",
     amount: "",
   });
   const pageSize = 8;
@@ -110,14 +129,16 @@ export default function BudgetsPage() {
       const amount = Number(transaction.amount);
       if (amount >= 0) return;
       const transactionDate = new Date(transaction.date);
-      const key = `${transaction.category_id}-${transactionDate.getFullYear()}-${transactionDate.getMonth() + 1}`;
-      spentByBudgetKey.set(key, (spentByBudgetKey.get(key) ?? 0) + Math.abs(amount));
+      const monthlyKey = `${transaction.category_id}-${transactionDate.getFullYear()}-monthly-${transactionDate.getMonth() + 1}`;
+      const annualKey = `${transaction.category_id}-${transactionDate.getFullYear()}-annual`;
+      spentByBudgetKey.set(monthlyKey, (spentByBudgetKey.get(monthlyKey) ?? 0) + Math.abs(amount));
+      spentByBudgetKey.set(annualKey, (spentByBudgetKey.get(annualKey) ?? 0) + Math.abs(amount));
     });
 
     return budgets
       .map((budget) => {
         const amount = Number(budget.amount);
-        const key = `${budget.category_id}-${budget.year}-${budget.month}`;
+        const key = getBudgetSpendKey(budget);
         const spent = spentByBudgetKey.get(key) ?? 0;
         const remaining = amount - spent;
         const usageRatio = amount > 0 ? spent / amount : 0;
@@ -138,7 +159,8 @@ export default function BudgetsPage() {
         return { ...budget, amountNumber: amount, spent, remaining, usagePercent, statusLabel, tone, category };
       })
       .sort((left, right) => {
-        if (left.month !== right.month) return left.month - right.month;
+        if (left.period_type !== right.period_type) return left.period_type === "annual" ? -1 : 1;
+        if ((left.month ?? 0) !== (right.month ?? 0)) return (left.month ?? 0) - (right.month ?? 0);
         return (left.category?.name ?? "").localeCompare(right.category?.name ?? "", "es");
       });
   }, [budgets, categoryMap, transactions]);
@@ -170,12 +192,26 @@ export default function BudgetsPage() {
           body: JSON.stringify({
             category_id: form.category_id,
             year: Number(form.year),
-            month: Number(form.month),
+            period_type: form.scope === "annual" ? "annual" : "monthly",
+            month: form.scope === "annual" ? null : Number(form.month),
             currency: form.currency,
             amount: form.amount,
           }),
         });
         toast("Presupuesto actualizado", "success");
+      } else if (form.scope === "annual") {
+        await apiRequest<Budget>("/budgets", {
+          method: "POST",
+          body: JSON.stringify({
+            category_id: form.category_id,
+            year: Number(form.year),
+            period_type: "annual",
+            month: null,
+            currency: form.currency,
+            amount: form.amount,
+          }),
+        });
+        toast("Presupuesto anual creado", "success");
       } else if (form.scope === "year") {
         await apiRequest<BudgetBulkCreateResponse>("/budgets/bulk", {
           method: "POST",
@@ -194,6 +230,7 @@ export default function BudgetsPage() {
           body: JSON.stringify({
             category_id: form.category_id,
             year: Number(form.year),
+            period_type: "monthly",
             month: Number(form.month),
             currency: form.currency,
             amount: form.amount,
@@ -209,7 +246,7 @@ export default function BudgetsPage() {
         year: form.year,
         scope: "single",
         month: String(currentMonth),
-        currency: form.currency,
+        currency: settings?.default_currency || "EUR",
         amount: "",
       });
       setIsDialogOpen(false);
@@ -233,7 +270,7 @@ export default function BudgetsPage() {
       year: selectedYear,
       scope: "single",
       month: String(currentMonth),
-      currency: "EUR",
+      currency: settings?.default_currency || "EUR",
       amount: "",
     });
     setIsDialogOpen(true);
@@ -245,8 +282,8 @@ export default function BudgetsPage() {
     setForm({
       category_id: budget.category_id,
       year: String(budget.year),
-      scope: "single",
-      month: String(budget.month),
+      scope: budget.period_type === "annual" ? "annual" : "single",
+      month: String(budget.month ?? currentMonth),
       currency: budget.currency,
       amount: String(budget.amount),
     });
@@ -282,7 +319,7 @@ export default function BudgetsPage() {
       <PageHeader
         eyebrow="Presupuestos"
         title="Control de presupuestos"
-        description="Sigue el gasto real frente al objetivo mensual con una vista mucho más clara y útil."
+        description="Sigue el gasto real frente a objetivos mensuales y anuales con una vista mucho más clara y útil."
       />
 
       <div className="flex flex-col items-start justify-between gap-2.5 sm:flex-row sm:items-center">
@@ -321,9 +358,9 @@ export default function BudgetsPage() {
         </div>
       ) : (
         <section className="grid gap-3 lg:grid-cols-3">
-          <SummaryCard title="Total presupuestado" value={summary.totalBudgeted} currency="EUR" tone="neutral" />
-          <SummaryCard title="Total gastado" value={summary.totalSpent} currency="EUR" tone="danger" />
-          <SummaryCard title="Disponible" value={summary.totalAvailable} currency="EUR" tone={summary.totalAvailable >= 0 ? "success" : "danger"} />
+          <SummaryCard title="Total presupuestado" value={summary.totalBudgeted} currency={settings?.default_currency || "EUR"} tone="neutral" />
+          <SummaryCard title="Total gastado" value={summary.totalSpent} currency={settings?.default_currency || "EUR"} tone="danger" />
+          <SummaryCard title="Disponible" value={summary.totalAvailable} currency={settings?.default_currency || "EUR"} tone={summary.totalAvailable >= 0 ? "success" : "danger"} />
         </section>
       )}
 
@@ -336,8 +373,8 @@ export default function BudgetsPage() {
         title={editingBudgetId ? "Editar presupuesto" : "Nuevo presupuesto"}
         description={
           editingBudgetId
-            ? "Ajusta el objetivo mensual y deja el resto alineado con tu planificación."
-            : "Puedes crearlo para un mes concreto o replicarlo automáticamente para todo el año."
+            ? "Ajusta el objetivo del presupuesto y deja el resto alineado con tu planificación."
+            : "Puedes crearlo para un mes concreto, para todo el año mes a mes o como objetivo anual único."
         }
       >
         <form className="space-y-4" onSubmit={handleSubmit}>
@@ -352,17 +389,22 @@ export default function BudgetsPage() {
             <select aria-label="Alcance del presupuesto" disabled={!!editingBudgetId} value={form.scope} onChange={(event) => setForm((current) => ({ ...current, scope: event.target.value as BudgetFormState["scope"] }))} className={`${inputClasses} disabled:cursor-not-allowed disabled:opacity-60`}>
               <option value="single">Un mes concreto</option>
               <option value="year">Todos los meses del año</option>
+              <option value="annual">Total anual</option>
             </select>
           </div>
-          {form.scope === "single" || editingBudgetId ? (
+          {form.scope === "single" ? (
             <select aria-label="Mes del presupuesto" value={form.month} onChange={(event) => setForm((current) => ({ ...current, month: event.target.value }))} className={inputClasses}>
               {MONTH_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
             </select>
-          ) : (
+          ) : form.scope === "year" ? (
             <div className="rounded-xl bg-[var(--app-accent-soft)] px-4 py-3 text-sm text-[var(--app-accent)]">
               Se crearán 12 presupuestos, uno para cada mes del año seleccionado.
+            </div>
+          ) : (
+            <div className="rounded-xl bg-[var(--app-accent-soft)] px-4 py-3 text-sm text-[var(--app-accent)]">
+              Se creará un único presupuesto anual para todo el año seleccionado.
             </div>
           )}
           <div className="grid gap-4 sm:grid-cols-2">
@@ -371,7 +413,13 @@ export default function BudgetsPage() {
           </div>
           {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}
           <button type="submit" className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110">
-            {editingBudgetId ? "Guardar cambios" : form.scope === "year" ? "Crear presupuestos anuales" : "Crear presupuesto"}
+            {editingBudgetId
+              ? "Guardar cambios"
+              : form.scope === "year"
+                ? "Crear presupuestos mensuales"
+                : form.scope === "annual"
+                  ? "Crear presupuesto anual"
+                  : "Crear presupuesto"}
           </button>
         </form>
       </Modal>
@@ -411,7 +459,7 @@ export default function BudgetsPage() {
                         setConfirmDelete({
                           open: true,
                           budgetId: budget.id,
-                          label: `${budget.category?.name ?? "Categoría"} · ${formatMonthLabel(budget.year, budget.month)}`,
+                          label: `${budget.category?.name ?? "Categoría"} · ${getBudgetPeriodLabel(budget)}`,
                         })
                       }
                     />
@@ -422,7 +470,7 @@ export default function BudgetsPage() {
             ) : (
               <EmptyState
                 title="No hay presupuestos todavía"
-                description="Crea uno para un mes o para todo el año y empezarás a ver el progreso aquí."
+                description="Crea uno para un mes, para todo el año o como objetivo anual y empezarás a ver el progreso aquí."
                 icon={PiggyBank}
                 actionLabel="Nuevo presupuesto"
                 onAction={openCreateDialog}
@@ -462,7 +510,9 @@ function SummaryCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className={`text-2xl font-semibold sm:text-[1.75rem] ${toneClass}`}>{formatCurrency(value, currency)}</p>
+        <p className={`text-2xl font-semibold sm:text-[1.75rem] ${toneClass}`}>
+          <AmountValue amount={value} currency={currency} className="![color:inherit]" />
+        </p>
       </CardContent>
     </Card>
   );
@@ -477,8 +527,9 @@ function BudgetStatusCard({
   budget: {
     id: string;
     category_id: string;
+    period_type: "monthly" | "annual";
     year: number;
-    month: number;
+    month: number | null;
     currency: string;
     amount: string;
     amountNumber: number;
@@ -536,7 +587,7 @@ function BudgetStatusCard({
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="space-y-0.5">
             <p className="text-[11px] uppercase tracking-[0.1em] text-[var(--app-muted)]">
-              {formatMonthLabel(budget.year, budget.month)}
+              {getBudgetPeriodLabel(budget)}
             </p>
             <h3 className="text-base font-semibold text-[var(--app-ink)]">
               {budget.category?.name ?? "Categoría"}
@@ -547,7 +598,7 @@ function BudgetStatusCard({
               {budget.statusLabel}
             </span>
             <BudgetActionsMenu
-              label={`${budget.category?.name ?? "Categoría"} ${formatMonthLabel(budget.year, budget.month)}`}
+              label={`${budget.category?.name ?? "Categoría"} ${getBudgetPeriodLabel(budget)}`}
               onEdit={onEdit}
               onDelete={onDelete}
             />
@@ -570,13 +621,13 @@ function BudgetStatusCard({
             <div>
               <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">Presupuesto</p>
               <p className="mt-0.5 text-sm font-semibold text-[var(--app-ink)]">
-                {formatCurrency(budget.amountNumber, budget.currency)}
+                <AmountValue amount={budget.amountNumber} currency={budget.currency} className="!text-[var(--app-ink)]" />
               </p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">Gastado</p>
               <p className="mt-0.5 text-sm font-semibold text-[var(--app-ink)]">
-                {formatCurrency(budget.spent, budget.currency)}
+                <AmountValue amount={budget.spent} currency={budget.currency} className="!text-[var(--app-ink)]" />
               </p>
             </div>
           </div>
@@ -596,7 +647,7 @@ function BudgetStatusCard({
         <div className="flex items-center justify-between border-t border-[var(--app-border)] px-5 py-3">
           <p className={`text-sm font-semibold ${footerClass}`}>
             {budget.remaining < 0 ? "Excedido" : "Disponible"}:{" "}
-            {formatCurrency(Math.abs(budget.remaining), budget.currency)}
+            <AmountValue amount={Math.abs(budget.remaining)} currency={budget.currency} className="![color:inherit]" />
           </p>
           <CategoryBadge category={budget.category} fallback="Categoría" variant="inline" />
         </div>

@@ -25,10 +25,12 @@ import {
 import { AmountValue } from "@/components/amount-value";
 import { CategoryBadge } from "@/components/category-badge";
 import { EmptyState } from "@/components/empty-state";
+import { ErrorScreen } from "@/components/error-screen";
 import { PageHeader } from "@/components/page-header";
 import { ActionMenu } from "@/components/ui/action-menu";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useSettings } from "@/components/settings-provider";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Modal } from "@/components/ui/modal";
 import { PaginationControls } from "@/components/ui/pagination-controls";
@@ -145,16 +147,20 @@ function TransactionsContent() {
   const pageSize = 20;
   const transactionQuery = buildTransactionQuery(filters, page, pageSize);
 
-  const { data: transData, mutate: mutateTrans } = useSWR<PaginatedResponse<Transaction>>(
+  const {
+    data: transData,
+    error: transError,
+    mutate: mutateTrans,
+  } = useSWR<PaginatedResponse<Transaction>>(
     `/transactions?${transactionQuery}`,
     fetcher,
     { keepPreviousData: true },
   );
-  const { data: accData } = useSWR<PaginatedResponse<Account>>(
+  const { data: accData, error: accError } = useSWR<PaginatedResponse<Account>>(
     "/accounts?limit=100&sort_by=name&sort_order=asc",
     fetcher,
   );
-  const { data: catData } = useSWR<PaginatedResponse<Category>>(
+  const { data: catData, error: catError } = useSWR<PaginatedResponse<Category>>(
     "/categories?limit=100&sort_by=name&sort_order=asc",
     fetcher,
   );
@@ -164,8 +170,17 @@ function TransactionsContent() {
   const accounts = accData?.items || [];
   const categories = catData?.items || [];
   const isLoading = !transData || !accData || !catData;
+  const loadError = transError || accError || catError;
 
-  const [form, setForm] = useState(defaultTransactionForm());
+  const { settings } = useSettings();
+
+  useEffect(() => {
+    if (settings) {
+      setImportAutoCategorize(!!settings.auto_categorization_enabled);
+    }
+  }, [settings]);
+
+  const [form, setForm] = useState(() => defaultTransactionForm(settings?.default_currency || "EUR"));
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [editorMode, setEditorMode] = useState<TransactionEditorMode>("create");
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
@@ -191,6 +206,7 @@ function TransactionsContent() {
   const [importStep, setImportStep] = useState<1 | 2>(1);
   const [isDragging, setIsDragging] = useState(false);
   const [isReplaceImportDialogOpen, setIsReplaceImportDialogOpen] = useState(false);
+  const [importAutoCategorize, setImportAutoCategorize] = useState<boolean>(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const accountMap = new Map(accounts.map((account) => [account.id, account]));
@@ -245,7 +261,11 @@ function TransactionsContent() {
     const storedPreview = window.sessionStorage.getItem(IMPORT_PREVIEW_STORAGE_KEY);
     if (storedPreview) {
       try {
-        setImportPreview(JSON.parse(storedPreview) as TransactionImportPreview);
+        const parsedPreview = JSON.parse(storedPreview) as TransactionImportPreview;
+        setImportPreview({
+          ...parsedPreview,
+          rows: parsedPreview.rows.map((row) => normalizeImportPreviewRow(row)),
+        });
         toast("Se ha recuperado una revisión de importación pendiente", "info");
       } catch {
         window.sessionStorage.removeItem(IMPORT_PREVIEW_STORAGE_KEY);
@@ -371,7 +391,7 @@ function TransactionsContent() {
         );
       }
 
-      setForm((current) => defaultTransactionForm(current.currency, current.account_id));
+      setForm((current) => defaultTransactionForm(settings?.default_currency || "EUR", current.account_id));
       setEditorMode("create");
       setEditingTransactionId(null);
       setIsDialogOpen(false);
@@ -385,7 +405,7 @@ function TransactionsContent() {
     setTransactionKind(kind);
     setEditorMode("create");
     setEditingTransactionId(null);
-    setForm(defaultTransactionForm(form.currency, form.account_id));
+    setForm(defaultTransactionForm(settings?.default_currency || "EUR", form.account_id));
     setIsTypePickerOpen(false);
     setIsDialogOpen(true);
   }
@@ -509,6 +529,7 @@ function TransactionsContent() {
       formData.append("file", importFile);
       formData.append("account_id", importAccountId);
       formData.append("mapping", JSON.stringify(importMapping));
+      formData.append("auto_categorize", String(importAutoCategorize));
 
       const response = await apiRequest<{
         source_type: "csv" | "excel" | "pdf";
@@ -1050,6 +1071,19 @@ function TransactionsContent() {
                   </select>
                 </div>
 
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="import-auto-categorize"
+                    checked={importAutoCategorize}
+                    onChange={(e) => setImportAutoCategorize(e.target.checked)}
+                    className="h-4 w-4 rounded border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] outline-none"
+                  />
+                  <label htmlFor="import-auto-categorize" className="text-sm font-medium text-[var(--app-foreground)]">
+                    Categorizar automáticamente las transacciones con IA
+                  </label>
+                </div>
+
                 {/* Hidden file input */}
                 <input
                   ref={fileInputRef}
@@ -1427,8 +1461,8 @@ function TransactionsContent() {
                       <TableHead className="w-[14%]">Fecha</TableHead>
                       <TableHead className="w-[18%]">Importe</TableHead>
                       <TableHead className="w-[24%]">Descripción</TableHead>
-                      <TableHead className="w-[16%]">Categoría</TableHead>
-                      <TableHead className="w-[12%]">Estado</TableHead>
+                      <TableHead className="w-[22%]">Categoría</TableHead>
+                      <TableHead className="w-[16%]">Estado</TableHead>
                       <TableHead className="w-[6%] text-right">Acción</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -1604,7 +1638,16 @@ function TransactionsContent() {
           </div>
         </div>
 
-        {isLoading ? (
+        {loadError ? (
+          <ErrorScreen
+            title="No se han podido cargar las transacciones"
+            description={
+              loadError instanceof Error
+                ? loadError.message
+                : "No hemos podido cargar las transacciones y datos auxiliares."
+            }
+          />
+        ) : isLoading ? (
           <ListSkeleton rows={6} />
         ) : (
           <Card className="animate-slideUp">

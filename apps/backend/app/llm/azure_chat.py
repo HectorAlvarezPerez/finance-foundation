@@ -45,10 +45,12 @@ class AzureChatCompletionClient:
         *,
         messages: list[ChatMessage],
         temperature: int | float = 0,
+        max_tokens: int | None = None,
     ) -> ChatCompletionResult:
         return self._complete(
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
             response_format={"type": "json_object"},
         )
 
@@ -57,10 +59,12 @@ class AzureChatCompletionClient:
         *,
         messages: list[ChatMessage],
         temperature: int | float = 0,
+        max_tokens: int | None = None,
     ) -> ChatCompletionResult:
         return self._complete(
             messages=messages,
             temperature=temperature,
+            max_tokens=max_tokens,
             response_format=None,
         )
 
@@ -69,6 +73,7 @@ class AzureChatCompletionClient:
         *,
         messages: list[ChatMessage],
         temperature: int | float,
+        max_tokens: int | None,
         response_format: dict[str, Any] | None,
     ) -> ChatCompletionResult:
         if not self.is_configured:
@@ -86,6 +91,8 @@ class AzureChatCompletionClient:
             "messages": messages,
             "temperature": temperature,
         }
+        if max_tokens is not None:
+            request_payload["max_tokens"] = max_tokens
         if response_format is not None:
             request_payload["response_format"] = response_format
 

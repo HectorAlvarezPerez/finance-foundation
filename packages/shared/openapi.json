@@ -189,6 +189,7 @@
         "enum": [
           "checking",
           "savings",
+          "brokerage",
           "shared",
           "other"
         ],
@@ -405,6 +406,11 @@
             "title": "Account Id",
             "type": "string"
           },
+          "auto_categorize": {
+            "default": true,
+            "title": "Auto Categorize",
+            "type": "boolean"
+          },
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
@@ -521,10 +527,21 @@
             "type": "string"
           },
           "month": {
-            "maximum": 12.0,
-            "minimum": 1.0,
-            "title": "Month",
-            "type": "integer"
+            "anyOf": [
+              {
+                "maximum": 12.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "period_type": {
+            "$ref": "#/components/schemas/BudgetPeriodType",
+            "default": "monthly"
           },
           "year": {
             "maximum": 2100.0,
@@ -536,7 +553,6 @@
         "required": [
           "category_id",
           "year",
-          "month",
           "currency",
           "amount"
         ],
@@ -574,6 +590,14 @@
         "title": "BudgetListResponse",
         "type": "object"
       },
+      "BudgetPeriodType": {
+        "enum": [
+          "monthly",
+          "annual"
+        ],
+        "title": "BudgetPeriodType",
+        "type": "string"
+      },
       "BudgetRead": {
         "properties": {
           "amount": {
@@ -601,8 +625,18 @@
             "type": "string"
           },
           "month": {
-            "title": "Month",
-            "type": "integer"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Month"
+          },
+          "period_type": {
+            "$ref": "#/components/schemas/BudgetPeriodType"
           },
           "updated_at": {
             "format": "date-time",
@@ -618,6 +652,7 @@
           "id",
           "category_id",
           "year",
+          "period_type",
           "month",
           "currency",
           "amount",
@@ -681,6 +716,16 @@
               }
             ],
             "title": "Month"
+          },
+          "period_type": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BudgetPeriodType"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "year": {
             "anyOf": [
@@ -1605,6 +1650,10 @@
       },
       "SettingsRead": {
         "properties": {
+          "auto_categorization_enabled": {
+            "title": "Auto Categorization Enabled",
+            "type": "boolean"
+          },
           "created_at": {
             "format": "date-time",
             "title": "Created At",
@@ -1644,6 +1693,7 @@
           "default_currency",
           "locale",
           "theme",
+          "auto_categorization_enabled",
           "created_at",
           "updated_at"
         ],
@@ -1652,6 +1702,11 @@
       },
       "SettingsUpdate": {
         "properties": {
+          "auto_categorization_enabled": {
+            "default": true,
+            "title": "Auto Categorization Enabled",
+            "type": "boolean"
+          },
           "default_currency": {
             "maxLength": 3,
             "minLength": 3,
@@ -3422,6 +3477,22 @@
           },
           {
             "in": "query",
+            "name": "period_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BudgetPeriodType"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Period Type"
+            }
+          },
+          {
+            "in": "query",
             "name": "category_id",
             "required": false,
             "schema": {
@@ -3447,6 +3518,7 @@
                 "amount",
                 "created_at",
                 "month",
+                "period_type",
                 "year"
               ],
               "title": "Sort By",

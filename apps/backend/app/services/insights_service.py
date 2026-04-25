@@ -89,6 +89,7 @@ class InsightsService:
         for transaction in transactions:
             amount = transaction.amount
             balance += amount
+            balance_by_account[transaction.account_id] += amount
 
             if amount >= 0:
                 income += amount
@@ -96,8 +97,6 @@ class InsightsService:
                 expense_amount = abs(amount)
                 expenses += expense_amount
                 expense_by_category[transaction.category_id] += expense_amount
-
-            balance_by_account[transaction.account_id] += amount
 
             month_key = transaction.date.strftime("%Y-%m")
             bucket = monthly_buckets.get(month_key)
@@ -112,12 +111,12 @@ class InsightsService:
                 )
                 monthly_buckets[month_key] = bucket
 
+            bucket.net += amount
+            bucket.transactions += 1
             if amount >= 0:
                 bucket.income += amount
             else:
                 bucket.expenses += abs(amount)
-            bucket.net += amount
-            bucket.transactions += 1
 
         top_categories = sorted(
             (

@@ -544,7 +544,7 @@ export interface components {
          * AccountType
          * @enum {string}
          */
-        AccountType: "checking" | "savings" | "shared" | "other";
+        AccountType: "checking" | "savings" | "brokerage" | "shared" | "other";
         /** AccountUpdate */
         AccountUpdate: {
             /** Bank Name */
@@ -627,6 +627,11 @@ export interface components {
              * Format: uuid
              */
             account_id: string;
+            /**
+             * Auto Categorize
+             * @default true
+             */
+            auto_categorize: boolean;
             /** File */
             file: string;
             /** Mapping */
@@ -667,7 +672,9 @@ export interface components {
             /** Currency */
             currency: string;
             /** Month */
-            month: number;
+            month?: number | null;
+            /** @default monthly */
+            period_type: components["schemas"]["BudgetPeriodType"];
             /** Year */
             year: number;
         };
@@ -682,6 +689,11 @@ export interface components {
             /** Total */
             total: number;
         };
+        /**
+         * BudgetPeriodType
+         * @enum {string}
+         */
+        BudgetPeriodType: "monthly" | "annual";
         /** BudgetRead */
         BudgetRead: {
             /** Amount */
@@ -704,7 +716,8 @@ export interface components {
              */
             id: string;
             /** Month */
-            month: number;
+            month: number | null;
+            period_type: components["schemas"]["BudgetPeriodType"];
             /**
              * Updated At
              * Format: date-time
@@ -723,6 +736,7 @@ export interface components {
             currency?: string | null;
             /** Month */
             month?: number | null;
+            period_type?: components["schemas"]["BudgetPeriodType"] | null;
             /** Year */
             year?: number | null;
         };
@@ -1020,6 +1034,8 @@ export interface components {
         };
         /** SettingsRead */
         SettingsRead: {
+            /** Auto Categorization Enabled */
+            auto_categorization_enabled: boolean;
             /**
              * Created At
              * Format: date-time
@@ -1049,6 +1065,11 @@ export interface components {
         };
         /** SettingsUpdate */
         SettingsUpdate: {
+            /**
+             * Auto Categorization Enabled
+             * @default true
+             */
+            auto_categorization_enabled: boolean;
             /** Default Currency */
             default_currency: string;
             /** Locale */
@@ -1780,8 +1801,9 @@ export interface operations {
                 offset?: number;
                 year?: number | null;
                 month?: number | null;
+                period_type?: components["schemas"]["BudgetPeriodType"] | null;
                 category_id?: string | null;
-                sort_by?: "amount" | "created_at" | "month" | "year";
+                sort_by?: "amount" | "created_at" | "month" | "period_type" | "year";
                 sort_order?: "asc" | "desc";
             };
             header?: {

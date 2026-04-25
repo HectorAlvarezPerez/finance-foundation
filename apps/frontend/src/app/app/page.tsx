@@ -22,6 +22,14 @@ type DashboardState = {
   insights: InsightsSummary | null;
 };
 
+function getBudgetPeriodLabel(budget: Pick<Budget, "period_type" | "year" | "month">): string {
+  if (budget.period_type === "annual") {
+    return `Anual ${budget.year}`;
+  }
+
+  return formatMonthLabel(budget.year, budget.month ?? 1);
+}
+
 export default function DashboardPage() {
   const [state, setState] = useState<DashboardState>({
     accounts: null,
@@ -45,9 +53,7 @@ export default function DashboardPage() {
           apiRequest<PaginatedResponse<Account>>("/accounts?limit=100"),
           apiRequest<PaginatedResponse<Category>>("/categories?limit=100"),
           apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100&sort_by=date&sort_order=desc"),
-          apiRequest<PaginatedResponse<Budget>>(
-            `/budgets?limit=100&year=${currentYear}&month=${currentMonth}&sort_by=amount&sort_order=desc`,
-          ),
+          apiRequest<PaginatedResponse<Budget>>(`/budgets?limit=100&year=${currentYear}&sort_by=amount&sort_order=desc`),
           apiRequest<InsightsSummary>("/insights/summary"),
         ]);
         setState({ accounts, categories, recentTransactions, budgets, insights });
@@ -64,6 +70,13 @@ export default function DashboardPage() {
   const accountMap = new Map(state.accounts?.items.map((account) => [account.id, account]) ?? []);
   const categoryMap = new Map(state.categories?.items.map((category) => [category.id, category]) ?? []);
   const defaultCurrency = state.accounts?.items[0]?.currency ?? "EUR";
+  const relevantBudgets = useMemo(
+    () =>
+      (state.budgets?.items ?? []).filter(
+        (budget) => budget.period_type === "annual" || budget.month === currentMonth,
+      ),
+    [currentMonth, state.budgets?.items],
+  );
 
   const totals = useMemo(() => {
     const monthBucket = state.insights?.monthly_comparison.find((bucket) => bucket.month_key === currentMonthKey);
@@ -78,9 +91,9 @@ export default function DashboardPage() {
         (sum, account) => sum + (balanceByAccount.get(account.id) ?? 0),
         0,
       ),
-      activeBudgetCount: state.budgets?.items.length ?? 0,
+      activeBudgetCount: relevantBudgets.length,
     };
-  }, [currentMonthKey, state.accounts, state.budgets, state.insights]);
+  }, [currentMonthKey, relevantBudgets.length, state.accounts, state.insights]);
 
   const summary = [
     {
@@ -209,15 +222,15 @@ export default function DashboardPage() {
                   </Link>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  {state.budgets?.items.length ? (
-                    state.budgets.items.slice(0, 3).map((budget) => (
+                  {relevantBudgets.length ? (
+                    relevantBudgets.slice(0, 3).map((budget) => (
                       <div
                         key={budget.id}
                         className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3"
                       >
                         <CategoryBadge category={categoryMap.get(budget.category_id)} fallback="Categoría" />
                         <div className="mt-1.5 flex items-center justify-between gap-4 text-sm text-[var(--app-muted)]">
-                          <span>{formatMonthLabel(budget.year, budget.month)}</span>
+                          <span>{getBudgetPeriodLabel(budget)}</span>
                           <AmountValue amount={budget.amount} currency={budget.currency} />
                         </div>
                       </div>

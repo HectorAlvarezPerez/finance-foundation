@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, Uuid
+from sqlalchemy import Boolean, ForeignKey, String, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -25,5 +25,10 @@ class Settings(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     default_currency: Mapped[str] = mapped_column(String(3), nullable=False)
     locale: Mapped[str] = mapped_column(String(16), nullable=False)
     theme: Mapped[str] = mapped_column(String(32), nullable=False)
+    auto_categorization_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=True,
+    )
 
     user: Mapped["User"] = relationship(back_populates="settings")

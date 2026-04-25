@@ -4,6 +4,7 @@ from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
+from app.models.enums import BudgetPeriodType
 
 
 class BudgetRepository:
@@ -18,6 +19,7 @@ class BudgetRepository:
         offset: int,
         year: int | None = None,
         month: int | None = None,
+        period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
         sort_by: str = "year",
         sort_order: str = "desc",
@@ -33,6 +35,10 @@ class BudgetRepository:
             statement = statement.where(Budget.month == month)
             count_statement = count_statement.where(Budget.month == month)
 
+        if period_type is not None:
+            statement = statement.where(Budget.period_type == period_type)
+            count_statement = count_statement.where(Budget.period_type == period_type)
+
         if category_id is not None:
             statement = statement.where(Budget.category_id == category_id)
             count_statement = count_statement.where(Budget.category_id == category_id)
@@ -41,6 +47,7 @@ class BudgetRepository:
             "amount": Budget.amount,
             "created_at": Budget.created_at,
             "month": Budget.month,
+            "period_type": Budget.period_type,
             "year": Budget.year,
         }
         sort_column = sort_map.get(sort_by, Budget.year)
@@ -63,6 +70,7 @@ class BudgetRepository:
         user_id: uuid.UUID,
         year: int | None = None,
         month: int | None = None,
+        period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
         sort_by: str = "year",
         sort_order: str = "desc",
@@ -75,6 +83,9 @@ class BudgetRepository:
         if month is not None:
             statement = statement.where(Budget.month == month)
 
+        if period_type is not None:
+            statement = statement.where(Budget.period_type == period_type)
+
         if category_id is not None:
             statement = statement.where(Budget.category_id == category_id)
 
@@ -82,6 +93,7 @@ class BudgetRepository:
             "amount": Budget.amount,
             "created_at": Budget.created_at,
             "month": Budget.month,
+            "period_type": Budget.period_type,
             "year": Budget.year,
         }
         sort_column = sort_map.get(sort_by, Budget.year)
@@ -96,12 +108,14 @@ class BudgetRepository:
         user_id: uuid.UUID,
         category_id: uuid.UUID,
         year: int,
-        month: int,
+        period_type: BudgetPeriodType,
+        month: int | None,
     ) -> Budget | None:
         statement = select(Budget).where(
             Budget.user_id == user_id,
             Budget.category_id == category_id,
             Budget.year == year,
+            Budget.period_type == period_type,
             Budget.month == month,
         )
         return self.db.scalar(statement)
@@ -121,9 +135,10 @@ class BudgetRepository:
             Budget.user_id == user_id,
             Budget.category_id == category_id,
             Budget.year == year,
+            Budget.period_type == BudgetPeriodType.MONTHLY,
             Budget.month.in_(months),
         )
-        return sorted(list(self.db.scalars(statement)))
+        return sorted(month for month in self.db.scalars(statement) if month is not None)
 
     def create(self, *, user_id: uuid.UUID, payload: dict[str, object]) -> Budget:
         budget = Budget(user_id=user_id, **payload)

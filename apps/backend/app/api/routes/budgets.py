@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import CurrentUserId, DBSession
+from app.models.enums import BudgetPeriodType
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
 from app.schemas.budgets import (
@@ -34,8 +35,9 @@ def list_budgets(
     offset: int = Query(default=0, ge=0),
     year: int | None = Query(default=None, ge=2000, le=2100),
     month: int | None = Query(default=None, ge=1, le=12),
+    period_type: BudgetPeriodType | None = None,
     category_id: uuid.UUID | None = None,
-    sort_by: Literal["amount", "created_at", "month", "year"] = "year",
+    sort_by: Literal["amount", "created_at", "month", "period_type", "year"] = "year",
     sort_order: Literal["asc", "desc"] = "desc",
 ) -> BudgetListResponse:
     return service.list_budgets(
@@ -44,6 +46,7 @@ def list_budgets(
         offset=offset,
         year=year,
         month=month,
+        period_type=period_type,
         category_id=category_id,
         sort_by=sort_by,
         sort_order=sort_order,

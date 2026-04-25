@@ -405,6 +405,7 @@ test("permite editar y descartar filas antes de confirmar la importación", asyn
   await page.getByRole("button", { name: /Siguiente: mapear columnas/i }).click();
   await page.getByRole("button", { name: "Preparar revisión" }).click();
   await expect(page.getByText("Revisión temporal de importación")).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Reembolso" })).toHaveCount(0);
 
   const reviewRows = page.locator("table tbody tr");
   await reviewRows.nth(0).locator("select").selectOption(alternateCategory.id);
@@ -422,6 +423,9 @@ test("permite editar y descartar filas antes de confirmar la importación", asyn
       },
     ],
   });
+  expect((commitPayload as { items: Array<Record<string, unknown>> }).items[0]).not.toHaveProperty(
+    "is_refund",
+  );
 
   await deleteEntityByName(page, "categories", suggestedCategoryName);
   await deleteEntityByName(page, "categories", alternateCategoryName);

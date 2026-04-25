@@ -12,8 +12,11 @@ if TYPE_CHECKING:
     from app.models.account import Account
     from app.models.budget import Budget
     from app.models.category import Category
+    from app.models.holding import Holding
     from app.models.monthly_insight_recap import MonthlyInsightRecap
+    from app.models.price import Price
     from app.models.settings import Settings
+    from app.models.trade import Trade
     from app.models.transaction import Transaction
     from app.models.user_credential import UserCredential
 
@@ -53,6 +56,21 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         passive_deletes=True,
     )
     budgets: Mapped[list["Budget"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    holdings: Mapped[list["Holding"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    prices: Mapped[list["Price"]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+        passive_deletes=True,
+    )
+    trades: Mapped[list["Trade"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         passive_deletes=True,

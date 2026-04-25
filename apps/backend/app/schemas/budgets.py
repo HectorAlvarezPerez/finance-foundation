@@ -4,15 +4,25 @@ from decimal import Decimal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.models.enums import BudgetPeriodType
 from app.schemas.common import ORMBaseModel
 
 
 class BudgetBase(BaseModel):
     category_id: uuid.UUID
     year: int = Field(ge=2000, le=2100)
-    month: int = Field(ge=1, le=12)
+    period_type: BudgetPeriodType = BudgetPeriodType.MONTHLY
+    month: int | None = Field(default=None, ge=1, le=12)
     currency: str = Field(min_length=3, max_length=3)
     amount: Decimal = Field(decimal_places=2, max_digits=12)
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "BudgetBase":
+        if self.period_type == BudgetPeriodType.MONTHLY and self.month is None:
+            raise ValueError("Month is required for monthly budgets")
+        if self.period_type == BudgetPeriodType.ANNUAL and self.month is not None:
+            raise ValueError("Month must be empty for annual budgets")
+        return self
 
 
 class BudgetCreate(BudgetBase):
@@ -38,16 +48,24 @@ class BudgetBulkCreate(BaseModel):
 class BudgetUpdate(BaseModel):
     category_id: uuid.UUID | None = None
     year: int | None = Field(default=None, ge=2000, le=2100)
+    period_type: BudgetPeriodType | None = None
     month: int | None = Field(default=None, ge=1, le=12)
     currency: str | None = Field(default=None, min_length=3, max_length=3)
     amount: Decimal | None = Field(default=None, decimal_places=2, max_digits=12)
+
+    @model_validator(mode="after")
+    def validate_period(self) -> "BudgetUpdate":
+        if self.period_type == BudgetPeriodType.ANNUAL and self.month is not None:
+            raise ValueError("Month must be empty for annual budgets")
+        return self
 
 
 class BudgetRead(ORMBaseModel):
     id: uuid.UUID
     category_id: uuid.UUID
     year: int
-    month: int
+    period_type: BudgetPeriodType
+    month: int | None
     currency: str
     amount: Decimal
     created_at: datetime

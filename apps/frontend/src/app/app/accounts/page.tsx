@@ -30,6 +30,7 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { PageHeader } from "@/components/page-header";
 import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
+import { useSettings } from "@/components/settings-provider";
 import { apiRequest } from "@/lib/api";
 import type { Account, AccountType, PaginatedResponse, Transaction, Settings } from "@/lib/types";
 
@@ -74,6 +75,7 @@ const ACCOUNT_ICONS: Record<string, React.ElementType> = {
 const accountTypeLabels: Record<AccountType, string> = {
   checking: "Cuenta principal",
   savings: "Ahorro",
+  brokerage: "Inversión",
   shared: "Compartida",
   other: "Otra",
 };
@@ -81,6 +83,7 @@ const accountTypeLabels: Record<AccountType, string> = {
 const accountTypeIcons: Record<AccountType, typeof CreditCard> = {
   checking: CreditCard,
   savings: PiggyBank,
+  brokerage: Briefcase,
   shared: Users,
   other: Wallet,
 };
@@ -96,6 +99,11 @@ const accountTypeGradients: Record<AccountType, { from: string; to: string; glow
     to: "hsl(165, 35%, 40%)",
     glow: "rgba(40, 120, 110, 0.35)",
   },
+  brokerage: {
+    from: "hsl(34, 55%, 32%)",
+    to: "hsl(14, 58%, 46%)",
+    glow: "rgba(170, 105, 50, 0.35)",
+  },
   shared: {
     from: "hsl(260, 35%, 36%)",
     to: "hsl(285, 30%, 46%)",
@@ -110,11 +118,12 @@ const accountTypeGradients: Record<AccountType, { from: string; to: string; glow
 
 export default function AccountsPage() {
   const { toast } = useToast();
+  const { settings } = useSettings();
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [form, setForm] = useState({ ...defaultForm });
+  const [form, setForm] = useState({ ...defaultForm, currency: settings?.default_currency || "EUR" });
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingAccountId, setEditingAccountId] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; account: Account | null }>({ open: false, account: null });
@@ -123,19 +132,13 @@ export default function AccountsPage() {
 
   async function loadAccounts() {
     try {
-      const [accountsResponse, transactionsResponse, settingsResponse] = await Promise.all([
+      const [accountsResponse, transactionsResponse] = await Promise.all([
         apiRequest<PaginatedResponse<Account>>("/accounts?sort_by=name&sort_order=asc&limit=100"),
         apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100"),
-        apiRequest<Settings>("/settings").catch(() => null),
       ]);
 
       setAccounts(accountsResponse.items);
       setTransactions(transactionsResponse.items);
-
-      if (settingsResponse) {
-        defaultForm.currency = settingsResponse.default_currency;
-        setForm((current) => ({ ...current, currency: settingsResponse.default_currency }));
-      }
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar las cuentas");
     } finally {
@@ -235,7 +238,7 @@ export default function AccountsPage() {
         toast("Cuenta creada", "success");
       }
 
-      setForm({ ...defaultForm });
+      setForm({ ...defaultForm, currency: settings?.default_currency || "EUR" });
       setEditingAccountId(null);
       setIsDialogOpen(false);
       await loadAccounts();
@@ -253,7 +256,7 @@ export default function AccountsPage() {
   function openCreateDialog() {
     setError(null);
     setEditingAccountId(null);
-    setForm({ ...defaultForm });
+    setForm({ ...defaultForm, currency: settings?.default_currency || "EUR" });
     setIsDialogOpen(true);
   }
 
@@ -351,6 +354,7 @@ export default function AccountsPage() {
             >
               <option value="checking">{accountTypeLabels.checking}</option>
               <option value="savings">{accountTypeLabels.savings}</option>
+              <option value="brokerage">{accountTypeLabels.brokerage}</option>
               <option value="shared">{accountTypeLabels.shared}</option>
               <option value="other">{accountTypeLabels.other}</option>
             </select>
