@@ -451,7 +451,7 @@ export default function InsightsPage() {
                           <YAxis type="category" dataKey="name" width={90} tick={{ fill: "var(--app-ink)", fontSize: 12 }} />
                           <Tooltip
                             formatter={(value, _name, item) => [
-                              formatCurrency(Number(value ?? 0), String(item.payload.currency ?? settings?.default_currency || "EUR"), settings?.locale || "es-ES"),
+                              formatCurrency(Number(value ?? 0), String((item.payload.currency ?? settings?.default_currency) || "EUR"), settings?.locale || "es-ES"),
                               "Saldo",
                             ]}
                             contentStyle={tooltipStyle}

@@ -176,7 +176,7 @@ function TransactionsContent() {
 
   useEffect(() => {
     if (settings) {
-      setImportAutoCategorize(!!settings.auto_categorize);
+      setImportAutoCategorize(!!settings.auto_categorization_enabled);
     }
   }, [settings]);
 
