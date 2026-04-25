@@ -4,6 +4,7 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
+from app.models.enums import BudgetPeriodType
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
 from app.schemas.budgets import (
@@ -35,6 +36,7 @@ class BudgetService:
         offset: int,
         year: int | None = None,
         month: int | None = None,
+        period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
         sort_by: str = "year",
         sort_order: str = "desc",
@@ -45,6 +47,7 @@ class BudgetService:
             offset=offset,
             year=year,
             month=month,
+            period_type=period_type,
             category_id=category_id,
             sort_by=sort_by,
             sort_order=sort_order,
@@ -68,12 +71,13 @@ class BudgetService:
             user_id=user_id,
             category_id=payload.category_id,
             year=payload.year,
+            period_type=payload.period_type,
             month=payload.month,
         )
         if duplicate is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="A budget already exists for this category and month",
+                detail=self._build_duplicate_message(payload.period_type),
             )
         budget = self.repository.create(user_id=user_id, payload=payload.model_dump())
         self.db.commit()
@@ -133,19 +137,30 @@ class BudgetService:
 
         category_id = updates.get("category_id", budget.category_id)
         year = updates.get("year", budget.year)
+        period_type = updates.get("period_type", budget.period_type)
+        if period_type == BudgetPeriodType.ANNUAL and "month" not in updates:
+            updates["month"] = None
+
         month = updates.get("month", budget.month)
+        if period_type == BudgetPeriodType.MONTHLY and month is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Month is required for monthly budgets",
+            )
+
         self._require_category(user_id=user_id, category_id=category_id)
 
         duplicate = self.repository.find_existing(
             user_id=user_id,
             category_id=category_id,
             year=year,
+            period_type=period_type,
             month=month,
         )
         if duplicate is not None and duplicate.id != budget.id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="A budget already exists for this category and month",
+                detail=self._build_duplicate_message(period_type),
             )
 
         budget = self.repository.update(budget, payload=updates)
@@ -164,3 +179,9 @@ class BudgetService:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="The selected category does not exist for the current user",
             )
+
+    @staticmethod
+    def _build_duplicate_message(period_type: BudgetPeriodType) -> str:
+        if period_type == BudgetPeriodType.ANNUAL:
+            return "An annual budget already exists for this category and year"
+        return "A budget already exists for this category and month"

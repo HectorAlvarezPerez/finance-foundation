@@ -26,6 +26,7 @@ from app.models.account import Account
 from app.models.category import Category
 from app.repositories.account_repository import AccountRepository
 from app.repositories.category_repository import CategoryRepository
+from app.repositories.settings_repository import SettingsRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transactions import (
     TransactionCategoryAssistantDraft,
@@ -143,6 +144,7 @@ class TransactionImportService:
         repository: TransactionRepository,
         account_repository: AccountRepository,
         category_repository: CategoryRepository,
+        settings_repository: SettingsRepository,
         db: Session,
         document_ocr_service: AzureDocumentIntelligenceOcrService | None = None,
         pdf_llm_parser_service: AzureOpenAIPdfParserService | None = None,
@@ -152,6 +154,7 @@ class TransactionImportService:
         self.repository = repository
         self.account_repository = account_repository
         self.category_repository = category_repository
+        self.settings_repository = settings_repository
         self.db = db
         llm_runtime = build_llm_runtime()
         shared_prompt_provider = llm_runtime.prompt_provider
@@ -188,6 +191,7 @@ class TransactionImportService:
         account_id: uuid.UUID,
         file: UploadFile,
         mapping_json: str,
+        auto_categorize: bool = True,
     ) -> TransactionImportPreviewResponse:
         account = self._require_account(user_id=user_id, account_id=account_id)
         parsed = await self._parse_upload(file, user_id=user_id)
@@ -218,6 +222,9 @@ class TransactionImportService:
             user_id=user_id,
             rows=rows,
             categories=categories,
+            assisted_classification_enabled=auto_categorize and self._user_auto_categorization_enabled(
+                user_id=user_id,
+            ),
         )
 
         return TransactionImportPreviewResponse(
@@ -569,6 +576,7 @@ class TransactionImportService:
         user_id: uuid.UUID,
         rows: list[TransactionImportDraft],
         categories: list[Category],
+        assisted_classification_enabled: bool,
     ) -> list[TransactionImportDraft]:
         if not rows:
             return rows
@@ -606,18 +614,20 @@ class TransactionImportService:
                 row=row,
                 reason=(
                     "No confident match from history or repeated patterns"
-                    if self.category_classifier_service.enabled
+                    if assisted_classification_enabled
                     else (
                         "No confident match from history or repeated patterns, "
                         "and assisted layer is disabled"
                     )
                 ),
-                model=self.category_classifier_service.model_name
-                if self.category_classifier_service.enabled
-                else None,
+                model=(
+                    self.category_classifier_service.model_name
+                    if assisted_classification_enabled
+                    else None
+                ),
             )
             classified_rows.append(final_row)
-            if self._can_use_assisted_classification(row=row):
+            if assisted_classification_enabled and self._can_use_assisted_classification(row=row):
                 assisted_candidates.append(final_row)
 
         if not assisted_candidates:
@@ -975,11 +985,22 @@ class TransactionImportService:
             flags=re.MULTILINE,
         )
         rows: list[dict[str, str]] = []
+        last_headers: list[str] | None = None
+
         for block in table_blocks:
             grid = self._markdown_table_to_grid(block)
-            if not self._grid_looks_like_transaction_table(grid):
+            if not grid:
                 continue
-            rows.extend(self._transaction_rows_from_grid(grid))
+
+            if self._grid_looks_like_transaction_table(grid):
+                last_headers = grid[0]
+                rows.extend(self._transaction_rows_from_grid(grid))
+            elif last_headers and len(grid[0]) >= 3:
+                # Assuming the last headers still apply for continuation tables,
+                # even if the OCR merged or dropped some empty columns at the end.
+                grid_with_headers = [last_headers] + grid
+                rows.extend(self._transaction_rows_from_grid(grid_with_headers))
+
         return rows
 
     def _markdown_table_to_grid(self, markdown_table: str) -> list[list[str]]:
@@ -1223,6 +1244,16 @@ class TransactionImportService:
         normalized = re.sub(r"[^a-z0-9]+", " ", normalized)
         tokens = [token for token in normalized.split() if token]
         return " ".join(tokens)
+
+    def _user_auto_categorization_enabled(self, *, user_id: uuid.UUID) -> bool:
+        if not self.category_classifier_service.enabled:
+            return False
+
+        user_settings = self.settings_repository.get_for_user(user_id=user_id)
+        if user_settings is None:
+            return True
+
+        return user_settings.auto_categorization_enabled
 
     def _merchant_pattern_key(self, value: str) -> str:
         tokens = [

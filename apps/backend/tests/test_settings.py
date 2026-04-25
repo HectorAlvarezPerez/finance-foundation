@@ -6,6 +6,7 @@ def test_upsert_and_get_settings(client, user_id) -> None:
             "default_currency": "EUR",
             "locale": "es-ES",
             "theme": "system",
+            "auto_categorization_enabled": False,
         },
     )
 
@@ -14,6 +15,7 @@ def test_upsert_and_get_settings(client, user_id) -> None:
     assert created["default_currency"] == "EUR"
     assert created["locale"] == "es-ES"
     assert created["theme"] == "system"
+    assert created["auto_categorization_enabled"] is False
 
     get_response = client.get(
         "/api/v1/settings",
@@ -24,6 +26,7 @@ def test_upsert_and_get_settings(client, user_id) -> None:
     fetched = get_response.json()
     assert fetched["default_currency"] == "EUR"
     assert fetched["locale"] == "es-ES"
+    assert fetched["auto_categorization_enabled"] is False
 
 
 def test_get_settings_returns_not_found_before_creation(client, user_id) -> None:

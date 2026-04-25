@@ -60,6 +60,22 @@ def test_update_account_details(client, user_id) -> None:
     assert updated["currency"] == "USD"
 
 
+def test_create_brokerage_account(client, user_id) -> None:
+    response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Trade Republic",
+            "type": "brokerage",
+            "currency": "EUR",
+        },
+    )
+
+    assert response.status_code == 201
+    created = response.json()
+    assert created["type"] == "brokerage"
+
+
 def test_create_account_with_initial_balance_creates_opening_transaction(client, user_id) -> None:
     response = client.post(
         "/api/v1/accounts",

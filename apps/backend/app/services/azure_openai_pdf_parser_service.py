@@ -56,7 +56,7 @@ class AzureOpenAIPdfParserService:
         deployment = self.chat_client.deployment
 
         try:
-            completion = self.chat_client.complete_json(messages=prompt.messages)
+            completion = self.chat_client.complete_json(messages=prompt.messages, max_tokens=4096)
             parsed = PdfParsedTransactionsResponse.model_validate(json.loads(completion.message))
             normalized_transactions = [
                 {

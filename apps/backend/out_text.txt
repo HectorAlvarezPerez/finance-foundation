@@ -1,0 +1,65 @@
+# Page 1
+
+Extracto Bancario - Demo
+
+[Table 1]
+| Fecha | Descripcion | Categoria | Importe | Moneda |
+| --- | --- | --- | --- | --- |
+| 2026-04-13 | Farmacia |  | -17.75 | EUR |
+| 2026-04-13 | Ropa (Zara) | Otros | 147.42 | EUR |
+| 2026-04-12 | Internet (Movistar) | Servicios | -63.91 | EUR |
+| 2026-04-12 | Carrefour | Comida | -74.28 | EUR |
+| 2026-04-12 | Uber Eats | Comida | -7.52 | EUR |
+| 2026-04-11 | Amazon |  | -3.28 | EUR |
+| 2026-04-10 | McDonalds | Comida | -38.08 | EUR |
+| 2026-04-09 | Factura Agua | Servicios | -46.86 | EUR |
+| 2026-04-09 | Restaurante El Pais | Comida | -8.18 | EUR |
+| 2026-04-08 | Farmacia |  | 7.02 | EUR |
+| 2026-04-08 | Gimnasio | Ocio | -99.40 | EUR |
+| 2026-04-07 | Ferreteria | Otros | 125.14 | EUR |
+| 2026-04-07 | Uber |  | -15.70 | EUR |
+| 2026-04-06 | Farmacia | Otros | -30.93 | EUR |
+| 2026-04-06 | Fianza Piso |  | -26.06 | EUR |
+| 2026-04-06 | Ropa (Zara) |  | -27.62 | EUR |
+| 2026-04-04 | Abono Transporte | Transporte | -35.86 | EUR |
+| 2026-04-04 | Factura Agua | Servicios | -25.91 | EUR |
+| 2026-04-03 | Internet (Movistar) | Servicios | -90.36 | EUR |
+| 2026-04-03 | Factura Agua | Servicios | -60.62 | EUR |
+| 2026-04-02 | Factura Luz (Iberdrola) |  | -26.09 | EUR |
+| 2026-04-02 | Spotify |  | -62.71 | EUR |
+| 2026-04-02 | Fianza Piso | Alquiler | -45.69 | EUR |
+
+Pagina 1
+
+# Page 2
+
+Extracto Bancario - Demo
+
+[Table 2]
+| 2026-03-31 | Renfe | Transporte | -46.35 | EUR |
+| --- | --- | --- | --- | --- |
+| 2026-03-30 | Alquiler Mensual | Alquiler | -67.10 | EUR |
+| 2026-03-30 | Fianza Piso | Alquiler | -83.63 | EUR |
+| 2026-03-29 | Cabify | Transporte | -40.35 | EUR |
+| 2026-03-29 | Renfe | Transporte | -95.37 | EUR |
+| 2026-03-29 | Cabify | Transporte | -89.77 | EUR |
+| 2026-03-28 | Factura Luz (Iberdrola) |  | -70.70 | EUR |
+| 2026-03-27 | Ropa (Zara) |  | 155.19 | EUR |
+| 2026-03-27 | Amazon |  | 125.35 | EUR |
+| 2026-03-24 | Ferreteria |  | 159.73 | EUR |
+| 2026-03-23 | Uber | Transporte | -9.54 | EUR |
+| 2026-03-23 | Spotify | Ocio | -88.80 | EUR |
+| 2026-03-21 | Internet (Movistar) |  | -63.45 | EUR |
+| 2026-03-21 | Ferreteria | Otros | 159.37 | EUR |
+| 2026-03-21 | Carrefour | Comida | -92.87 | EUR |
+| 2026-03-21 | Internet (Movistar) | Servicios | -20.76 | EUR |
+| 2026-03-20 | Fianza Piso | Alquiler | -29.55 | EUR |
+| 2026-03-20 | Renfe | Transporte | -23.99 | EUR |
+| 2026-03-19 | Uber | Transporte | -46.41 | EUR |
+| 2026-03-19 | Farmacia | Otros | -48.32 | EUR |
+| 2026-03-18 | Ropa (Zara) | Otros | 128.92 | EUR |
+| 2026-03-17 | Uber | Transporte | -31.93 | EUR |
+| 2026-03-16 | Factura Agua | Servicios | -87.61 | EUR |
+| 2026-03-16 | Farmacia | Otros | 94.66 | EUR |
+
+Pagina 2

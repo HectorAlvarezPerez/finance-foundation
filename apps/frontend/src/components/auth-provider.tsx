@@ -63,21 +63,37 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   async function login(payload: AuthLoginRequest) {
-    setError(null);
-    await apiRequest<User>("/auth/login", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    await refreshSession();
+    try {
+      setError(null);
+      await apiRequest<User>("/auth/login", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await refreshSession();
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        setError("Usuario o contraseña incorrecto.");
+      } else if (err instanceof ApiError && err.status === 404) {
+        setError("Usuario o contraseña incorrecto.");
+      } else {
+        setError(err instanceof Error ? err.message : "Error al iniciar sesión");
+      }
+      throw err;
+    }
   }
 
   async function register(payload: AuthRegisterRequest) {
-    setError(null);
-    await apiRequest<User>("/auth/register", {
-      method: "POST",
-      body: JSON.stringify(payload),
-    });
-    await refreshSession();
+    try {
+      setError(null);
+      await apiRequest<User>("/auth/register", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      await refreshSession();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al registrarse");
+      throw err;
+    }
   }
 
   async function logout() {

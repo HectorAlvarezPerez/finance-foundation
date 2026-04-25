@@ -1,5 +1,6 @@
 "use client";
 
+import { useSettings } from "@/components/settings-provider";
 import { formatCurrency } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,8 @@ export function AmountValue({
   className?: string;
 }) {
   const numericAmount = typeof amount === "number" ? amount : Number(amount);
+  const { settings } = useSettings();
+  const locale = settings?.locale ?? "es-ES";
 
   return (
     <span
@@ -24,7 +27,7 @@ export function AmountValue({
         className,
       )}
     >
-      {formatCurrency(amount, currency)}
+      {formatCurrency(amount, currency, locale)}
     </span>
   );
 }

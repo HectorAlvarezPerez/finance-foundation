@@ -23,6 +23,7 @@ import { CumulativePacingChart } from "@/components/insights/cumulative-pacing-c
 import { MonthlyRecapLauncher } from "@/components/insights/monthly-recap-launcher";
 import { MonthlyRecapOverlay } from "@/components/insights/monthly-recap-overlay";
 import { ListSkeleton } from "@/components/ui/skeleton";
+import { useSettings } from "@/components/settings-provider";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/components/ui/toast";
 import { apiRequest } from "@/lib/api";
@@ -216,10 +217,12 @@ export default function InsightsPage() {
     }
   }
 
+  const { settings } = useSettings();
+
   const metricCards = [
     {
       title: "Balance total",
-      value: <AmountValue amount={analytics.balance} currency="EUR" className="text-2xl" />,
+      value: <AmountValue amount={analytics.balance} currency={settings?.default_currency || "EUR"} className="text-2xl" />,
       description: `${analytics.accountBalances.length} cuentas`,
       icon: <Wallet className="h-5 w-5" />,
       accentClass: "text-[var(--app-accent)]",
@@ -227,7 +230,7 @@ export default function InsightsPage() {
     },
     {
       title: "Ingresos",
-      value: <AmountValue amount={analytics.income} currency="EUR" className="text-2xl" />,
+      value: <AmountValue amount={analytics.income} currency={settings?.default_currency || "EUR"} className="text-2xl" />,
       description: periodLabel,
       icon: <TrendingUp className="h-5 w-5" />,
       accentClass: "text-[var(--app-success)]",
@@ -235,7 +238,7 @@ export default function InsightsPage() {
     },
     {
       title: "Gastos",
-      value: <AmountValue amount={-analytics.expenses} currency="EUR" className="text-2xl" />,
+      value: <AmountValue amount={-analytics.expenses} currency={settings?.default_currency || "EUR"} className="text-2xl" />,
       description: periodLabel,
       icon: <TrendingDown className="h-5 w-5" />,
       accentClass: "text-[var(--app-danger)]",
@@ -399,7 +402,7 @@ export default function InsightsPage() {
                           formatter={(value, name) => [
                             name === "transactions"
                               ? String(Number(value ?? 0))
-                              : formatCurrency(Number(value ?? 0), "EUR"),
+                              : formatCurrency(Number(value ?? 0), settings?.default_currency || "EUR", settings?.locale || "es-ES"),
                             name === "net" ? "Neto" : "Movimientos",
                           ]}
                           contentStyle={tooltipStyle}
@@ -448,7 +451,7 @@ export default function InsightsPage() {
                           <YAxis type="category" dataKey="name" width={90} tick={{ fill: "var(--app-ink)", fontSize: 12 }} />
                           <Tooltip
                             formatter={(value, _name, item) => [
-                              formatCurrency(Number(value ?? 0), String(item.payload.currency ?? "EUR")),
+                              formatCurrency(Number(value ?? 0), String(item.payload.currency ?? settings?.default_currency || "EUR"), settings?.locale || "es-ES"),
                               "Saldo",
                             ]}
                             contentStyle={tooltipStyle}

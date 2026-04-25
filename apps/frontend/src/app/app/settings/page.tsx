@@ -17,6 +17,11 @@ type SettingsForm = {
   default_currency: string;
   locale: string;
   theme: "light" | "dark" | "system";
+  auto_categorization_enabled: boolean;
+};
+
+type SettingsResponse = Settings & {
+  auto_categorization_enabled?: boolean;
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
@@ -25,6 +30,7 @@ const DEFAULT_FORM: SettingsForm = {
   default_currency: "EUR",
   locale: "es-ES",
   theme: "system",
+  auto_categorization_enabled: true,
 };
 
 const LOCALE_OPTIONS = [
@@ -47,11 +53,12 @@ export default function SettingsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await apiRequest<Settings>("/settings");
+        const response = await apiRequest<SettingsResponse>("/settings");
         const nextForm: SettingsForm = {
           default_currency: response.default_currency,
           locale: response.locale,
           theme: response.theme as SettingsForm["theme"],
+          auto_categorization_enabled: response.auto_categorization_enabled ?? true,
         };
 
         setForm(nextForm);
@@ -94,7 +101,7 @@ export default function SettingsPage() {
 
     const timeoutId = window.setTimeout(async () => {
       try {
-        const response = await apiRequest<Settings>("/settings", {
+        const response = await apiRequest<SettingsResponse>("/settings", {
           method: "PUT",
           body: JSON.stringify(form),
         });
@@ -102,6 +109,7 @@ export default function SettingsPage() {
           default_currency: response.default_currency,
           locale: response.locale,
           theme: response.theme as SettingsForm["theme"],
+          auto_categorization_enabled: response.auto_categorization_enabled ?? form.auto_categorization_enabled,
         };
 
         lastSavedSnapshotRef.current = JSON.stringify(savedForm);
@@ -226,6 +234,26 @@ export default function SettingsPage() {
                   El locale define cómo se muestran fechas y números. Ejemplo: {localeExampleDate} y {localeExampleAmount}.
                 </span>
               </label>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-4">
+                <input
+                  type="checkbox"
+                  checked={form.auto_categorization_enabled}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      auto_categorization_enabled: event.target.checked,
+                    }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border border-[var(--app-border)] text-[var(--app-accent)]"
+                />
+                <span className="grid gap-1">
+                  <span className="text-sm font-medium">Autocategorización</span>
+                  <span className="text-sm text-[var(--app-muted)]">
+                    Permite que la app sugiera categorías automáticamente durante la importación de transacciones.
+                  </span>
+                </span>
+              </label>
             </CardContent>
           </Card>
 
@@ -277,6 +305,7 @@ export default function SettingsPage() {
             <CardContent className="space-y-4">
               <PreviewRow icon={<Wallet className="h-4 w-4" />} label="Importe" value={localeExampleAmount} />
               <PreviewRow icon={<Globe2 className="h-4 w-4" />} label="Fecha" value={localeExampleDate} />
+              <PreviewRow icon={<CheckCircle2 className="h-4 w-4" />} label="Autocategorización" value={form.auto_categorization_enabled ? "Activada" : "Desactivada"} />
               <PreviewRow icon={<MoonStar className="h-4 w-4" />} label="Tema" value={form.theme === "system" ? "Seguir sistema" : form.theme === "light" ? "Modo claro" : "Modo oscuro"} />
             </CardContent>
           </Card>

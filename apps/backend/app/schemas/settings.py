@@ -10,6 +10,7 @@ class SettingsUpdate(BaseModel):
     default_currency: str = Field(min_length=3, max_length=3)
     locale: str = Field(min_length=2, max_length=16)
     theme: str = Field(min_length=1, max_length=32)
+    auto_categorization_enabled: bool = True
 
 
 class SettingsRead(ORMBaseModel):
@@ -18,5 +19,6 @@ class SettingsRead(ORMBaseModel):
     default_currency: str
     locale: str
     theme: str
+    auto_categorization_enabled: bool
     created_at: datetime
     updated_at: datetime

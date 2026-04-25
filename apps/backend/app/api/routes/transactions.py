@@ -8,6 +8,7 @@ from app.api.deps import CurrentUserId, DBSession
 from app.models.enums import CategoryType
 from app.repositories.account_repository import AccountRepository
 from app.repositories.category_repository import CategoryRepository
+from app.repositories.settings_repository import SettingsRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transactions import (
     TransactionCreate,
@@ -26,6 +27,7 @@ router = APIRouter(prefix="/transactions", tags=["transactions"])
 IMPORT_FILE_PARAM = File(...)
 IMPORT_ACCOUNT_ID_PARAM = Form(...)
 IMPORT_MAPPING_PARAM = Form(...)
+IMPORT_AUTO_CATEGORIZE_PARAM = Form(default=True)
 
 
 def get_transaction_service(db: DBSession) -> TransactionService:
@@ -45,6 +47,7 @@ def get_transaction_import_service(db: DBSession) -> TransactionImportService:
         TransactionRepository(db),
         AccountRepository(db),
         CategoryRepository(db),
+        SettingsRepository(db),
         db,
     )
 
@@ -115,6 +118,7 @@ async def preview_transaction_import(
     service: TransactionImportServiceDep,
     account_id: uuid.UUID = IMPORT_ACCOUNT_ID_PARAM,
     mapping: str = IMPORT_MAPPING_PARAM,
+    auto_categorize: bool = IMPORT_AUTO_CATEGORIZE_PARAM,
     file: UploadFile = IMPORT_FILE_PARAM,
 ) -> TransactionImportPreviewResponse:
     return await service.build_preview(
@@ -122,6 +126,7 @@ async def preview_transaction_import(
         account_id=account_id,
         file=file,
         mapping_json=mapping,
+        auto_categorize=auto_categorize,
     )
 
 
