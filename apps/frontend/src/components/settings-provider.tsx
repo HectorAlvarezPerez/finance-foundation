@@ -37,7 +37,11 @@ export function SettingsProvider({ children }: PropsWithChildren) {
   }, [status]);
 
   useEffect(() => {
-    void refreshSettings();
+    let active = true;
+    void refreshSettings().then(() => {
+      if (!active) return;
+    });
+    return () => { active = false; };
   }, [refreshSettings]);
 
   return (
