@@ -169,8 +169,7 @@ def test_prevents_duplicate_annual_budget_for_same_category_and_year(client, use
 
     assert duplicate.status_code == 409
     assert (
-        duplicate.json()["detail"]
-        == "An annual budget already exists for this category and year"
+        duplicate.json()["detail"] == "An annual budget already exists for this category and year"
     )
 
 

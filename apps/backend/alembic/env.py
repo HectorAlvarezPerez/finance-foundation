@@ -48,6 +48,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
+        render_as_batch=True,
     )
 
     with context.begin_transaction():
@@ -68,10 +69,14 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
+        is_sqlite = connection.dialect.name == "sqlite"
+        if is_sqlite:
+            target_metadata.naming_convention = None
         context.configure(
             connection=connection,
             target_metadata=target_metadata,
             compare_type=True,
+            render_as_batch=is_sqlite,
         )
 
         with context.begin_transaction():

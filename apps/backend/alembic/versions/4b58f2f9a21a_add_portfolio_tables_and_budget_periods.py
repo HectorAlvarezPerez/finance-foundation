@@ -66,7 +66,7 @@ def _sync_account_type_constraint(inspector: sa.Inspector) -> None:
             for name in existing_names:
                 batch_op.drop_constraint(name, type_="check")
             batch_op.create_check_constraint(
-                "ck_accounts_account_type_allowed_values",
+                "account_type_allowed_values",
                 f"type IN ({allowed})",
             )
         return
@@ -75,7 +75,7 @@ def _sync_account_type_constraint(inspector: sa.Inspector) -> None:
         _drop_constraint_raw("accounts", name)
 
     op.create_check_constraint(
-        "ck_accounts_account_type_allowed_values",
+        "account_type_allowed_values",
         "accounts",
         f"type IN ({allowed})",
     )
@@ -86,17 +86,20 @@ def _sync_budget_constraints(inspector: sa.Inspector) -> None:
         inspector,
         "budgets",
         kind="unique",
-        predicate=lambda constraint: set(constraint.get("column_names") or [])
-        == {"user_id", "category_id", "year", "month"}
-        or set(constraint.get("column_names") or [])
-        == {"user_id", "category_id", "year", "period_type", "month"},
+        predicate=lambda constraint: (
+            set(constraint.get("column_names") or []) == {"user_id", "category_id", "year", "month"}
+            or set(constraint.get("column_names") or [])
+            == {"user_id", "category_id", "year", "period_type", "month"}
+        ),
     )
     check_names = _find_constraint_names(
         inspector,
         "budgets",
         kind="check",
-        predicate=lambda constraint: "month" in (constraint.get("sqltext") or "")
-        or "period_type" in (constraint.get("sqltext") or ""),
+        predicate=lambda constraint: (
+            "month" in (constraint.get("sqltext") or "")
+            or "period_type" in (constraint.get("sqltext") or "")
+        ),
     )
     budget_check_sql = (
         "("
@@ -112,11 +115,11 @@ def _sync_budget_constraints(inspector: sa.Inspector) -> None:
             for name in check_names:
                 batch_op.drop_constraint(name, type_="check")
             batch_op.create_check_constraint(
-                "ck_budgets_budget_period_month_range",
+                "budget_period_month_range",
                 budget_check_sql,
             )
             batch_op.create_unique_constraint(
-                "uq_budgets_user_category_year_period_month",
+                "user_category_year_period_month",
                 ["user_id", "category_id", "year", "period_type", "month"],
             )
         return
@@ -127,12 +130,12 @@ def _sync_budget_constraints(inspector: sa.Inspector) -> None:
         _drop_constraint_raw("budgets", name)
 
     op.create_check_constraint(
-        "ck_budgets_budget_period_month_range",
+        "budget_period_month_range",
         "budgets",
         budget_check_sql,
     )
     op.create_unique_constraint(
-        "uq_budgets_user_category_year_period_month",
+        "user_category_year_period_month",
         "budgets",
         ["user_id", "category_id", "year", "period_type", "month"],
     )
@@ -146,9 +149,13 @@ def upgrade() -> None:
     if "bank_name" in account_columns:
         if bind.dialect.name == "sqlite":
             with op.batch_alter_table("accounts", recreate="always") as batch_op:
-                batch_op.alter_column("type", existing_type=sa.String(length=8), type_=sa.String(length=16))
+                batch_op.alter_column(
+                    "type", existing_type=sa.String(length=8), type_=sa.String(length=16)
+                )
         else:
-            op.alter_column("accounts", "type", existing_type=sa.String(length=8), type_=sa.String(length=16))
+            op.alter_column(
+                "accounts", "type", existing_type=sa.String(length=8), type_=sa.String(length=16)
+            )
         _sync_account_type_constraint(inspector)
 
     budget_columns = {column["name"] for column in inspector.get_columns("budgets")}
@@ -168,7 +175,9 @@ def upgrade() -> None:
         with op.batch_alter_table("budgets", recreate="always") as batch_op:
             batch_op.alter_column(
                 "period_type",
-                existing_type=sa.Enum(*BUDGET_PERIOD_VALUES, name="budget_period_type", native_enum=False),
+                existing_type=sa.Enum(
+                    *BUDGET_PERIOD_VALUES, name="budget_period_type", native_enum=False
+                ),
                 server_default=None,
             )
             batch_op.alter_column("month", existing_type=sa.Integer(), nullable=True)
@@ -211,12 +220,17 @@ def upgrade() -> None:
                 nullable=False,
             ),
             sa.ForeignKeyConstraint(
-                ["user_id"], ["users.id"], name=op.f("fk_holdings_user_id_users"), ondelete="CASCADE"
+                ["user_id"],
+                ["users.id"],
+                name=op.f("fk_holdings_user_id_users"),
+                ondelete="CASCADE",
             ),
             sa.PrimaryKeyConstraint("id", name=op.f("pk_holdings")),
         )
         op.create_index(op.f("ix_holdings_user_id"), "holdings", ["user_id"], unique=False)
-        op.create_index(op.f("ix_holdings_asset_symbol"), "holdings", ["asset_symbol"], unique=False)
+        op.create_index(
+            op.f("ix_holdings_asset_symbol"), "holdings", ["asset_symbol"], unique=False
+        )
 
     if "prices" not in existing_tables:
         op.create_table(
@@ -283,7 +297,10 @@ def upgrade() -> None:
                 nullable=False,
             ),
             sa.ForeignKeyConstraint(
-                ["holding_id"], ["holdings.id"], name=op.f("fk_trades_holding_id_holdings"), ondelete="SET NULL"
+                ["holding_id"],
+                ["holdings.id"],
+                name=op.f("fk_trades_holding_id_holdings"),
+                ondelete="SET NULL",
             ),
             sa.ForeignKeyConstraint(
                 ["user_id"], ["users.id"], name=op.f("fk_trades_user_id_users"), ondelete="CASCADE"

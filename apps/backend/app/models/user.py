@@ -15,8 +15,8 @@ if TYPE_CHECKING:
     from app.models.holding import Holding
     from app.models.monthly_insight_recap import MonthlyInsightRecap
     from app.models.price import Price
-    from app.models.trade import Trade
     from app.models.settings import Settings
+    from app.models.trade import Trade
     from app.models.transaction import Transaction
     from app.models.user_credential import UserCredential
 

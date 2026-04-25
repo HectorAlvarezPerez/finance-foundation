@@ -406,6 +406,11 @@
             "title": "Account Id",
             "type": "string"
           },
+          "auto_categorize": {
+            "default": true,
+            "title": "Auto Categorize",
+            "type": "boolean"
+          },
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",

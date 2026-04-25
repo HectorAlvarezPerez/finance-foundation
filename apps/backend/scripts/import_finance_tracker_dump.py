@@ -150,11 +150,7 @@ def filter_rows_for_users(
     rows: list[dict[str, str | None]],
     selected_users: dict[uuid.UUID, SelectedUser],
 ) -> list[dict[str, str | None]]:
-    return [
-        row
-        for row in rows
-        if parse_uuid(row.get("user_id")) in selected_users
-    ]
+    return [row for row in rows if parse_uuid(row.get("user_id")) in selected_users]
 
 
 def build_settings_row(

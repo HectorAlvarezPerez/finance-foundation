@@ -218,13 +218,14 @@ class TransactionImportService:
             )
             for index, raw_row in enumerate(parsed.rows)
         ]
+        auto_cat_enabled = auto_categorize and self._user_auto_categorization_enabled(
+            user_id=user_id,
+        )
         rows = self._classify_drafts(
             user_id=user_id,
             rows=rows,
             categories=categories,
-            assisted_classification_enabled=auto_categorize and self._user_auto_categorization_enabled(
-                user_id=user_id,
-            ),
+            assisted_classification_enabled=auto_cat_enabled,
         )
 
         return TransactionImportPreviewResponse(

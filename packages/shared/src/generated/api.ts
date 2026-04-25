@@ -627,6 +627,11 @@ export interface components {
              * Format: uuid
              */
             account_id: string;
+            /**
+             * Auto Categorize
+             * @default true
+             */
+            auto_categorize: boolean;
             /** File */
             file: string;
             /** Mapping */
