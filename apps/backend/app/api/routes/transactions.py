@@ -61,7 +61,7 @@ TransactionImportServiceDep = Annotated[
 def list_transactions(
     user_id: CurrentUserId,
     service: TransactionServiceDep,
-    limit: int = Query(default=20, ge=1, le=100),
+    limit: int = Query(default=20, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
     account_id: uuid.UUID | None = None,
     category_id: uuid.UUID | None = None,

@@ -236,7 +236,17 @@ test("mantiene la categoría sugerida editable durante la revisión de importaci
     buffer: Buffer.from("Fecha,Importe,Merchant\n11/03/2026,-12.40,Mercadona Valencia\n"),
   });
 
+  await expect(
+    importDialog.getByRole("checkbox", {
+      name: /^Categorizar automáticamente las transacciones con IA/,
+    }),
+  ).not.toBeVisible();
   await page.getByRole("button", { name: /Siguiente: mapear columnas/i }).click();
+  await expect(
+    importDialog.getByRole("checkbox", {
+      name: /^Categorizar automáticamente las transacciones con IA/,
+    }),
+  ).toBeVisible();
   await page.getByRole("button", { name: "Preparar revisión" }).click();
 
   await expect(
