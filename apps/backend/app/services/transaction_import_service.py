@@ -879,7 +879,12 @@ class TransactionImportService:
                 status_message=str(exc),
                 level="ERROR",
             )
-            raise
+            logger.warning(
+                "Assisted transaction category classification failed; continuing without "
+                "assisted suggestions",
+                exc_info=exc,
+            )
+            return []
 
     def _normalize_assisted_suggestion(
         self,
@@ -1202,7 +1207,11 @@ class TransactionImportService:
         if not value:
             return None
 
-        cleaned = value.strip().replace(" ", "")
+        cleaned = value.strip().replace(" ", "").replace("\u00a0", "")
+        cleaned = cleaned.replace("€", "").replace("$", "").replace("£", "")
+        cleaned = re.sub(r"(?i)^(EUR|USD|GBP|CHF|CAD|AUD|JPY)", "", cleaned)
+        cleaned = re.sub(r"(?i)(EUR|USD|GBP|CHF|CAD|AUD|JPY)$", "", cleaned)
+
         if "," in cleaned and "." in cleaned:
             if cleaned.rfind(",") > cleaned.rfind("."):
                 cleaned = cleaned.replace(".", "").replace(",", ".")
@@ -1210,8 +1219,6 @@ class TransactionImportService:
                 cleaned = cleaned.replace(",", "")
         elif "," in cleaned:
             cleaned = cleaned.replace(".", "").replace(",", ".")
-
-        cleaned = cleaned.replace("€", "").replace("$", "").replace("£", "")
 
         try:
             return Decimal(cleaned)

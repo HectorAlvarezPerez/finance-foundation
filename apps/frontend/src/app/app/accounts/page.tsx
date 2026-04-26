@@ -134,7 +134,7 @@ export default function AccountsPage() {
     try {
       const [accountsResponse, transactionsResponse] = await Promise.all([
         apiRequest<PaginatedResponse<Account>>("/accounts?sort_by=name&sort_order=asc&limit=100"),
-        apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100"),
+        apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=1000"),
       ]);
 
       setAccounts(accountsResponse.items);

@@ -569,6 +569,41 @@ def test_preview_transaction_import_from_latin1_csv(client, user_id) -> None:
     assert preview_payload["rows"][0]["validation_errors"] == []
 
 
+def test_preview_transaction_import_parses_amounts_with_currency_code_suffix(
+    client,
+    user_id,
+) -> None:
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Currency Suffix Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    csv_content = "Concepto;Fecha;Importe;Saldo\nOPTICA UNIV. GIRO;24/04/2026;-85,12EUR;115,31EUR\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Concepto"}',
+        },
+    )
+
+    assert preview_response.status_code == 200
+    preview_payload = preview_response.json()
+    assert preview_payload["rows"][0]["description"] == "OPTICA UNIV. GIRO"
+    assert preview_payload["rows"][0]["amount"] == "-85.12"
+    assert preview_payload["rows"][0]["validation_errors"] == []
+
+
 def test_analyze_rejects_corrupted_excel_workbook(client, user_id) -> None:
     analyze_response = client.post(
         "/api/v1/transactions/import/analyze",
@@ -1174,6 +1209,67 @@ def test_preview_skips_assisted_category_classification_when_user_disables_it(
 
     assert preview_response.status_code == 200
     row = preview_response.json()["rows"][0]
+    assert row["category_id"] is None
+    assert row["category_is_suggested"] is False
+    assert row["category_suggestion_source"] is None
+
+
+def test_preview_keeps_import_review_when_assisted_category_classification_fails(
+    client,
+    user_id,
+    monkeypatch,
+) -> None:
+    class FakeAzureOpenAITransactionCategoryService:
+        def __init__(self, **_: object) -> None:
+            return None
+
+        @property
+        def enabled(self) -> bool:
+            return True
+
+        @property
+        def model_name(self) -> str:
+            return "gpt-4o-mini"
+
+        def classify_rows(self, *, rows, categories):
+            raise RuntimeError("Temporary assistant outage")
+
+    monkeypatch.setattr(
+        transaction_import_module,
+        "AzureOpenAITransactionCategoryService",
+        FakeAzureOpenAITransactionCategoryService,
+    )
+
+    account_response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Assisted Fallback Account",
+            "type": "checking",
+            "currency": "EUR",
+        },
+    )
+    assert account_response.status_code == 201
+    account_id = account_response.json()["id"]
+
+    csv_content = "Fecha,Importe,Merchant\n15/03/2026,-9.90,Unknown Corner Shop\n"
+
+    preview_response = client.post(
+        "/api/v1/transactions/import/preview",
+        headers={"X-User-Id": str(user_id)},
+        files={"file": ("transactions.csv", csv_content, "text/csv")},
+        data={
+            "account_id": account_id,
+            "mapping": '{"date":"Fecha","amount":"Importe","description":"Merchant"}',
+            "auto_categorize": "true",
+        },
+    )
+
+    assert preview_response.status_code == 200
+    row = preview_response.json()["rows"][0]
+    assert row["description"] == "Unknown Corner Shop"
+    assert row["amount"] == "-9.90"
+    assert row["validation_errors"] == []
     assert row["category_id"] is None
     assert row["category_is_suggested"] is False
     assert row["category_suggestion_source"] is None

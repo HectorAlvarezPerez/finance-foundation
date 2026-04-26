@@ -1071,19 +1071,6 @@ function TransactionsContent() {
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    id="import-auto-categorize"
-                    checked={importAutoCategorize}
-                    onChange={(e) => setImportAutoCategorize(e.target.checked)}
-                    className="h-4 w-4 rounded border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-accent)] focus:ring-[var(--app-accent)] outline-none"
-                  />
-                  <label htmlFor="import-auto-categorize" className="text-sm font-medium text-[var(--app-foreground)]">
-                    Categorizar automáticamente las transacciones con IA
-                  </label>
-                </div>
-
                 {/* Hidden file input */}
                 <input
                   ref={fileInputRef}
@@ -1248,6 +1235,27 @@ function TransactionsContent() {
                     · {importAnalysis.total_rows} filas · {importAnalysis.source_type.toUpperCase()}
                   </span>
                 </div>
+
+                <label
+                  htmlFor="import-auto-categorize"
+                  className="flex items-start gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-3"
+                >
+                  <input
+                    type="checkbox"
+                    id="import-auto-categorize"
+                    checked={importAutoCategorize}
+                    onChange={(event) => setImportAutoCategorize(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-[var(--app-border)] bg-[var(--app-panel)] text-[var(--app-accent)] outline-none focus:ring-[var(--app-accent)]"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-sm font-medium text-[var(--app-foreground)]">
+                      Categorizar automáticamente las transacciones con IA
+                    </span>
+                    <span className="mt-0.5 block text-xs text-[var(--app-muted)]">
+                      Se aplica al preparar la revisión, después de confirmar el mapeo.
+                    </span>
+                  </span>
+                </label>
 
                 {!importFile ? (
                   <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-muted-surface)] px-4 py-3 text-sm text-[var(--app-muted)]">
@@ -1487,9 +1495,17 @@ function TransactionsContent() {
                         </TableCell>
                         <TableCell>
                           <div className="space-y-1">
-                            <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-2">
+                            <div
+                              className={`flex items-center gap-2 rounded-lg border px-2 ${
+                                row.validationErrors.includes("Revisa el importe")
+                                  ? "border-[var(--app-danger)] bg-[var(--app-danger-soft)]"
+                                  : "border-[var(--app-border)] bg-[var(--app-panel)]"
+                              }`}
+                            >
                               <input
                                 value={row.amount}
+                                placeholder="Introduce el importe"
+                                aria-invalid={row.validationErrors.includes("Revisa el importe")}
                                 onChange={(event) =>
                                   updateImportRow(row.id, (current) => ({
                                     ...current,
@@ -1500,6 +1516,11 @@ function TransactionsContent() {
                               />
                               <span className="text-xs text-[var(--app-muted)]">{row.currency}</span>
                             </div>
+                            {row.validationErrors.includes("Revisa el importe") ? (
+                              <p className="text-xs text-[var(--app-danger)]">
+                                No se detectó el importe. Escríbelo para poder importar esta fila.
+                              </p>
+                            ) : null}
                             <textarea
                               value={row.notes}
                               onChange={(event) =>
@@ -1905,9 +1926,17 @@ function ImportReviewCard({
           }
           className="h-10 w-full rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
         />
-        <div className="flex items-center gap-2 rounded-lg border border-[var(--app-border)] bg-[var(--app-panel)] px-3">
+        <div
+          className={`flex items-center gap-2 rounded-lg border px-3 ${
+            row.validationErrors.includes("Revisa el importe")
+              ? "border-[var(--app-danger)] bg-[var(--app-danger-soft)]"
+              : "border-[var(--app-border)] bg-[var(--app-panel)]"
+          }`}
+        >
           <input
             value={row.amount}
+            placeholder="Introduce el importe"
+            aria-invalid={row.validationErrors.includes("Revisa el importe")}
             onChange={(event) =>
               onChange(row.id, (current) => ({ ...current, amount: event.target.value }))
             }
@@ -1915,6 +1944,11 @@ function ImportReviewCard({
           />
           <span className="text-xs text-[var(--app-muted)]">{row.currency}</span>
         </div>
+        {row.validationErrors.includes("Revisa el importe") ? (
+          <p className="text-xs text-[var(--app-danger)]">
+            No se detectó el importe. Escríbelo para poder importar esta fila.
+          </p>
+        ) : null}
         <input
           value={row.description}
           onChange={(event) =>
