@@ -10,7 +10,7 @@ export function Card({
   return (
     <section
       className={cn(
-        "animate-fadeIn rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[var(--app-shadow)] transition-shadow duration-200 hover:shadow-[var(--app-shadow-elevated)]",
+        "animate-fadeIn rounded-[var(--app-radius-lg)] border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[var(--app-shadow)] transition-shadow duration-200 hover:shadow-[var(--app-shadow-elevated)] sm:rounded-2xl",
         className,
       )}
     >
@@ -26,7 +26,7 @@ export function CardHeader({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("flex flex-col gap-1.5 p-5 sm:p-6", className)}>{children}</div>;
+  return <div className={cn("flex flex-col gap-1.5 p-4 sm:p-6", className)}>{children}</div>;
 }
 
 export function CardTitle({
@@ -60,5 +60,5 @@ export function CardContent({
   children: React.ReactNode;
   className?: string;
 }) {
-  return <div className={cn("p-5 pt-0 sm:p-6 sm:pt-0", className)}>{children}</div>;
+  return <div className={cn("p-4 pt-0 sm:p-6 sm:pt-0", className)}>{children}</div>;
 }

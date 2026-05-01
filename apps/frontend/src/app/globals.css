@@ -71,13 +71,24 @@
   box-sizing: border-box;
 }
 
+html {
+  min-height: 100%;
+  overflow-x: hidden;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
 body {
   min-height: 100vh;
+  min-height: 100svh;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--app-ink);
   font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: contain;
   transition:
     background-color var(--app-transition),
     color var(--app-transition);
@@ -95,6 +106,12 @@ textarea {
   font: inherit;
 }
 
+input,
+select,
+textarea {
+  max-width: 100%;
+}
+
 ::selection {
   background: rgba(0, 113, 227, 0.15);
 }
@@ -106,18 +123,37 @@ textarea {
 /* ─── Layout ───────────────────────────────────────────────── */
 .app-shell-grid {
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 .page-container {
   margin: 0 auto;
   width: 100%;
   max-width: var(--app-content-max-width);
-  padding: 1.25rem 1rem 6rem;
+  padding:
+    1rem max(0.875rem, env(safe-area-inset-right))
+    calc(6rem + env(safe-area-inset-bottom))
+    max(0.875rem, env(safe-area-inset-left));
 }
 
 @media (min-width: 768px) {
   .page-container {
     padding: 2rem 2rem 2rem;
+  }
+}
+
+@media (max-width: 767px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  .mobile-scroll {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-padding-inline: 0.875rem;
+    -webkit-overflow-scrolling: touch;
   }
 }
 

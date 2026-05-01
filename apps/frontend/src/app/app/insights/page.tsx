@@ -276,13 +276,13 @@ export default function InsightsPage() {
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--app-accent)]">
           Análisis
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight sm:text-4xl">Análisis financiero</h1>
+        <h1 className="mt-1.5 text-2xl font-bold leading-tight tracking-normal sm:mt-2 sm:text-4xl">Análisis financiero</h1>
         <p className="mt-2 text-sm text-[var(--app-muted)]">
           Resumen analítico de balances, categorías y tendencias sobre tus movimientos.
         </p>
 
-        <div className="mt-4 flex w-full justify-end">
-          <div className="inline-flex items-center gap-2 rounded-2xl border-2 border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 shadow-[var(--app-shadow)]">
+        <div className="mt-4 flex w-full justify-stretch sm:justify-end">
+          <div className="inline-flex w-full items-center justify-between gap-1 rounded-2xl border-2 border-[var(--app-border)] bg-[var(--app-panel)] px-2 py-2 shadow-[var(--app-shadow)] sm:w-auto sm:gap-2 sm:px-3">
             <div className="mr-1 hidden items-center gap-2 border-r border-[var(--app-border)] pr-3 sm:inline-flex">
               <CalendarDays className="h-4 w-4 text-[var(--app-accent)]" />
               <span className="text-xs font-semibold uppercase tracking-[0.08em] text-[var(--app-muted)]">
@@ -306,7 +306,7 @@ export default function InsightsPage() {
               <ChevronLeft className="h-4 w-4" />
             </button>
 
-            <span className="min-w-[130px] text-center text-sm font-bold text-[var(--app-ink)]">{periodLabel}</span>
+            <span className="min-w-0 flex-1 text-center text-sm font-bold text-[var(--app-ink)] sm:min-w-[130px] sm:flex-none">{periodLabel}</span>
 
             <button
               type="button"

@@ -307,14 +307,14 @@ export default function AccountsPage() {
       />
 
       <div className="space-y-6">
-        <div className="flex flex-col items-start justify-between gap-3 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <div className="inline-flex rounded-xl bg-[var(--app-muted-surface)] px-3 py-1.5 text-sm text-[var(--app-muted)]">
             {accounts.length} total
           </div>
           <button
             type="button"
             onClick={openCreateDialog}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
+            className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
           >
             <Plus className="h-4 w-4" />
             Nueva cuenta
@@ -587,6 +587,8 @@ export default function AccountsPage() {
           display: flex;
           flex-direction: column;
           align-items: center;
+          width: 100%;
+          overflow: hidden;
           padding: 0.75rem 0 0.5rem;
           perspective: 1200px;
         }
@@ -642,7 +644,7 @@ export default function AccountsPage() {
         /* ─── Carousel Container ──────────────────────────────── */
         .wallet-carousel {
           position: relative;
-          width: 220px;
+          width: min(220px, calc(100vw - 6rem));
           height: 280px;
           transform-style: preserve-3d;
         }
@@ -755,6 +757,12 @@ export default function AccountsPage() {
           gap: 0.35rem;
           font-size: 0.8rem;
           opacity: 0.8;
+          min-width: 0;
+        }
+        .wallet-card__bank span {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .wallet-card__currency {
           font-size: 0.8rem;
@@ -838,8 +846,13 @@ export default function AccountsPage() {
         }
         .wallet-detail__grid {
           display: grid;
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr;
           gap: 0.75rem;
+        }
+        @media (min-width: 380px) {
+          .wallet-detail__grid {
+            grid-template-columns: 1fr 1fr;
+          }
         }
         @media (min-width: 640px) {
           .wallet-detail__grid {

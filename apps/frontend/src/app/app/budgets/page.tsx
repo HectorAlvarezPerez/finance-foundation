@@ -322,7 +322,7 @@ export default function BudgetsPage() {
         description="Sigue el gasto real frente a objetivos mensuales y anuales con una vista mucho más clara y útil."
       />
 
-      <div className="flex flex-col items-start justify-between gap-2.5 sm:flex-row sm:items-center">
+      <div className="flex flex-col items-stretch justify-between gap-2.5 sm:flex-row sm:items-center">
         <div className="flex items-center gap-2.5">
           <label className="text-xs font-medium uppercase tracking-[0.08em] text-[var(--app-muted)]" htmlFor="budget-year">Año</label>
           <select
@@ -343,7 +343,7 @@ export default function BudgetsPage() {
         <button
           type="button"
           onClick={openCreateDialog}
-          className="inline-flex items-center gap-2 rounded-xl bg-[var(--app-accent)] px-3.5 py-2 text-sm font-medium text-white transition-all hover:brightness-110"
+          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-3.5 py-2 text-sm font-medium text-white transition-all hover:brightness-110"
         >
           <Plus className="h-4 w-4" />
           Nuevo presupuesto
@@ -436,7 +436,7 @@ export default function BudgetsPage() {
         <ListSkeleton rows={4} />
       ) : (
         <Card className="animate-slideUp">
-          <CardHeader className="flex flex-row items-center justify-between">
+          <CardHeader className="flex flex-row items-start justify-between gap-3">
             <div>
               <CardTitle className="text-lg">Presupuestos de {selectedYear}</CardTitle>
               <p className="mt-1 text-xs text-[var(--app-muted)]">Cada tarjeta compara presupuesto y gasto real del mes.</p>
@@ -584,12 +584,12 @@ function BudgetStatusCard({
 
       <div className="relative">
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
-          <div className="space-y-0.5">
+        <div className="flex items-start justify-between gap-3 px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+          <div className="min-w-0 space-y-0.5">
             <p className="text-[11px] uppercase tracking-[0.1em] text-[var(--app-muted)]">
               {getBudgetPeriodLabel(budget)}
             </p>
-            <h3 className="text-base font-semibold text-[var(--app-ink)]">
+            <h3 className="truncate text-base font-semibold text-[var(--app-ink)]">
               {budget.category?.name ?? "Categoría"}
             </h3>
           </div>
@@ -606,7 +606,7 @@ function BudgetStatusCard({
         </div>
 
         {/* Big usage number + amounts row */}
-        <div className="flex items-end justify-between gap-4 px-5 pb-4">
+        <div className="flex flex-col gap-3 px-4 pb-4 min-[380px]:flex-row min-[380px]:items-end min-[380px]:justify-between sm:px-5">
           <div>
             <p
               className="text-4xl font-black leading-none tabular-nums"
@@ -617,7 +617,7 @@ function BudgetStatusCard({
             </p>
             <p className="mt-1 text-[11px] text-[var(--app-muted)]">usado</p>
           </div>
-          <div className="grid grid-cols-2 gap-x-6 text-right">
+          <div className="grid grid-cols-2 gap-3 text-left min-[380px]:gap-x-6 min-[380px]:text-right">
             <div>
               <p className="text-[10px] uppercase tracking-[0.08em] text-[var(--app-muted)]">Presupuesto</p>
               <p className="mt-0.5 text-sm font-semibold text-[var(--app-ink)]">
@@ -634,7 +634,7 @@ function BudgetStatusCard({
         </div>
 
         {/* Progress bar */}
-        <div className="px-5 pb-4">
+        <div className="px-4 pb-4 sm:px-5">
           <div className="h-2.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--app-muted-surface)_80%,transparent)]">
             <div
               className={`h-2.5 rounded-full transition-[width] duration-700 ease-out ${progressClass}`}
@@ -644,7 +644,7 @@ function BudgetStatusCard({
         </div>
 
         {/* Footer */}
-        <div className="flex items-center justify-between border-t border-[var(--app-border)] px-5 py-3">
+        <div className="flex flex-col gap-2 border-t border-[var(--app-border)] px-4 py-3 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between sm:px-5">
           <p className={`text-sm font-semibold ${footerClass}`}>
             {budget.remaining < 0 ? "Excedido" : "Disponible"}:{" "}
             <AmountValue amount={Math.abs(budget.remaining)} currency={budget.currency} className="![color:inherit]" />

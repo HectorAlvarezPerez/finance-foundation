@@ -168,7 +168,7 @@ function TransactionsContent() {
   const transactions = transData?.items || [];
   const totalTransactions = transData?.total || 0;
   const accounts = accData?.items || [];
-  const categories = catData?.items || [];
+  const categories = useMemo(() => catData?.items ?? [], [catData?.items]);
   const isLoading = !transData || !accData || !catData;
   const loadError = transError || accError || catError;
 
@@ -752,16 +752,16 @@ function TransactionsContent() {
       />
 
       <div className="space-y-6">
-        <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+        <div className="flex flex-col items-stretch justify-between gap-3 sm:flex-row sm:items-center">
           <div className="inline-flex rounded-xl bg-[var(--app-muted-surface)] px-3 py-1.5 text-sm text-[var(--app-muted)]">
             {totalTransactions} resultados
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
             {selectedCount ? (
               <button
                 type="button"
                 onClick={() => setConfirmDelete({ open: true, ids: selectedIds })}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--app-danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--app-danger)] transition-all hover:brightness-110"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--app-danger)] transition-all hover:brightness-110"
               >
                 <Trash2 className="h-4 w-4" />
                 Eliminar seleccionadas ({selectedCount})
@@ -770,17 +770,17 @@ function TransactionsContent() {
             <button
               type="button"
               onClick={handleOpenImport}
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
+              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
             >
               <FileUp className="h-4 w-4" />
               Import transactions
             </button>
             <div ref={typePickerRef} className="relative">
-              <div className="inline-flex rounded-xl bg-[var(--app-accent)] shadow-sm transition-all hover:brightness-110">
+              <div className="inline-flex min-h-11 w-full rounded-xl bg-[var(--app-accent)] shadow-sm transition-all hover:brightness-110 sm:w-auto">
                 <button
                   type="button"
                   onClick={() => handleOpenCreate("expense")}
-                  className="inline-flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white rounded-l-xl outline-none"
+                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-l-xl px-4 py-2.5 text-sm font-semibold text-white outline-none sm:flex-none"
                 >
                   <Plus className="h-4 w-4" />
                   Nueva transacción
@@ -1592,12 +1592,12 @@ function TransactionsContent() {
         ) : null}
 
         <div className="animate-fadeIn overflow-hidden rounded-2xl border border-[color-mix(in_srgb,var(--app-accent)_15%,var(--app-border))] bg-[color-mix(in_srgb,var(--app-panel-strong)_70%,var(--app-muted-surface))] shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-          <div className="flex items-stretch">
-            <div className="flex shrink-0 items-center border-r border-[color-mix(in_srgb,var(--app-accent)_20%,var(--app-border))] bg-[color-mix(in_srgb,var(--app-accent)_8%,var(--app-muted-surface))] px-4 text-xs font-bold tracking-wider text-[var(--app-accent)] uppercase">
+          <div className="flex flex-col sm:flex-row sm:items-stretch">
+            <div className="flex shrink-0 items-center border-b border-[color-mix(in_srgb,var(--app-accent)_20%,var(--app-border))] bg-[color-mix(in_srgb,var(--app-accent)_8%,var(--app-muted-surface))] px-3 py-2 text-xs font-bold uppercase tracking-wider text-[var(--app-accent)] sm:border-b-0 sm:border-r sm:px-4 sm:py-0">
               Filtros
             </div>
             <div className="min-w-0 flex-1 p-2">
-              <div className="flex flex-nowrap items-center gap-1 overflow-x-auto pb-1">
+              <div className="mobile-scroll flex flex-nowrap items-center gap-1 overflow-x-auto pb-1">
                 <FilterSelect
                   value={filters.account_id}
                   onChange={(v) => updateFilter("account_id", v)}
@@ -1645,11 +1645,11 @@ function TransactionsContent() {
                 </div>
               </div>
             </div>
-            <div className="flex shrink-0 items-center px-2">
+            <div className="flex shrink-0 items-center border-t border-[var(--app-border)] px-2 py-2 sm:border-t-0">
               <button
                 type="button"
                 onClick={() => router.replace(pathname)}
-                className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[var(--app-danger)] transition-all hover:bg-[var(--app-danger-soft)]"
+                className="inline-flex h-9 w-full shrink-0 items-center justify-center rounded-lg text-[var(--app-danger)] transition-all hover:bg-[var(--app-danger-soft)] sm:h-8 sm:w-8"
                 aria-label="Limpiar filtros"
                 title="Limpiar filtros"
               >

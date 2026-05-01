@@ -88,7 +88,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="app-shell-grid bg-[var(--background)]">
       {/* ─── Top navigation bar ─── */}
       <header className="sticky top-0 z-40 border-b border-[var(--app-border)] bg-[var(--app-glass)] backdrop-blur-xl">
-        <div className="mx-auto flex w-full max-w-[var(--app-content-max-width)] flex-col gap-4 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="mx-auto flex w-full max-w-[var(--app-content-max-width)] flex-col gap-4 px-[max(0.875rem,env(safe-area-inset-left))] py-2.5 pr-[max(0.875rem,env(safe-area-inset-right))] sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-3">
           <div className="flex w-full items-center justify-between gap-4 sm:w-auto sm:justify-start sm:gap-6">
             <Link href="/app" className="flex min-w-0 items-center">
               <BrandLogo compact className="min-w-0" />
@@ -101,10 +101,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   item.href === "/app" ? pathname === item.href : pathname.startsWith(item.href);
 
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  aria-current={isActive ? "page" : undefined}
+                  className={cn(
                       "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-all",
                       isActive
                         ? "bg-[var(--app-accent)] text-white shadow-sm"
@@ -163,7 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
       {/* ─── Mobile bottom navigation ─── */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--app-border)] bg-[var(--app-glass)] shadow-[0_-4px_20px_-12px_rgba(0,0,0,0.15)] backdrop-blur-xl md:hidden [padding-bottom:env(safe-area-inset-bottom)]">
-        <div className="mx-auto grid w-full max-w-[var(--app-content-max-width)] grid-cols-5 items-center gap-1 px-2 py-1.5">
+        <div className="mx-auto grid w-full max-w-[var(--app-content-max-width)] grid-cols-5 items-center gap-0.5 px-[max(0.5rem,env(safe-area-inset-left))] py-1.5 pr-[max(0.5rem,env(safe-area-inset-right))]">
           {mobilePrimaryItems.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -174,15 +175,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 key={item.href}
                 href={item.href}
                 onClick={() => setIsMoreOpen(false)}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium transition-all",
+                  "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[10px] font-medium transition-all",
                   isActive
                     ? "text-[var(--app-accent)]"
                     : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
                 )}
               >
                 <Icon className={cn("h-5 w-5", isActive && "scale-110")} />
-                <span>{item.label}</span>
+                <span className="max-w-full truncate max-[360px]:hidden">{item.label}</span>
               </Link>
             );
           })}
@@ -192,7 +194,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               type="button"
               onClick={() => setIsMoreOpen((current) => !current)}
               className={cn(
-                "flex w-full flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-2 text-[10px] font-medium transition-all",
+                "flex min-h-12 w-full flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 py-1.5 text-[10px] font-medium transition-all",
                 isMoreActive || isMoreOpen
                   ? "text-[var(--app-accent)]"
                   : "text-[var(--app-muted)] hover:text-[var(--app-ink)]",
@@ -201,11 +203,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               aria-label="Más opciones"
             >
               <Menu className="h-5 w-5" />
-              <span>Más</span>
+              <span className="max-[360px]:hidden">Más</span>
             </button>
 
             {isMoreOpen ? (
-              <div className="animate-slideUp absolute bottom-14 right-0 w-52 rounded-2xl border border-[var(--app-border)] bg-[var(--app-glass)] p-2 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
+              <div className="animate-slideUp absolute bottom-[calc(3.75rem+env(safe-area-inset-bottom))] right-0 w-52 rounded-2xl border border-[var(--app-border)] bg-[var(--app-glass)] p-2 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
                 {mobileMoreItems.map((item) => {
                   const Icon = item.icon;
                   const isActive = pathname.startsWith(item.href);
