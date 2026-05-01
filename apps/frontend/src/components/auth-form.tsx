@@ -99,11 +99,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
   }
 
   return (
-    <div className="flex min-h-[100svh] items-center justify-center bg-[var(--background)] px-4 py-6 sm:p-4">
+    <div className="flex min-h-[100svh] items-center justify-center bg-[var(--background)] px-[max(1rem,env(safe-area-inset-left))] py-[max(1.5rem,env(safe-area-inset-top))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-4">
       <div className="w-full max-w-md animate-scaleIn">
         <div className="rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel)] shadow-[var(--app-shadow-elevated)]">
-          <div className="space-y-1.5 px-6 pt-8 text-center">
-            <div className="mb-5 flex justify-center">
+          <div className="space-y-1.5 px-4 pt-6 text-center sm:px-6 sm:pt-8">
+            <div className="mb-4 flex justify-center sm:mb-5">
               <BrandLogo />
             </div>
             <h1 className="text-2xl font-bold tracking-tight">{isLogin ? "Bienvenido de nuevo" : "Crea tu cuenta"}</h1>
@@ -114,7 +114,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             </p>
           </div>
 
-          <form className="space-y-4 px-6 py-6" onSubmit={handleSubmit}>
+          <form className="space-y-4 px-4 py-5 sm:px-6 sm:py-6" onSubmit={handleSubmit}>
             {isLogin && (providers.entra_external_id_enabled || providers.google_enabled) ? (
               <div className="grid gap-2">
                 {providers.entra_external_id_enabled ? (
@@ -122,7 +122,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                     type="button"
                     onClick={() => handleExternalLogin("/auth/entra/start")}
                     disabled={isSubmitting || status === "loading"}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <LockKeyhole className="h-4 w-4 text-[var(--app-accent)]" />
                     Continuar con Microsoft
@@ -134,7 +134,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                     type="button"
                     onClick={() => handleExternalLogin("/auth/google/start")}
                     disabled={isSubmitting || status === "loading"}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <GoogleIcon className="h-4 w-4" />
                     Continuar con Google
@@ -220,7 +220,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             <button
               type="submit"
               disabled={isSubmitting || status === "loading"}
-              className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? "Enviando..." : isLogin ? "Entrar" : "Crear cuenta"}
             </button>
@@ -237,7 +237,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
           </form>
 
           {isLogin ? (
-            <div className="px-6 pb-6">
+            <div className="px-4 pb-5 sm:px-6 sm:pb-6">
               <div className="relative">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t border-[var(--app-border)]" />
@@ -251,7 +251,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                 type="button"
                 onClick={handleDemoLogin}
                 disabled={isSubmitting || status === "loading"}
-                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
               >
                 <Sparkles className={`h-4 w-4 ${isSubmitting ? "animate-spin" : "text-amber-500"}`} />
                 {isSubmitting ? "Entrando..." : "Probar modo demo"}

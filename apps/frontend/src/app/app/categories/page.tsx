@@ -170,7 +170,7 @@ export default function CategoriesPage() {
           description="Agrupa tus ingresos, gastos y transferencias con una taxonomía simple y útil."
         />
         {!isLoading && categories.length > 0 && (
-          <span className="absolute right-0 top-0 inline-flex rounded-xl bg-[var(--app-muted-surface)] px-3 py-1.5 text-sm text-[var(--app-muted)]">
+          <span className="mb-5 inline-flex rounded-xl bg-[var(--app-muted-surface)] px-3 py-1.5 text-sm text-[var(--app-muted)] sm:absolute sm:right-0 sm:top-0 sm:mb-0">
             {categories.length} categorías
           </span>
         )}
@@ -271,7 +271,7 @@ export default function CategoriesPage() {
         ) : categories.length ? (
           <div className="space-y-6 animate-slideUp">
             {/* Top row: Income + Transfers side by side, equal height */}
-            <div className="relative z-10 grid gap-6 lg:grid-cols-2">
+            <div className="relative z-10 grid gap-4 sm:gap-6 lg:grid-cols-2">
               <CategorySection
                 title="Ingresos"
                 description="Nómina, bonus y otras entradas de dinero."
@@ -352,7 +352,7 @@ function TransferInfoTooltip() {
         <Info className="h-3.5 w-3.5" />
       </button>
       {isOpen && (
-        <div className="animate-slideDown absolute left-1/2 top-7 z-[200] w-72 -translate-x-1/2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-glass)] p-4 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
+        <div className="animate-slideDown absolute left-1/2 top-7 z-[200] w-[min(18rem,calc(100vw-2rem))] -translate-x-1/2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-glass)] p-4 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
           <p className="text-xs font-semibold text-[var(--app-ink)]">¿Qué es una transferencia?</p>
           <p className="mt-1.5 text-xs leading-relaxed text-[var(--app-muted)]">
             Las categorías de transferencia se usan para movimientos <strong className="text-[var(--app-ink)]">entre tus propias cuentas</strong>, como pasar dinero de una cuenta corriente a una de ahorro. No se contabilizan como ingreso ni gasto para no distorsionar tus estadísticas.
@@ -397,7 +397,7 @@ function CategorySection({
         <button
           type="button"
           onClick={() => onOpenCreate(type)}
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[var(--app-accent)] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:brightness-110"
+          className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl bg-[var(--app-accent)] px-3 py-1.5 text-xs font-semibold text-white transition-all hover:brightness-110"
         >
           <Plus className="h-3.5 w-3.5" />
           Añadir
@@ -452,7 +452,7 @@ function CategoryRow({
 
   return (
     <div
-      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-hidden rounded-[var(--app-radius-xl)] border bg-[var(--app-panel-strong)] px-5 py-4 transition-all hover:z-10 hover:shadow-[var(--app-shadow)]`}
+      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-hidden rounded-[var(--app-radius-lg)] border bg-[var(--app-panel-strong)] px-4 py-3.5 transition-all hover:z-10 hover:shadow-[var(--app-shadow)] sm:rounded-[var(--app-radius-xl)] sm:px-5 sm:py-4`}
       style={{
         borderColor: `color-mix(in srgb, ${color} 25%, var(--app-border))`,
       }}
@@ -465,13 +465,13 @@ function CategoryRow({
         }}
       />
 
-      <div className="relative flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+      <div className="relative flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <span
             className="h-3 w-3 shrink-0 rounded-full shadow-sm ring-2 ring-white/20"
             style={{ backgroundColor: color }}
           />
-          <p className="text-sm font-semibold">{category.name}</p>
+          <p className="truncate text-sm font-semibold">{category.name}</p>
         </div>
         {onEdit && onDelete ? (
           <div className="relative z-20">

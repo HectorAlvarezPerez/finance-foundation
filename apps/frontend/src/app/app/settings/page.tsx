@@ -183,8 +183,8 @@ export default function SettingsPage() {
       <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
           <Card className="animate-slideUp">
-            <CardHeader className="flex flex-row items-start justify-between gap-4 border-b border-[var(--app-border)]">
-              <div>
+            <CardHeader className="flex flex-col items-start justify-between gap-3 border-b border-[var(--app-border)] sm:flex-row sm:gap-4">
+              <div className="min-w-0">
                 <CardTitle>General</CardTitle>
                 <CardDescription>Moneda por defecto, formato regional y estado de guardado.</CardDescription>
               </div>
@@ -263,7 +263,7 @@ export default function SettingsPage() {
               <CardDescription>Elige cómo quieres ver la app en este dispositivo.</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 min-[380px]:grid-cols-3">
                 {(["system", "light", "dark"] as const).map((themeOption) => {
                   const isSelected = form.theme === themeOption;
                   const labels = { system: "Sistema", light: "Claro", dark: "Oscuro" };
@@ -275,7 +275,7 @@ export default function SettingsPage() {
                         setForm((current) => ({ ...current, theme: themeOption }));
                         setTheme(themeOption);
                       }}
-                      className={`rounded-2xl border px-4 py-4 text-sm font-medium transition-all ${
+                      className={`min-h-12 rounded-2xl border px-4 py-3 text-sm font-medium transition-all sm:py-4 ${
                         isSelected
                           ? "border-[var(--app-accent)] bg-[var(--app-accent-soft)] text-[var(--app-accent)] shadow-[var(--app-shadow)]"
                           : "border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-muted)] hover:border-[var(--app-muted)]"
@@ -341,7 +341,7 @@ export default function SettingsPage() {
               <button
                 type="button"
                 onClick={() => setConfirmDelete(true)}
-                className="inline-flex items-center justify-center rounded-xl bg-[var(--app-danger)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-xl bg-[var(--app-danger)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 sm:w-auto"
               >
                 Eliminar cuenta
               </button>
@@ -363,23 +363,23 @@ function PreviewRow({
   value: string;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between">
+      <div className="flex min-w-0 items-center gap-3">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-[var(--app-muted-surface)] text-[var(--app-muted)]">
           {icon}
         </div>
         <span className="text-sm font-medium">{label}</span>
       </div>
-      <span className="text-sm text-[var(--app-muted)]">{value}</span>
+      <span className="min-w-0 break-words text-sm text-[var(--app-muted)] min-[380px]:text-right">{value}</span>
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3">
+    <div className="flex flex-col gap-1.5 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-3 min-[380px]:flex-row min-[380px]:items-center min-[380px]:justify-between min-[380px]:gap-3">
       <span className="text-sm text-[var(--app-muted)]">{label}</span>
-      <span className="text-sm font-medium">{value}</span>
+      <span className="min-w-0 break-all text-sm font-medium min-[380px]:text-right">{value}</span>
     </div>
   );
 }
@@ -399,7 +399,7 @@ function SaveIndicator({
         : "text-[var(--app-muted)]";
 
   return (
-    <div className={`inline-flex items-center gap-2 text-sm transition-colors ${className}`}>
+    <div className={`inline-flex min-h-8 items-center gap-2 text-sm transition-colors ${className}`}>
       {state === "saved" ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
       <span>{label}</span>
     </div>
