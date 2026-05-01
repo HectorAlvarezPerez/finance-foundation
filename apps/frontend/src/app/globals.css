@@ -88,7 +88,6 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
-  overscroll-behavior-y: contain;
   transition:
     background-color var(--app-transition),
     color var(--app-transition);
