@@ -43,6 +43,22 @@ async function deleteEntityByName(
   expect(deleted).toBeTruthy();
 }
 
+async function deleteAccountById(page: import("@playwright/test").Page, accountId: string) {
+  await page.evaluate(
+    async ({ apiBaseUrl, accountId }) => {
+      const response = await fetch(`${apiBaseUrl}/accounts/${accountId}`, {
+        method: "DELETE",
+        credentials: "include",
+      });
+
+      if (!response.ok && response.status !== 404) {
+        throw new Error("No se pudo eliminar la cuenta de prueba");
+      }
+    },
+    { apiBaseUrl, accountId },
+  );
+}
+
 test.describe("CRUD principal", () => {
   test("permite crear, editar y limpiar cuentas, categorías, presupuestos y transacciones", async ({ page }) => {
     const suffix = Date.now().toString();
@@ -144,5 +160,177 @@ test.describe("CRUD principal", () => {
 
     await page.goto("/app/accounts");
     await deleteEntityByName(page, "accounts", accountNameUpdated);
+  });
+
+  test("permite mover varias transacciones seleccionadas a otra cuenta", async ({ page }) => {
+    const suffix = Date.now().toString();
+    const sourceAccountName = `Cuenta origen lote ${suffix}`;
+    const targetAccountName = `Cuenta destino lote ${suffix}`;
+    const firstTransactionName = `Movimiento lote A ${suffix}`;
+    const secondTransactionName = `Movimiento lote B ${suffix}`;
+    let sourceAccountId = "";
+    let targetAccountId = "";
+
+    await loginWithDemo(page);
+
+    try {
+      const setup = await page.evaluate(
+        async ({
+          apiBaseUrl,
+          sourceAccountName,
+          targetAccountName,
+          firstTransactionName,
+          secondTransactionName,
+        }) => {
+          async function createAccount(name: string) {
+            const response = await fetch(`${apiBaseUrl}/accounts`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name,
+                bank_name: "Banco PW",
+                type: "other",
+                currency: "EUR",
+                initial_balance: "0.00",
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`No se pudo crear la cuenta ${name}`);
+            }
+
+            return (await response.json()) as { id: string };
+          }
+
+          async function createTransaction(accountId: string, description: string, amount: string) {
+            const response = await fetch(`${apiBaseUrl}/transactions`, {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                account_id: accountId,
+                category_id: null,
+                date: new Date().toISOString().slice(0, 10),
+                amount,
+                currency: "EUR",
+                description,
+                notes: null,
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error(`No se pudo crear la transacción ${description}`);
+            }
+          }
+
+          const sourceAccount = await createAccount(sourceAccountName);
+          const targetAccount = await createAccount(targetAccountName);
+          await createTransaction(sourceAccount.id, firstTransactionName, "-11.00");
+          await createTransaction(sourceAccount.id, secondTransactionName, "-22.00");
+
+          return {
+            sourceAccountId: sourceAccount.id,
+            targetAccountId: targetAccount.id,
+          };
+        },
+        {
+          apiBaseUrl,
+          sourceAccountName,
+          targetAccountName,
+          firstTransactionName,
+          secondTransactionName,
+        },
+      );
+
+      sourceAccountId = setup.sourceAccountId;
+      targetAccountId = setup.targetAccountId;
+
+      await page.goto(`/app/transactions?search=${encodeURIComponent(`Movimiento lote ${suffix}`)}`);
+
+      const firstTransactionRow = page.getByRole("row", {
+        name: new RegExp(firstTransactionName),
+      });
+      const secondTransactionRow = page.getByRole("row", {
+        name: new RegExp(secondTransactionName),
+      });
+
+      await expect(firstTransactionRow).toContainText(sourceAccountName);
+      await expect(secondTransactionRow).toContainText(sourceAccountName);
+      await firstTransactionRow.getByLabel(`Seleccionar ${firstTransactionName}`).check();
+      await secondTransactionRow.getByLabel(`Seleccionar ${secondTransactionName}`).check();
+
+      await page.getByRole("button", { name: "Mover a cuenta (2)" }).click();
+      const moveDialog = page.getByRole("dialog", { name: "Mover transacciones" });
+      await expect(moveDialog).toBeVisible();
+      await moveDialog
+        .getByLabel("Cuenta destino para las transacciones seleccionadas")
+        .selectOption(targetAccountId);
+      await moveDialog.getByRole("button", { name: "Mover selección" }).click();
+
+      await expect(firstTransactionRow).toContainText(targetAccountName);
+      await expect(secondTransactionRow).toContainText(targetAccountName);
+      await expect(page.getByRole("button", { name: "Mover a cuenta (2)" })).toHaveCount(0);
+    } finally {
+      if (sourceAccountId) {
+        await deleteAccountById(page, sourceAccountId);
+      }
+      if (targetAccountId) {
+        await deleteAccountById(page, targetAccountId);
+      }
+    }
+  });
+
+  test("permite crear una transferencia de salida con importe negativo", async ({ page }) => {
+    const suffix = Date.now().toString();
+    const accountName = `Cuenta transferencia ${suffix}`;
+    const transactionName = `Transferencia salida ${suffix}`;
+    let accountId = "";
+
+    await loginWithDemo(page);
+
+    try {
+      const account = await page.evaluate(
+        async ({ apiBaseUrl, accountName }) => {
+          const response = await fetch(`${apiBaseUrl}/accounts`, {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: accountName,
+              bank_name: "Banco PW",
+              type: "other",
+              currency: "EUR",
+              initial_balance: "0.00",
+            }),
+          });
+
+          if (!response.ok) {
+            throw new Error("No se pudo crear la cuenta de transferencia");
+          }
+
+          return (await response.json()) as { id: string };
+        },
+        { apiBaseUrl, accountName },
+      );
+      accountId = account.id;
+
+      await page.goto("/app/transactions");
+      await page.getByLabel("Seleccionar tipo de transacción").click();
+      await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Transferencia" }).click();
+      await page.getByLabel("Cuenta de la transacción").selectOption(accountId);
+      await page.getByLabel("Importe de la transacción").fill("-15.00");
+      await page.getByLabel("Descripción de la transacción").fill(transactionName);
+      await page.getByRole("button", { name: "Crear transacción" }).click();
+
+      await page.getByPlaceholder("Buscar").fill(transactionName);
+      const transactionRow = page.getByRole("row", { name: new RegExp(transactionName) });
+      await expect(transactionRow).toBeVisible();
+      await expect(transactionRow).toContainText(/-15,00\s*€/);
+    } finally {
+      if (accountId) {
+        await deleteAccountById(page, accountId);
+      }
+    }
   });
 });

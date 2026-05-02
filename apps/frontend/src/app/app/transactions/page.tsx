@@ -165,7 +165,7 @@ function TransactionsContent() {
     fetcher,
   );
 
-  const transactions = transData?.items || [];
+  const transactions = useMemo(() => transData?.items ?? [], [transData?.items]);
   const totalTransactions = transData?.total || 0;
   const accounts = accData?.items || [];
   const categories = useMemo(() => catData?.items ?? [], [catData?.items]);
@@ -192,6 +192,11 @@ function TransactionsContent() {
     open: false,
     ids: [],
   });
+  const [moveDialog, setMoveDialog] = useState<{ open: boolean; accountId: string }>({
+    open: false,
+    accountId: "",
+  });
+  const [isMovingTransactions, setIsMovingTransactions] = useState(false);
 
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importFile, setImportFile] = useState<File | null>(null);
@@ -212,6 +217,10 @@ function TransactionsContent() {
   const accountMap = new Map(accounts.map((account) => [account.id, account]));
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
   const selectedCount = selectedIds.length;
+  const selectedVisibleTransactions = useMemo(
+    () => transactions.filter((transaction) => selectedIds.includes(transaction.id)),
+    [selectedIds, transactions],
+  );
 
   // Close type picker on outside click
   useEffect(() => {
@@ -358,14 +367,16 @@ function TransactionsContent() {
     event.preventDefault();
 
     try {
-      // Apply sign based on kind only for fresh creations.
-      // For duplicate/edit, preserve the exact user-entered sign/value.
+      // Apply sign based on kind only for fresh income/expense creations.
+      // Transfers, duplicates and edits preserve the exact user-entered sign/value.
       const rawAmount = parseFloat(form.amount.replace(",", "."));
       const normalizedAmount =
         editorMode === "create"
           ? transactionKind === "expense"
             ? -Math.abs(rawAmount)
-            : Math.abs(rawAmount)
+            : transactionKind === "income"
+              ? Math.abs(rawAmount)
+              : rawAmount
           : form.amount;
 
       const payload = {
@@ -716,6 +727,63 @@ function TransactionsContent() {
     );
   }
 
+  function handleOpenMoveSelected() {
+    if (!selectedIds.length) {
+      return;
+    }
+
+    if (accounts.length < 2) {
+      toast("Necesitas al menos dos cuentas para mover transacciones", "error");
+      return;
+    }
+
+    const visibleSourceAccountIds = new Set(
+      selectedVisibleTransactions.map((transaction) => transaction.account_id),
+    );
+    const defaultTargetAccount = accounts.find(
+      (account) => !visibleSourceAccountIds.has(account.id),
+    ) ?? accounts[0];
+
+    setMoveDialog({ open: true, accountId: defaultTargetAccount?.id ?? "" });
+  }
+
+  async function handleMoveConfirmed() {
+    const targetAccount = accounts.find((account) => account.id === moveDialog.accountId);
+
+    if (!targetAccount) {
+      toast("Selecciona una cuenta de destino", "error");
+      return;
+    }
+
+    setIsMovingTransactions(true);
+    try {
+      await Promise.all(
+        selectedIds.map((transactionId) =>
+          apiRequest<Transaction>(`/transactions/${transactionId}`, {
+            method: "PATCH",
+            body: JSON.stringify({
+              account_id: targetAccount.id,
+              currency: targetAccount.currency,
+            }),
+          }),
+        ),
+      );
+      toast(
+        selectedIds.length === 1
+          ? "Transacción movida"
+          : `${selectedIds.length} transacciones movidas`,
+        "success",
+      );
+      setSelectedIds([]);
+      setMoveDialog({ open: false, accountId: "" });
+      await mutateTrans();
+    } catch (requestError) {
+      toast(requestError instanceof Error ? requestError.message : "Error al mover", "error");
+    } finally {
+      setIsMovingTransactions(false);
+    }
+  }
+
   async function handleDeleteConfirmed() {
     const ids = confirmDelete.ids;
     setConfirmDelete({ open: false, ids: [] });
@@ -758,14 +826,24 @@ function TransactionsContent() {
           </div>
           <div className="grid grid-cols-1 gap-2 sm:flex sm:flex-wrap sm:items-center">
             {selectedCount ? (
-              <button
-                type="button"
-                onClick={() => setConfirmDelete({ open: true, ids: selectedIds })}
-                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--app-danger)] transition-all hover:brightness-110"
-              >
-                <Trash2 className="h-4 w-4" />
-                Eliminar seleccionadas ({selectedCount})
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={handleOpenMoveSelected}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
+                >
+                  <ArrowLeftRight className="h-4 w-4" />
+                  Mover a cuenta ({selectedCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmDelete({ open: true, ids: selectedIds })}
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-danger-soft)] px-4 py-2.5 text-sm font-semibold text-[var(--app-danger)] transition-all hover:brightness-110"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Eliminar seleccionadas ({selectedCount})
+                </button>
+              </>
             ) : null}
             <button
               type="button"
@@ -843,6 +921,62 @@ function TransactionsContent() {
           onConfirm={handleConfirmReplaceImport}
           onCancel={() => setIsReplaceImportDialogOpen(false)}
         />
+
+        <Modal
+          open={moveDialog.open}
+          onClose={() => {
+            if (!isMovingTransactions) {
+              setMoveDialog({ open: false, accountId: "" });
+            }
+          }}
+          title="Mover transacciones"
+          description={`Elige la cuenta de destino para ${selectedCount} ${
+            selectedCount === 1 ? "transacción seleccionada" : "transacciones seleccionadas"
+          }.`}
+        >
+          <div className="space-y-4">
+            <select
+              required
+              aria-label="Cuenta destino para las transacciones seleccionadas"
+              value={moveDialog.accountId}
+              onChange={(event) =>
+                setMoveDialog((current) => ({ ...current, accountId: event.target.value }))
+              }
+              className={inputClasses}
+              disabled={isMovingTransactions}
+            >
+              <option value="">Selecciona cuenta</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} · {account.currency}
+                </option>
+              ))}
+            </select>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setMoveDialog({ open: false, accountId: "" })}
+                disabled={isMovingTransactions}
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleMoveConfirmed()}
+                disabled={isMovingTransactions || !moveDialog.accountId}
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isMovingTransactions ? (
+                  <LoaderCircle className="h-4 w-4 animate-spin" />
+                ) : (
+                  <ArrowLeftRight className="h-4 w-4" />
+                )}
+                Mover selección
+              </button>
+            </div>
+          </div>
+        </Modal>
 
         <Modal
           open={isDialogOpen}
@@ -950,7 +1084,13 @@ function TransactionsContent() {
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold"
                   style={{ color: transactionKind === "expense" ? "var(--app-danger)" : transactionKind === "income" ? "var(--app-success)" : "var(--app-accent)" }}
                 >
-                  {editorMode === "create" ? (transactionKind === "expense" ? "−" : "+") : ""}
+                  {editorMode === "create"
+                    ? transactionKind === "expense"
+                      ? "−"
+                      : transactionKind === "income"
+                        ? "+"
+                        : "±"
+                    : ""}
                 </span>
                 <input
                   required
