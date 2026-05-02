@@ -54,6 +54,7 @@ type TransactionFilters = {
 
 type TransactionEditorMode = "create" | "edit" | "duplicate";
 type TransactionKind = "expense" | "income" | "transfer";
+type TransferDirection = "out" | "in";
 
 type TransactionImportMapping = {
   date: string;
@@ -185,6 +186,7 @@ function TransactionsContent() {
   const [editorMode, setEditorMode] = useState<TransactionEditorMode>("create");
   const [editingTransactionId, setEditingTransactionId] = useState<string | null>(null);
   const [transactionKind, setTransactionKind] = useState<TransactionKind>("expense");
+  const [transferDirection, setTransferDirection] = useState<TransferDirection>("out");
   const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
   const typePickerRef = useRef<HTMLDivElement | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -367,8 +369,8 @@ function TransactionsContent() {
     event.preventDefault();
 
     try {
-      // Apply sign based on kind only for fresh income/expense creations.
-      // Transfers, duplicates and edits preserve the exact user-entered sign/value.
+      // Apply sign based on kind only for fresh creations.
+      // Duplicates and edits preserve the exact user-entered sign/value.
       const rawAmount = parseFloat(form.amount.replace(",", "."));
       const normalizedAmount =
         editorMode === "create"
@@ -376,7 +378,9 @@ function TransactionsContent() {
             ? -Math.abs(rawAmount)
             : transactionKind === "income"
               ? Math.abs(rawAmount)
-              : rawAmount
+              : transferDirection === "out"
+                ? -Math.abs(rawAmount)
+                : Math.abs(rawAmount)
           : form.amount;
 
       const payload = {
@@ -414,6 +418,7 @@ function TransactionsContent() {
 
   function handleOpenCreate(kind: TransactionKind) {
     setTransactionKind(kind);
+    setTransferDirection("out");
     setEditorMode("create");
     setEditingTransactionId(null);
     setForm(defaultTransactionForm(settings?.default_currency || "EUR", form.account_id));
@@ -698,6 +703,7 @@ function TransactionsContent() {
   function handleOpenEdit(transaction: Transaction) {
     setEditorMode("edit");
     setEditingTransactionId(transaction.id);
+    setTransferDirection(Number(transaction.amount) < 0 ? "out" : "in");
     setForm(transactionToForm(transaction));
     setIsDialogOpen(true);
   }
@@ -705,6 +711,7 @@ function TransactionsContent() {
   function handleOpenDuplicate(transaction: Transaction) {
     const sourceKind = inferTransactionKind(transaction, categoryMap);
     setTransactionKind(sourceKind);
+    setTransferDirection(Number(transaction.amount) < 0 ? "out" : "in");
     setEditorMode("duplicate");
     setEditingTransactionId(null);
     setForm(transactionToForm(transaction));
@@ -1069,7 +1076,13 @@ function TransactionsContent() {
               </select>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div
+              className={`grid gap-4 ${
+                editorMode === "create" && transactionKind === "transfer"
+                  ? "sm:grid-cols-3"
+                  : "sm:grid-cols-2"
+              }`}
+            >
               <input
                 required
                 aria-label="Fecha de la transacción"
@@ -1078,18 +1091,40 @@ function TransactionsContent() {
                 onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))}
                 className={inputClasses}
               />
-              {/* Amount: user enters positive value; sign applied from kind on submit */}
+              {editorMode === "create" && transactionKind === "transfer" ? (
+                <select
+                  aria-label="Dirección de la transferencia"
+                  value={transferDirection}
+                  onChange={(event) => setTransferDirection(event.target.value as TransferDirection)}
+                  className={inputClasses}
+                >
+                  <option value="out">Salida</option>
+                  <option value="in">Entrada</option>
+                </select>
+              ) : null}
+              {/* Amount: user enters a positive value; sign is applied from kind/direction on submit */}
               <div className="relative">
                 <span
                   className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-bold"
-                  style={{ color: transactionKind === "expense" ? "var(--app-danger)" : transactionKind === "income" ? "var(--app-success)" : "var(--app-accent)" }}
+                  style={{
+                    color:
+                      transactionKind === "expense" ||
+                      (transactionKind === "transfer" && transferDirection === "out")
+                        ? "var(--app-danger)"
+                        : transactionKind === "income" ||
+                            (transactionKind === "transfer" && transferDirection === "in")
+                          ? "var(--app-success)"
+                          : "var(--app-accent)",
+                  }}
                 >
                   {editorMode === "create"
                     ? transactionKind === "expense"
                       ? "−"
                       : transactionKind === "income"
                         ? "+"
-                        : "±"
+                        : transferDirection === "out"
+                          ? "−"
+                          : "+"
                     : ""}
                 </span>
                 <input
