@@ -5,6 +5,7 @@ export type AccountCreate = components["schemas"]["AccountCreate"];
 export type AccountUpdate = components["schemas"]["AccountUpdate"];
 
 export type AuthLoginRequest = components["schemas"]["AuthLoginRequest"];
+export type AuthChangePasswordRequest = components["schemas"]["AuthChangePasswordRequest"];
 export type AuthProvidersRead = components["schemas"]["AuthProvidersRead"];
 export type AuthRegisterRequest = components["schemas"]["AuthRegisterRequest"];
 export type User = components["schemas"]["AuthUserRead"];

@@ -7,7 +7,13 @@ from app.api.deps import CurrentUserId, DBSession
 from app.core.config import settings
 from app.repositories.user_credential_repository import UserCredentialRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import AuthLoginRequest, AuthProvidersRead, AuthRegisterRequest, AuthUserRead
+from app.schemas.auth import (
+    AuthChangePasswordRequest,
+    AuthLoginRequest,
+    AuthProvidersRead,
+    AuthRegisterRequest,
+    AuthUserRead,
+)
 from app.services.auth_service import AuthService
 from app.services.entra_auth_service import EntraAuthService
 from app.services.google_auth_service import GoogleAuthService
@@ -59,6 +65,16 @@ def logout(service: AuthServiceDep) -> Response:
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     service.logout(response=response)
     return response
+
+
+@router.post("/change-password", status_code=status.HTTP_204_NO_CONTENT)
+def change_password(
+    payload: AuthChangePasswordRequest,
+    user_id: CurrentUserId,
+    service: AuthServiceDep,
+) -> Response:
+    service.change_password(user_id=user_id, payload=payload)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me", response_model=AuthUserRead)

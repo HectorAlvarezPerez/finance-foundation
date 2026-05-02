@@ -89,6 +89,7 @@ export type {
   AccountCreate,
   AccountType,
   AccountUpdate,
+  AuthChangePasswordRequest,
   AuthLoginRequest,
   AuthProvidersRead,
   AuthRegisterRequest,

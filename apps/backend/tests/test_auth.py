@@ -162,6 +162,79 @@ def test_login_rejects_invalid_credentials(client) -> None:
     assert login.json()["detail"] == "Invalid email or password"
 
 
+def test_authenticated_user_can_change_password(client) -> None:
+    register = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "change-password@example.com",
+            "name": "Change Password",
+            "password": "oldsecret123",
+        },
+    )
+    assert register.status_code == 201
+
+    change_password = client.post(
+        "/api/v1/auth/change-password",
+        json={
+            "current_password": "oldsecret123",
+            "new_password": "newsecret456",
+        },
+    )
+    assert change_password.status_code == 204
+
+    client.post("/api/v1/auth/logout")
+
+    old_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "change-password@example.com",
+            "password": "oldsecret123",
+        },
+    )
+    assert old_login.status_code == 401
+
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "change-password@example.com",
+            "password": "newsecret456",
+        },
+    )
+    assert new_login.status_code == 200
+
+
+def test_change_password_rejects_wrong_current_password(client) -> None:
+    register = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "wrong-current@example.com",
+            "name": "Wrong Current",
+            "password": "oldsecret123",
+        },
+    )
+    assert register.status_code == 201
+
+    change_password = client.post(
+        "/api/v1/auth/change-password",
+        json={
+            "current_password": "notoldsecret",
+            "new_password": "newsecret456",
+        },
+    )
+    assert change_password.status_code == 401
+    assert change_password.json()["detail"] == "Current password is incorrect"
+
+    client.post("/api/v1/auth/logout")
+    login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "wrong-current@example.com",
+            "password": "oldsecret123",
+        },
+    )
+    assert login.status_code == 200
+
+
 def test_delete_current_account_removes_session_and_user(client) -> None:
     register = client.post(
         "/api/v1/auth/register",

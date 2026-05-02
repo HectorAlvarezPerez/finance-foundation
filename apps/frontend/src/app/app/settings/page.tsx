@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Clock3, Globe2, MoonStar, Wallet } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, Globe2, KeyRound, MoonStar, Wallet } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -11,7 +11,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useTheme } from "@/components/theme-provider";
 import { apiRequest } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { Settings } from "@/lib/types";
+import type { AuthChangePasswordRequest, Settings } from "@/lib/types";
 
 type SettingsForm = {
   default_currency: string;
@@ -25,6 +25,17 @@ type SettingsResponse = Settings & {
 };
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+type PasswordForm = {
+  currentPassword: string;
+  newPassword: string;
+  confirmPassword: string;
+};
+
+const EMPTY_PASSWORD_FORM: PasswordForm = {
+  currentPassword: "",
+  newPassword: "",
+  confirmPassword: "",
+};
 
 const DEFAULT_FORM: SettingsForm = {
   default_currency: "EUR",
@@ -45,6 +56,10 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [form, setForm] = useState<SettingsForm>(DEFAULT_FORM);
+  const [passwordForm, setPasswordForm] = useState<PasswordForm>(EMPTY_PASSWORD_FORM);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const hasLoadedRef = useRef(false);
@@ -158,6 +173,43 @@ export default function SettingsPage() {
       setError(requestError instanceof Error ? requestError.message : "No se pudo eliminar la cuenta");
     } finally {
       setConfirmDelete(false);
+    }
+  }
+
+  async function handleChangePassword(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setPasswordError(null);
+    setPasswordSuccess(null);
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPasswordError("La nueva contraseña no coincide con la confirmación.");
+      return;
+    }
+
+    if (passwordForm.currentPassword === passwordForm.newPassword) {
+      setPasswordError("La nueva contraseña debe ser distinta de la actual.");
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const payload: AuthChangePasswordRequest = {
+        current_password: passwordForm.currentPassword,
+        new_password: passwordForm.newPassword,
+      };
+      await apiRequest<void>("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify(payload),
+        skipJson: true,
+      });
+      setPasswordForm(EMPTY_PASSWORD_FORM);
+      setPasswordSuccess("Contraseña actualizada.");
+    } catch (requestError) {
+      setPasswordError(
+        requestError instanceof Error ? requestError.message : "No se pudo cambiar la contraseña",
+      );
+    } finally {
+      setIsChangingPassword(false);
     }
   }
 
@@ -318,6 +370,98 @@ export default function SettingsPage() {
             <CardContent className="space-y-3">
               <InfoRow label="Nombre" value={user?.name ?? "Sin nombre"} />
               <InfoRow label="Email" value={user?.email ?? "Sin email"} />
+            </CardContent>
+          </Card>
+
+          <Card className="animate-slideUp stagger-4">
+            <CardHeader>
+              <CardTitle>Contraseña</CardTitle>
+              <CardDescription>Actualiza tu acceso manteniendo la sesión actual.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form className="space-y-4" onSubmit={handleChangePassword}>
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Contraseña actual</span>
+                  <input
+                    required
+                    type="password"
+                    minLength={8}
+                    maxLength={128}
+                    autoComplete="current-password"
+                    value={passwordForm.currentPassword}
+                    onChange={(event) =>
+                      setPasswordForm((current) => ({
+                        ...current,
+                        currentPassword: event.target.value,
+                      }))
+                    }
+                    className={inputClasses}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Nueva contraseña</span>
+                  <input
+                    required
+                    type="password"
+                    minLength={8}
+                    maxLength={128}
+                    autoComplete="new-password"
+                    value={passwordForm.newPassword}
+                    onChange={(event) =>
+                      setPasswordForm((current) => ({
+                        ...current,
+                        newPassword: event.target.value,
+                      }))
+                    }
+                    className={inputClasses}
+                  />
+                </label>
+
+                <label className="grid gap-2">
+                  <span className="text-sm font-medium">Confirmar contraseña</span>
+                  <input
+                    required
+                    type="password"
+                    minLength={8}
+                    maxLength={128}
+                    autoComplete="new-password"
+                    value={passwordForm.confirmPassword}
+                    onChange={(event) =>
+                      setPasswordForm((current) => ({
+                        ...current,
+                        confirmPassword: event.target.value,
+                      }))
+                    }
+                    className={inputClasses}
+                  />
+                </label>
+
+                {passwordError ? (
+                  <div className="rounded-xl bg-[var(--app-danger-soft)] px-4 py-3 text-sm text-[var(--app-danger)]">
+                    {passwordError}
+                  </div>
+                ) : null}
+
+                {passwordSuccess ? (
+                  <div className="rounded-xl bg-[var(--app-success-soft)] px-4 py-3 text-sm text-[var(--app-success)]">
+                    {passwordSuccess}
+                  </div>
+                ) : null}
+
+                <button
+                  type="submit"
+                  disabled={isChangingPassword}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+                >
+                  {isChangingPassword ? (
+                    <Clock3 className="h-4 w-4" />
+                  ) : (
+                    <KeyRound className="h-4 w-4" />
+                  )}
+                  {isChangingPassword ? "Actualizando..." : "Cambiar contraseña"}
+                </button>
+              </form>
             </CardContent>
           </Card>
 

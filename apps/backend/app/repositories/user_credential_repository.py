@@ -20,3 +20,15 @@ class UserCredentialRepository:
         self.db.flush()
         self.db.refresh(credential)
         return credential
+
+    def update_password_hash(
+        self,
+        credential: UserCredential,
+        *,
+        password_hash: str,
+    ) -> UserCredential:
+        credential.password_hash = password_hash
+        self.db.add(credential)
+        self.db.flush()
+        self.db.refresh(credential)
+        return credential

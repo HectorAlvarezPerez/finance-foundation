@@ -21,6 +21,30 @@ test.describe("Auth flows", () => {
     await expect(page.getByRole("heading", { name: "Resumen general" })).toBeVisible();
   });
 
+  test("permite cambiar la contraseña desde ajustes", async ({ page }) => {
+    const suffix = Date.now().toString();
+    const { email } = await registerUser(page, `password-${suffix}`);
+
+    await page.goto("/app/settings");
+    await expect(page.getByRole("heading", { name: "Preferencias" })).toBeVisible();
+
+    await page.getByLabel("Contraseña actual").fill("Playwright123");
+    await page.getByLabel("Nueva contraseña").fill("Playwright456");
+    await page.getByLabel("Confirmar contraseña").fill("Playwright456");
+    await page.getByRole("button", { name: "Cambiar contraseña" }).click();
+    await expect(page.getByText("Contraseña actualizada.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Cerrar sesión" }).click();
+    await page.waitForURL("**/login*", { timeout: 15000 });
+
+    await page.getByLabel("Email").fill(email);
+    await page.getByPlaceholder("••••••••").fill("Playwright456");
+    await page.getByRole("button", { name: "Entrar" }).click();
+
+    await page.waitForURL("**/app", { timeout: 15000 });
+    await expect(page.getByRole("heading", { name: "Resumen general" })).toBeVisible();
+  });
+
   test("permite eliminar la cuenta desde ajustes", async ({ page }) => {
     await registerUser(page, `delete-${Date.now()}`);
 

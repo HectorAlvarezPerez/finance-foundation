@@ -17,6 +17,11 @@ class AuthLoginRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class AuthChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=8, max_length=128)
+    new_password: str = Field(min_length=8, max_length=128)
+
+
 class AuthUserRead(ORMBaseModel):
     id: uuid.UUID
     email: EmailStr

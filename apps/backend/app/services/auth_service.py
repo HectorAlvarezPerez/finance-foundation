@@ -8,7 +8,7 @@ from app.core.security import create_session_token, hash_password, verify_passwo
 from app.models.user import User
 from app.repositories.user_credential_repository import UserCredentialRepository
 from app.repositories.user_repository import UserRepository
-from app.schemas.auth import AuthLoginRequest, AuthRegisterRequest
+from app.schemas.auth import AuthChangePasswordRequest, AuthLoginRequest, AuthRegisterRequest
 
 
 class AuthService:
@@ -77,6 +77,26 @@ class AuthService:
         self.user_repository.delete(user=user)
         self.db.commit()
         self.logout(response=response)
+
+    def change_password(self, *, user_id: uuid.UUID, payload: AuthChangePasswordRequest) -> None:
+        credential = self.credential_repository.get_for_user(user_id=user_id)
+        if credential is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Password login is not available for this account",
+            )
+
+        if not verify_password(payload.current_password, credential.password_hash):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Current password is incorrect",
+            )
+
+        self.credential_repository.update_password_hash(
+            credential,
+            password_hash=hash_password(payload.new_password),
+        )
+        self.db.commit()
 
     def upsert_external_user(
         self,

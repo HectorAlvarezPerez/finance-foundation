@@ -5,6 +5,7 @@ export type {
   AccountType,
   AccountUpdate,
   AuthLoginRequest,
+  AuthChangePasswordRequest,
   AuthProvidersRead,
   AuthRegisterRequest,
   Budget,
