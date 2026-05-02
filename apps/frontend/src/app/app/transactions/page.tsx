@@ -1092,15 +1092,40 @@ function TransactionsContent() {
                 className={inputClasses}
               />
               {editorMode === "create" && transactionKind === "transfer" ? (
-                <select
+                <div
+                  role="group"
                   aria-label="Dirección de la transferencia"
-                  value={transferDirection}
-                  onChange={(event) => setTransferDirection(event.target.value as TransferDirection)}
-                  className={inputClasses}
+                  className="grid h-[46px] grid-cols-2 overflow-hidden rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)]"
                 >
-                  <option value="out">Salida</option>
-                  <option value="in">Entrada</option>
-                </select>
+                  <button
+                    type="button"
+                    aria-label="Transferencia de salida"
+                    aria-pressed={transferDirection === "out"}
+                    onClick={() => setTransferDirection("out")}
+                    className={`flex items-center justify-center text-lg font-bold transition-all ${
+                      transferDirection === "out"
+                        ? "bg-[var(--app-danger-soft)] text-[var(--app-danger)]"
+                        : "text-[var(--app-muted)] hover:bg-[var(--app-danger-soft)] hover:text-[var(--app-danger)]"
+                    }`}
+                    title="Salida"
+                  >
+                    −
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Transferencia de entrada"
+                    aria-pressed={transferDirection === "in"}
+                    onClick={() => setTransferDirection("in")}
+                    className={`flex items-center justify-center border-l border-[var(--app-border)] text-lg font-bold transition-all ${
+                      transferDirection === "in"
+                        ? "bg-[var(--app-success-soft)] text-[var(--app-success)]"
+                        : "text-[var(--app-muted)] hover:bg-[var(--app-success-soft)] hover:text-[var(--app-success)]"
+                    }`}
+                    title="Entrada"
+                  >
+                    +
+                  </button>
+                </div>
               ) : null}
               {/* Amount: user enters a positive value; sign is applied from kind/direction on submit */}
               <div className="relative">

@@ -319,7 +319,7 @@ test.describe("CRUD principal", () => {
       await page.getByLabel("Seleccionar tipo de transacción").click();
       await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Transferencia" }).click();
       await page.getByLabel("Cuenta de la transacción").selectOption(accountId);
-      await page.getByLabel("Dirección de la transferencia").selectOption("out");
+      await page.getByLabel("Transferencia de salida").click();
       await page.getByLabel("Importe de la transacción").fill("15.00");
       await page.getByLabel("Descripción de la transacción").fill(transactionName);
       await page.getByRole("button", { name: "Crear transacción" }).click();
