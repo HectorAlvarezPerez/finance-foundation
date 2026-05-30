@@ -51,6 +51,19 @@ def test_get_insights_summary(client, user_id) -> None:
     assert salary_response.status_code == 201
     salary_id = salary_response.json()["id"]
 
+    transfer_response = client.post(
+        "/api/v1/categories",
+        headers={"X-User-Id": str(user_id)},
+        json={
+            "name": "Traspasos",
+            "type": "transfer",
+            "color": "#6366f1",
+            "icon": "arrow-left-right",
+        },
+    )
+    assert transfer_response.status_code == 201
+    transfer_id = transfer_response.json()["id"]
+
     transactions = [
         {
             "account_id": checking_id,
@@ -76,6 +89,22 @@ def test_get_insights_summary(client, user_id) -> None:
             "currency": "EUR",
             "description": "Traspaso ahorro",
         },
+        {
+            "account_id": checking_id,
+            "category_id": transfer_id,
+            "date": "2026-03-10",
+            "amount": "-200.00",
+            "currency": "EUR",
+            "description": "Traspaso a ahorro (salida)",
+        },
+        {
+            "account_id": savings_id,
+            "category_id": transfer_id,
+            "date": "2026-03-10",
+            "amount": "200.00",
+            "currency": "EUR",
+            "description": "Traspaso a ahorro (entrada)",
+        },
     ]
 
     for payload in transactions:
@@ -93,17 +122,22 @@ def test_get_insights_summary(client, user_id) -> None:
 
     assert summary_response.status_code == 200
     payload = summary_response.json()
+    # Transfers (categoría tipo "transfer") mueven dinero entre cuentas propias:
+    # afectan al saldo pero NO deben contar como ingreso ni como gasto.
     assert payload["income"] == "2100.00"
     assert payload["expenses"] == "45.00"
     assert payload["balance"] == "2055.00"
-    assert payload["transaction_count"] == 3
+    assert payload["transaction_count"] == 5
 
     assert payload["top_categories"][0]["name"] == "Comida"
     assert payload["top_categories"][0]["total"] == "45.00"
+    category_names = {item["name"] for item in payload["top_categories"]}
+    assert "Traspasos" not in category_names
 
     assert payload["monthly_comparison"][0]["month_key"] == "2026-02"
     assert payload["monthly_comparison"][0]["income"] == "100.00"
     assert payload["monthly_comparison"][1]["month_key"] == "2026-03"
+    assert payload["monthly_comparison"][1]["income"] == "2000.00"
     assert payload["monthly_comparison"][1]["expenses"] == "45.00"
 
     account_names = [item["name"] for item in payload["account_balances"]]

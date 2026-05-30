@@ -6,6 +6,7 @@ from decimal import Decimal
 
 from app.models.account import Account
 from app.models.category import Category
+from app.models.enums import CategoryType
 from app.models.transaction import Transaction
 from app.repositories.account_repository import AccountRepository
 from app.repositories.category_repository import CategoryRepository
@@ -91,12 +92,12 @@ class InsightsService:
             balance += amount
             balance_by_account[transaction.account_id] += amount
 
-            if amount >= 0:
-                income += amount
-            else:
-                expense_amount = abs(amount)
-                expenses += expense_amount
-                expense_by_category[transaction.category_id] += expense_amount
+            category = (
+                category_map.get(transaction.category_id)
+                if transaction.category_id is not None
+                else None
+            )
+            is_transfer = category is not None and category.type == CategoryType.TRANSFER
 
             month_key = transaction.date.strftime("%Y-%m")
             bucket = monthly_buckets.get(month_key)
@@ -110,13 +111,24 @@ class InsightsService:
                     transactions=0,
                 )
                 monthly_buckets[month_key] = bucket
-
-            bucket.net += amount
             bucket.transactions += 1
+
+            # Transfers move money between the user's own accounts: they still
+            # affect account balances, but they are not income or expenses and
+            # must not leak into cash-flow totals (ingresos vs gastos).
+            if is_transfer:
+                continue
+
             if amount >= 0:
+                income += amount
                 bucket.income += amount
             else:
-                bucket.expenses += abs(amount)
+                expense_amount = abs(amount)
+                expenses += expense_amount
+                expense_by_category[transaction.category_id] += expense_amount
+                bucket.expenses += expense_amount
+
+            bucket.net += amount
 
         top_categories = sorted(
             (
@@ -172,6 +184,9 @@ class InsightsService:
 
         for t in transactions:
             if t.amount < 0:
+                category = category_map.get(t.category_id) if t.category_id is not None else None
+                if category is not None and category.type == CategoryType.TRANSFER:
+                    continue
                 month_key = t.date.strftime("%Y-%m")
                 if month_key == current_month_key:
                     current_pacing[t.date.day] += abs(t.amount)
