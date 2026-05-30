@@ -5,7 +5,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Uuid
+from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, UniqueConstraint, Uuid
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -18,6 +18,15 @@ if TYPE_CHECKING:
 
 class Price(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "prices"
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id",
+            "asset_symbol",
+            "source",
+            "as_of",
+            name="uq_prices_user_symbol_source_as_of",
+        ),
+    )
 
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         Uuid,
