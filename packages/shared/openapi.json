@@ -566,6 +566,10 @@
           "period_type": {
             "$ref": "#/components/schemas/BudgetPeriodType"
           },
+          "position": {
+            "title": "Position",
+            "type": "integer"
+          },
           "updated_at": {
             "format": "date-time",
             "title": "Updated At",
@@ -578,10 +582,29 @@
           "period_type",
           "currency",
           "amount",
+          "position",
           "created_at",
           "updated_at"
         ],
         "title": "BudgetRead",
+        "type": "object"
+      },
+      "BudgetReorderRequest": {
+        "properties": {
+          "budget_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Budget Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "budget_ids"
+        ],
+        "title": "BudgetReorderRequest",
         "type": "object"
       },
       "BudgetUpdate": {
@@ -3373,11 +3396,12 @@
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "created_at",
+              "default": "position",
               "enum": [
                 "amount",
                 "created_at",
-                "period_type"
+                "period_type",
+                "position"
               ],
               "title": "Sort By",
               "type": "string"
@@ -3388,7 +3412,7 @@
             "name": "sort_order",
             "required": false,
             "schema": {
-              "default": "desc",
+              "default": "asc",
               "enum": [
                 "asc",
                 "desc"
@@ -3601,6 +3625,74 @@
           }
         },
         "summary": "Batch Delete Budgets",
+        "tags": [
+          "budgets"
+        ]
+      }
+    },
+    "/api/v1/budgets/reorder": {
+      "post": {
+        "operationId": "reorder_budgets_api_v1_budgets_reorder_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetReorderRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Reorder Budgets",
         "tags": [
           "budgets"
         ]

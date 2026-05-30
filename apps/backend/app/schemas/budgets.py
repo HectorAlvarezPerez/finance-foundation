@@ -32,6 +32,7 @@ class BudgetRead(ORMBaseModel):
     period_type: BudgetPeriodType
     currency: str
     amount: Decimal
+    position: int
     created_at: datetime
     updated_at: datetime
 
@@ -46,6 +47,10 @@ class BudgetListResponse(BaseModel):
 
 
 class BudgetBatchDeleteRequest(BaseModel):
+    budget_ids: list[uuid.UUID] = Field(min_length=1)
+
+
+class BudgetReorderRequest(BaseModel):
     budget_ids: list[uuid.UUID] = Field(min_length=1)
 
 

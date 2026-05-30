@@ -2,6 +2,7 @@ import uuid
 
 from sqlalchemy import Select, func, select
 from sqlalchemy import delete as sa_delete
+from sqlalchemy import update as sa_update
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
@@ -11,6 +12,7 @@ SORT_MAP = {
     "amount": Budget.amount,
     "created_at": Budget.created_at,
     "period_type": Budget.period_type,
+    "position": Budget.position,
 }
 
 
@@ -26,8 +28,8 @@ class BudgetRepository:
         offset: int,
         period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
-        sort_by: str = "created_at",
-        sort_order: str = "desc",
+        sort_by: str = "position",
+        sort_order: str = "asc",
     ) -> tuple[list[Budget], int]:
         statement: Select[tuple[Budget]] = select(Budget).where(Budget.user_id == user_id)
         count_statement = select(func.count()).select_from(Budget).where(Budget.user_id == user_id)
@@ -40,7 +42,7 @@ class BudgetRepository:
             statement = statement.where(Budget.category_id == category_id)
             count_statement = count_statement.where(Budget.category_id == category_id)
 
-        sort_column = SORT_MAP.get(sort_by, Budget.created_at)
+        sort_column = SORT_MAP.get(sort_by, Budget.position)
         statement = statement.order_by(
             sort_column.asc() if sort_order == "asc" else sort_column.desc()
         )
@@ -60,8 +62,8 @@ class BudgetRepository:
         user_id: uuid.UUID,
         period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
-        sort_by: str = "created_at",
-        sort_order: str = "desc",
+        sort_by: str = "position",
+        sort_order: str = "asc",
     ) -> list[Budget]:
         statement: Select[tuple[Budget]] = select(Budget).where(Budget.user_id == user_id)
 
@@ -71,7 +73,7 @@ class BudgetRepository:
         if category_id is not None:
             statement = statement.where(Budget.category_id == category_id)
 
-        sort_column = SORT_MAP.get(sort_by, Budget.created_at)
+        sort_column = SORT_MAP.get(sort_by, Budget.position)
         statement = statement.order_by(
             sort_column.asc() if sort_order == "asc" else sort_column.desc()
         )
@@ -127,3 +129,12 @@ class BudgetRepository:
         )
         self.db.flush()
         return count
+
+    def set_positions(self, *, user_id: uuid.UUID, ordered_ids: list[uuid.UUID]) -> None:
+        for index, budget_id in enumerate(ordered_ids):
+            self.db.execute(
+                sa_update(Budget)
+                .where(Budget.user_id == user_id, Budget.id == budget_id)
+                .values(position=index)
+            )
+        self.db.flush()

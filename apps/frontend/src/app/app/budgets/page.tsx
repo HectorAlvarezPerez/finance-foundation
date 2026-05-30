@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { MoreVertical, Pencil, PiggyBank, Plus, Receipt, Trash2 } from "lucide-react";
+import { GripVertical, MoreVertical, Pencil, PiggyBank, Plus, Receipt, Trash2 } from "lucide-react";
 
 import { AmountValue } from "@/components/amount-value";
 import { CategoryBadge } from "@/components/category-badge";
@@ -37,6 +37,7 @@ type BudgetCard = {
   period_type: "monthly" | "annual";
   currency: string;
   amount: string;
+  position: number;
   amountNumber: number;
   spent: number;
   remaining: number;
@@ -71,6 +72,7 @@ export default function BudgetsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [breakdownBudget, setBreakdownBudget] = useState<BudgetCard | null>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
@@ -95,7 +97,7 @@ export default function BudgetsPage() {
   async function loadAll(year: string) {
     try {
       const [budgetsResponse, categoriesResponse, transactionsResponse] = await Promise.all([
-        apiRequest<PaginatedResponse<Budget>>("/budgets?limit=100&sort_by=amount&sort_order=desc"),
+        apiRequest<PaginatedResponse<Budget>>("/budgets?limit=100&sort_by=position&sort_order=asc"),
         apiRequest<PaginatedResponse<Category>>("/categories?limit=100&category_type=expense&sort_by=name&sort_order=asc"),
         apiRequest<PaginatedResponse<Transaction>>(
           `/transactions?limit=100&category_type=expense&date_from=${year}-01-01&date_to=${year}-12-31&sort_by=date&sort_order=desc`,
@@ -174,10 +176,7 @@ export default function BudgetsPage() {
 
         return { ...budget, amountNumber: amount, spent, remaining, usagePercent, statusLabel, tone, category };
       })
-      .sort((left, right) => {
-        if (left.period_type !== right.period_type) return left.period_type === "annual" ? -1 : 1;
-        return (left.category?.name ?? "").localeCompare(right.category?.name ?? "", "es");
-      });
+      .sort((left, right) => left.position - right.position);
   }, [budgets, categoryMap, spentByCategory, periodFilter]);
 
   const summary = useMemo(() => {
@@ -313,6 +312,34 @@ export default function BudgetsPage() {
       setError(
         requestError instanceof Error ? requestError.message : "No se pudieron eliminar los presupuestos",
       );
+    }
+  }
+
+  async function handleReorderDrop(targetId: string) {
+    const sourceId = draggingId;
+    setDraggingId(null);
+    if (!sourceId || sourceId === targetId) {
+      return;
+    }
+    const reordered = [...budgets];
+    const fromIndex = reordered.findIndex((budget) => budget.id === sourceId);
+    const toIndex = reordered.findIndex((budget) => budget.id === targetId);
+    if (fromIndex < 0 || toIndex < 0) {
+      return;
+    }
+    const [moved] = reordered.splice(fromIndex, 1);
+    reordered.splice(toIndex, 0, moved);
+    setBudgets(reordered.map((budget, index) => ({ ...budget, position: index })));
+
+    try {
+      await apiRequest<void>("/budgets/reorder", {
+        method: "POST",
+        body: JSON.stringify({ budget_ids: reordered.map((budget) => budget.id) }),
+        skipJson: true,
+      });
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo reordenar");
+      await loadAll(selectedYear);
     }
   }
 
@@ -559,6 +586,9 @@ export default function BudgetsPage() {
                       budget={budget}
                       index={index}
                       selected={selectedIds.has(budget.id)}
+                      isDragging={draggingId === budget.id}
+                      onDragStartCard={() => setDraggingId(budget.id)}
+                      onDropCard={() => void handleReorderDrop(budget.id)}
                       onToggleSelect={() => toggleSelect(budget.id)}
                       onEdit={() => openEditDialog(budget)}
                       onBreakdown={() => setBreakdownBudget(budget)}
@@ -629,6 +659,9 @@ function BudgetStatusCard({
   budget,
   index,
   selected,
+  isDragging,
+  onDragStartCard,
+  onDropCard,
   onToggleSelect,
   onEdit,
   onBreakdown,
@@ -637,6 +670,9 @@ function BudgetStatusCard({
   budget: BudgetCard;
   index: number;
   selected: boolean;
+  isDragging: boolean;
+  onDragStartCard: () => void;
+  onDropCard: () => void;
   onToggleSelect: () => void;
   onEdit: () => void;
   onBreakdown: () => void;
@@ -675,7 +711,11 @@ function BudgetStatusCard({
 
   return (
     <div
-      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-hidden rounded-2xl border bg-[var(--app-panel)] transition-shadow hover:shadow-[var(--app-shadow-elevated)] hover:z-10 ${selected ? "border-[var(--app-accent)] ring-2 ring-[var(--app-accent)]" : "border-[var(--app-border)]"}`}
+      draggable
+      onDragStart={onDragStartCard}
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={onDropCard}
+      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative cursor-grab overflow-hidden rounded-2xl border bg-[var(--app-panel)] transition-shadow hover:shadow-[var(--app-shadow-elevated)] hover:z-10 active:cursor-grabbing ${selected ? "border-[var(--app-accent)] ring-2 ring-[var(--app-accent)]" : "border-[var(--app-border)]"} ${isDragging ? "opacity-50" : ""}`}
     >
       {/* Colored gradient top band */}
       <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${gradientClass} pointer-events-none`} />
@@ -684,6 +724,7 @@ function BudgetStatusCard({
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="flex items-start gap-2.5">
+            <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-[var(--app-muted)]" aria-hidden="true" />
             <input
               type="checkbox"
               checked={selected}

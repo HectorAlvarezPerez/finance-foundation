@@ -230,6 +230,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budgets/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reorder Budgets */
+        post: operations["reorder_budgets_api_v1_budgets_reorder_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/budgets/{budget_id}": {
         parameters: {
             query?: never;
@@ -699,11 +716,18 @@ export interface components {
              */
             id: string;
             period_type: components["schemas"]["BudgetPeriodType"];
+            /** Position */
+            position: number;
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
+        };
+        /** BudgetReorderRequest */
+        BudgetReorderRequest: {
+            /** Budget Ids */
+            budget_ids: string[];
         };
         /** BudgetUpdate */
         BudgetUpdate: {
@@ -1776,7 +1800,7 @@ export interface operations {
                 offset?: number;
                 period_type?: components["schemas"]["BudgetPeriodType"] | null;
                 category_id?: string | null;
-                sort_by?: "amount" | "created_at" | "period_type";
+                sort_by?: "amount" | "created_at" | "period_type" | "position";
                 sort_order?: "asc" | "desc";
             };
             header?: {
@@ -1871,6 +1895,41 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["BudgetBatchDeleteResponse"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    reorder_budgets_api_v1_budgets_reorder_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetReorderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

@@ -120,6 +120,17 @@ class BudgetService:
         self.db.commit()
         return deleted_count
 
+    def reorder_budgets(self, *, user_id: uuid.UUID, budget_ids: list[uuid.UUID]) -> None:
+        owned = {budget.id for budget in self.repository.list_all_for_user(user_id=user_id)}
+        unknown = [budget_id for budget_id in budget_ids if budget_id not in owned]
+        if unknown:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="One or more budgets do not exist for the current user",
+            )
+        self.repository.set_positions(user_id=user_id, ordered_ids=budget_ids)
+        self.db.commit()
+
     def _require_category(self, *, user_id: uuid.UUID, category_id: uuid.UUID) -> None:
         category = self.category_repository.get_for_user(user_id=user_id, category_id=category_id)
         if category is None:

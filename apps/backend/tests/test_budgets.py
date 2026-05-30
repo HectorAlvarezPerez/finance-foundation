@@ -190,6 +190,39 @@ def test_batch_delete_budgets(client, user_id) -> None:
     assert remaining.json()["items"][0]["id"] == ids[2]
 
 
+def test_reorder_budgets(client, user_id) -> None:
+    ids: list[str] = []
+    for name in ("Alpha", "Beta", "Gamma"):
+        category_id = _create_category(client, user_id, name)
+        created = client.post(
+            "/api/v1/budgets",
+            headers={"X-User-Id": str(user_id)},
+            json={
+                "category_id": category_id,
+                "period_type": "monthly",
+                "currency": "EUR",
+                "amount": "10.00",
+            },
+        )
+        assert created.status_code == 201
+        ids.append(created.json()["id"])
+
+    new_order = [ids[2], ids[0], ids[1]]
+    response = client.post(
+        "/api/v1/budgets/reorder",
+        headers={"X-User-Id": str(user_id)},
+        json={"budget_ids": new_order},
+    )
+    assert response.status_code == 204
+
+    listed = client.get(
+        "/api/v1/budgets?sort_by=position&sort_order=asc",
+        headers={"X-User-Id": str(user_id)},
+    )
+    assert [item["id"] for item in listed.json()["items"]] == new_order
+    assert [item["position"] for item in listed.json()["items"]] == [0, 1, 2]
+
+
 def test_update_budget_amount(client, user_id) -> None:
     category_id = _create_category(client, user_id, "Cafe")
 

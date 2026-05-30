@@ -13,6 +13,7 @@ from app.schemas.budgets import (
     BudgetCreate,
     BudgetListResponse,
     BudgetRead,
+    BudgetReorderRequest,
     BudgetUpdate,
 )
 from app.services.budget_service import BudgetService
@@ -35,8 +36,8 @@ def list_budgets(
     offset: int = Query(default=0, ge=0),
     period_type: BudgetPeriodType | None = None,
     category_id: uuid.UUID | None = None,
-    sort_by: Literal["amount", "created_at", "period_type"] = "created_at",
-    sort_order: Literal["asc", "desc"] = "desc",
+    sort_by: Literal["amount", "created_at", "period_type", "position"] = "position",
+    sort_order: Literal["asc", "desc"] = "asc",
 ) -> BudgetListResponse:
     return service.list_budgets(
         user_id=user_id,
@@ -67,6 +68,16 @@ def batch_delete_budgets(
 ) -> BudgetBatchDeleteResponse:
     deleted_count = service.delete_budgets(user_id=user_id, budget_ids=payload.budget_ids)
     return BudgetBatchDeleteResponse(deleted_count=deleted_count)
+
+
+@router.post("/reorder", status_code=status.HTTP_204_NO_CONTENT)
+def reorder_budgets(
+    payload: BudgetReorderRequest,
+    user_id: CurrentUserId,
+    service: BudgetServiceDep,
+) -> Response:
+    service.reorder_budgets(user_id=user_id, budget_ids=payload.budget_ids)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{budget_id}", response_model=BudgetRead)
