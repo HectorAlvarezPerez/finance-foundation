@@ -5,10 +5,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from sqlalchemy import (
-    CheckConstraint,
     Enum,
     ForeignKey,
-    Integer,
     Numeric,
     String,
     UniqueConstraint,
@@ -31,18 +29,8 @@ class Budget(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UniqueConstraint(
             "user_id",
             "category_id",
-            "year",
             "period_type",
-            "month",
-            name="uq_budgets_user_category_year_period_month",
-        ),
-        CheckConstraint(
-            "("
-            "(period_type = 'monthly' AND month IS NOT NULL AND month >= 1 AND month <= 12) "
-            "OR "
-            "(period_type = 'annual' AND month IS NULL)"
-            ")",
-            name="budget_period_month_range",
+            name="uq_budgets_user_category_period",
         ),
     )
 
@@ -58,7 +46,6 @@ class Budget(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         index=True,
     )
-    year: Mapped[int] = mapped_column(Integer, nullable=False)
     period_type: Mapped[BudgetPeriodType] = mapped_column(
         Enum(
             BudgetPeriodType,
@@ -69,7 +56,6 @@ class Budget(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         nullable=False,
         default=BudgetPeriodType.MONTHLY,
     )
-    month: Mapped[int | None] = mapped_column(Integer, nullable=True)
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 

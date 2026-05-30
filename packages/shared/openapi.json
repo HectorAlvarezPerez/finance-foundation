@@ -429,78 +429,6 @@
         "title": "Body_preview_transaction_import_api_v1_transactions_import_preview_post",
         "type": "object"
       },
-      "BudgetBulkCreate": {
-        "properties": {
-          "amount": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,10}|(?=[\\d.]{1,13}0*$)\\d{0,10}\\.\\d{0,2}0*$)",
-                "type": "string"
-              }
-            ],
-            "title": "Amount"
-          },
-          "category_id": {
-            "format": "uuid",
-            "title": "Category Id",
-            "type": "string"
-          },
-          "currency": {
-            "maxLength": 3,
-            "minLength": 3,
-            "title": "Currency",
-            "type": "string"
-          },
-          "months": {
-            "items": {
-              "type": "integer"
-            },
-            "maxItems": 12,
-            "minItems": 1,
-            "title": "Months",
-            "type": "array"
-          },
-          "year": {
-            "maximum": 2100.0,
-            "minimum": 2000.0,
-            "title": "Year",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "category_id",
-          "year",
-          "months",
-          "currency",
-          "amount"
-        ],
-        "title": "BudgetBulkCreate",
-        "type": "object"
-      },
-      "BudgetBulkCreateResponse": {
-        "properties": {
-          "created_count": {
-            "title": "Created Count",
-            "type": "integer"
-          },
-          "items": {
-            "items": {
-              "$ref": "#/components/schemas/BudgetRead"
-            },
-            "title": "Items",
-            "type": "array"
-          }
-        },
-        "required": [
-          "items",
-          "created_count"
-        ],
-        "title": "BudgetBulkCreateResponse",
-        "type": "object"
-      },
       "BudgetCreate": {
         "properties": {
           "amount": {
@@ -526,33 +454,13 @@
             "title": "Currency",
             "type": "string"
           },
-          "month": {
-            "anyOf": [
-              {
-                "maximum": 12.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Month"
-          },
           "period_type": {
             "$ref": "#/components/schemas/BudgetPeriodType",
             "default": "monthly"
-          },
-          "year": {
-            "maximum": 2100.0,
-            "minimum": 2000.0,
-            "title": "Year",
-            "type": "integer"
           }
         },
         "required": [
           "category_id",
-          "year",
           "currency",
           "amount"
         ],
@@ -624,17 +532,6 @@
             "title": "Id",
             "type": "string"
           },
-          "month": {
-            "anyOf": [
-              {
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Month"
-          },
           "period_type": {
             "$ref": "#/components/schemas/BudgetPeriodType"
           },
@@ -642,18 +539,12 @@
             "format": "date-time",
             "title": "Updated At",
             "type": "string"
-          },
-          "year": {
-            "title": "Year",
-            "type": "integer"
           }
         },
         "required": [
           "id",
           "category_id",
-          "year",
           "period_type",
-          "month",
           "currency",
           "amount",
           "created_at",
@@ -704,19 +595,6 @@
             ],
             "title": "Currency"
           },
-          "month": {
-            "anyOf": [
-              {
-                "maximum": 12.0,
-                "minimum": 1.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Month"
-          },
           "period_type": {
             "anyOf": [
               {
@@ -726,19 +604,6 @@
                 "type": "null"
               }
             ]
-          },
-          "year": {
-            "anyOf": [
-              {
-                "maximum": 2100.0,
-                "minimum": 2000.0,
-                "type": "integer"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Year"
           }
         },
         "title": "BudgetUpdate",
@@ -3441,42 +3306,6 @@
           },
           {
             "in": "query",
-            "name": "year",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 2100,
-                  "minimum": 2000,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Year"
-            }
-          },
-          {
-            "in": "query",
-            "name": "month",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "maximum": 12,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Month"
-            }
-          },
-          {
-            "in": "query",
             "name": "period_type",
             "required": false,
             "schema": {
@@ -3513,13 +3342,11 @@
             "name": "sort_by",
             "required": false,
             "schema": {
-              "default": "year",
+              "default": "created_at",
               "enum": [
                 "amount",
                 "created_at",
-                "month",
-                "period_type",
-                "year"
+                "period_type"
               ],
               "title": "Sort By",
               "type": "string"
@@ -3668,81 +3495,6 @@
           }
         },
         "summary": "Create Budget",
-        "tags": [
-          "budgets"
-        ]
-      }
-    },
-    "/api/v1/budgets/bulk": {
-      "post": {
-        "operationId": "create_budgets_bulk_api_v1_budgets_bulk_post",
-        "parameters": [
-          {
-            "in": "header",
-            "name": "X-User-Id",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-User-Id"
-            }
-          },
-          {
-            "in": "cookie",
-            "name": "finance_foundation_session",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Finance Foundation Session"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/BudgetBulkCreate"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/BudgetBulkCreateResponse"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Create Budgets Bulk",
         "tags": [
           "budgets"
         ]

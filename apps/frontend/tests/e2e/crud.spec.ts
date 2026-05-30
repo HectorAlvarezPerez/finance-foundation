@@ -88,8 +88,7 @@ test.describe("CRUD principal", () => {
     await page.goto("/app/budgets");
     await page.getByRole("button", { name: "Nuevo presupuesto" }).click();
     await page.getByLabel("Categoría del presupuesto").selectOption({ label: categoryNameUpdated });
-    await page.getByLabel("Año del presupuesto").fill(new Date().getFullYear().toString());
-    await page.getByLabel("Mes del presupuesto").selectOption((new Date().getMonth() + 1).toString());
+    await page.getByLabel("Periodicidad del presupuesto").selectOption("monthly");
     await page.getByLabel("Divisa del presupuesto").fill("EUR");
     await page.getByLabel("Importe del presupuesto").fill("180");
     await page.getByRole("button", { name: "Crear presupuesto" }).click();

@@ -22,12 +22,8 @@ type DashboardState = {
   insights: InsightsSummary | null;
 };
 
-function getBudgetPeriodLabel(budget: Pick<Budget, "period_type" | "year" | "month">): string {
-  if (budget.period_type === "annual") {
-    return `Anual ${budget.year}`;
-  }
-
-  return formatMonthLabel(budget.year, budget.month ?? 1);
+function getBudgetPeriodLabel(budget: Pick<Budget, "period_type">): string {
+  return budget.period_type === "annual" ? "Anual" : "Mensual";
 }
 
 export default function DashboardPage() {
@@ -53,7 +49,7 @@ export default function DashboardPage() {
           apiRequest<PaginatedResponse<Account>>("/accounts?limit=100"),
           apiRequest<PaginatedResponse<Category>>("/categories?limit=100"),
           apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100&sort_by=date&sort_order=desc"),
-          apiRequest<PaginatedResponse<Budget>>(`/budgets?limit=100&year=${currentYear}&sort_by=amount&sort_order=desc`),
+          apiRequest<PaginatedResponse<Budget>>(`/budgets?limit=100&sort_by=amount&sort_order=desc`),
           apiRequest<InsightsSummary>("/insights/summary"),
         ]);
         setState({ accounts, categories, recentTransactions, budgets, insights });
@@ -71,11 +67,8 @@ export default function DashboardPage() {
   const categoryMap = new Map(state.categories?.items.map((category) => [category.id, category]) ?? []);
   const defaultCurrency = state.accounts?.items[0]?.currency ?? "EUR";
   const relevantBudgets = useMemo(
-    () =>
-      (state.budgets?.items ?? []).filter(
-        (budget) => budget.period_type === "annual" || budget.month === currentMonth,
-      ),
-    [currentMonth, state.budgets?.items],
+    () => state.budgets?.items ?? [],
+    [state.budgets?.items],
   );
 
   const totals = useMemo(() => {

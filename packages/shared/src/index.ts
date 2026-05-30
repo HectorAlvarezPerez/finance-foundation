@@ -8,8 +8,6 @@ export type {
   AuthProvidersRead,
   AuthRegisterRequest,
   Budget,
-  BudgetBulkCreate,
-  BudgetBulkCreateResponse,
   BudgetCreate,
   BudgetUpdate,
   Category,

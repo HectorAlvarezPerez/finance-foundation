@@ -8,8 +8,6 @@ from app.models.enums import BudgetPeriodType
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
 from app.schemas.budgets import (
-    BudgetBulkCreate,
-    BudgetBulkCreateResponse,
     BudgetCreate,
     BudgetListResponse,
     BudgetRead,
@@ -33,19 +31,15 @@ def list_budgets(
     service: BudgetServiceDep,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
-    year: int | None = Query(default=None, ge=2000, le=2100),
-    month: int | None = Query(default=None, ge=1, le=12),
     period_type: BudgetPeriodType | None = None,
     category_id: uuid.UUID | None = None,
-    sort_by: Literal["amount", "created_at", "month", "period_type", "year"] = "year",
+    sort_by: Literal["amount", "created_at", "period_type"] = "created_at",
     sort_order: Literal["asc", "desc"] = "desc",
 ) -> BudgetListResponse:
     return service.list_budgets(
         user_id=user_id,
         limit=limit,
         offset=offset,
-        year=year,
-        month=month,
         period_type=period_type,
         category_id=category_id,
         sort_by=sort_by,
@@ -61,15 +55,6 @@ def create_budget(
 ) -> BudgetRead:
     budget = service.create_budget(user_id=user_id, payload=payload)
     return BudgetRead.model_validate(budget)
-
-
-@router.post("/bulk", response_model=BudgetBulkCreateResponse, status_code=status.HTTP_201_CREATED)
-def create_budgets_bulk(
-    payload: BudgetBulkCreate,
-    user_id: CurrentUserId,
-    service: BudgetServiceDep,
-) -> BudgetBulkCreateResponse:
-    return service.create_budgets_bulk(user_id=user_id, payload=payload)
 
 
 @router.get("/{budget_id}", response_model=BudgetRead)

@@ -32,7 +32,7 @@ from app.llm.types import FlowHandle, ResolvedPrompt
 from app.models.account import Account
 from app.models.budget import Budget
 from app.models.category import Category
-from app.models.enums import AccountType, CategoryType
+from app.models.enums import AccountType, BudgetPeriodType, CategoryType
 from app.models.transaction import Transaction
 from app.models.user import User
 from app.repositories.account_repository import AccountRepository
@@ -769,8 +769,7 @@ def test_monthly_recap_service_records_cache_hit_flow() -> None:
         budget = Budget(
             user_id=user.id,
             category_id=category.id,
-            year=2026,
-            month=3,
+            period_type=BudgetPeriodType.MONTHLY,
             currency="EUR",
             amount=Decimal("200.00"),
         )

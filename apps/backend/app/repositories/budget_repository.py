@@ -6,6 +6,12 @@ from sqlalchemy.orm import Session
 from app.models.budget import Budget
 from app.models.enums import BudgetPeriodType
 
+SORT_MAP = {
+    "amount": Budget.amount,
+    "created_at": Budget.created_at,
+    "period_type": Budget.period_type,
+}
+
 
 class BudgetRepository:
     def __init__(self, db: Session) -> None:
@@ -17,23 +23,13 @@ class BudgetRepository:
         user_id: uuid.UUID,
         limit: int,
         offset: int,
-        year: int | None = None,
-        month: int | None = None,
         period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
-        sort_by: str = "year",
+        sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> tuple[list[Budget], int]:
         statement: Select[tuple[Budget]] = select(Budget).where(Budget.user_id == user_id)
         count_statement = select(func.count()).select_from(Budget).where(Budget.user_id == user_id)
-
-        if year is not None:
-            statement = statement.where(Budget.year == year)
-            count_statement = count_statement.where(Budget.year == year)
-
-        if month is not None:
-            statement = statement.where(Budget.month == month)
-            count_statement = count_statement.where(Budget.month == month)
 
         if period_type is not None:
             statement = statement.where(Budget.period_type == period_type)
@@ -43,14 +39,7 @@ class BudgetRepository:
             statement = statement.where(Budget.category_id == category_id)
             count_statement = count_statement.where(Budget.category_id == category_id)
 
-        sort_map = {
-            "amount": Budget.amount,
-            "created_at": Budget.created_at,
-            "month": Budget.month,
-            "period_type": Budget.period_type,
-            "year": Budget.year,
-        }
-        sort_column = sort_map.get(sort_by, Budget.year)
+        sort_column = SORT_MAP.get(sort_by, Budget.created_at)
         statement = statement.order_by(
             sort_column.asc() if sort_order == "asc" else sort_column.desc()
         )
@@ -68,20 +57,12 @@ class BudgetRepository:
         self,
         *,
         user_id: uuid.UUID,
-        year: int | None = None,
-        month: int | None = None,
         period_type: BudgetPeriodType | None = None,
         category_id: uuid.UUID | None = None,
-        sort_by: str = "year",
+        sort_by: str = "created_at",
         sort_order: str = "desc",
     ) -> list[Budget]:
         statement: Select[tuple[Budget]] = select(Budget).where(Budget.user_id == user_id)
-
-        if year is not None:
-            statement = statement.where(Budget.year == year)
-
-        if month is not None:
-            statement = statement.where(Budget.month == month)
 
         if period_type is not None:
             statement = statement.where(Budget.period_type == period_type)
@@ -89,14 +70,7 @@ class BudgetRepository:
         if category_id is not None:
             statement = statement.where(Budget.category_id == category_id)
 
-        sort_map = {
-            "amount": Budget.amount,
-            "created_at": Budget.created_at,
-            "month": Budget.month,
-            "period_type": Budget.period_type,
-            "year": Budget.year,
-        }
-        sort_column = sort_map.get(sort_by, Budget.year)
+        sort_column = SORT_MAP.get(sort_by, Budget.created_at)
         statement = statement.order_by(
             sort_column.asc() if sort_order == "asc" else sort_column.desc()
         )
@@ -107,38 +81,14 @@ class BudgetRepository:
         *,
         user_id: uuid.UUID,
         category_id: uuid.UUID,
-        year: int,
         period_type: BudgetPeriodType,
-        month: int | None,
     ) -> Budget | None:
         statement = select(Budget).where(
             Budget.user_id == user_id,
             Budget.category_id == category_id,
-            Budget.year == year,
             Budget.period_type == period_type,
-            Budget.month == month,
         )
         return self.db.scalar(statement)
-
-    def find_existing_months(
-        self,
-        *,
-        user_id: uuid.UUID,
-        category_id: uuid.UUID,
-        year: int,
-        months: list[int],
-    ) -> list[int]:
-        if not months:
-            return []
-
-        statement = select(Budget.month).where(
-            Budget.user_id == user_id,
-            Budget.category_id == category_id,
-            Budget.year == year,
-            Budget.period_type == BudgetPeriodType.MONTHLY,
-            Budget.month.in_(months),
-        )
-        return sorted(month for month in self.db.scalars(statement) if month is not None)
 
     def create(self, *, user_id: uuid.UUID, payload: dict[str, object]) -> Budget:
         budget = Budget(user_id=user_id, **payload)
@@ -146,18 +96,6 @@ class BudgetRepository:
         self.db.flush()
         self.db.refresh(budget)
         return budget
-
-    def create_many(self, *, user_id: uuid.UUID, payloads: list[dict[str, object]]) -> list[Budget]:
-        items: list[Budget] = []
-        for payload in payloads:
-            budget = Budget(user_id=user_id, **payload)
-            self.db.add(budget)
-            items.append(budget)
-
-        self.db.flush()
-        for budget in items:
-            self.db.refresh(budget)
-        return items
 
     def update(self, budget: Budget, *, payload: dict[str, object]) -> Budget:
         for field, value in payload.items():

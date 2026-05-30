@@ -193,7 +193,10 @@ def build_budget_rows(
     selected_users: dict[uuid.UUID, SelectedUser],
     current_year: int,
 ) -> list[Budget]:
-    budgets: list[Budget] = []
+    # Recurring budget model: one budget per (user, category, period_type).
+    # The tracker dump may hold several concrete (year, month) rows per group, so
+    # collapse them keeping the most recently updated one.
+    chosen: dict[tuple[uuid.UUID, uuid.UUID, str], tuple[datetime, Budget]] = {}
 
     for row in source_rows:
         source_user_id = parse_uuid(row.get("user_id"))
@@ -201,49 +204,29 @@ def build_budget_rows(
             continue
 
         period_type = row["period_type"] or "monthly"
-        original_year = int(row["year"] or current_year)
         amount = parse_decimal(row["amount"])
         currency = row["currency"] or "EUR"
         created_at = parse_datetime(row["created_at"])
         updated_at = parse_datetime(row["updated_at"]) if row.get("updated_at") else created_at
+        category_id = parse_uuid(row["category_id"])
 
-        if period_type == "monthly" and original_year == RECURRING_BUDGET_BASE_YEAR:
-            for month in range(1, 13):
-                budgets.append(
-                    Budget(
-                        id=uuid.uuid5(
-                            UUID_NAMESPACE,
-                            f"{row['id']}:monthly:{current_year}:{month}",
-                        ),
-                        user_id=source_user_id,
-                        category_id=parse_uuid(row["category_id"]),
-                        year=current_year,
-                        period_type="monthly",
-                        month=month,
-                        currency=currency,
-                        amount=amount,
-                        created_at=created_at,
-                        updated_at=updated_at,
-                    )
-                )
-            continue
-
-        target_year = current_year if original_year == RECURRING_BUDGET_BASE_YEAR else original_year
-        month_value = row.get("month")
-        budgets.append(
-            Budget(
-                id=parse_uuid(row["id"]),
-                user_id=source_user_id,
-                category_id=parse_uuid(row["category_id"]),
-                year=target_year,
-                period_type=period_type,
-                month=int(month_value) if month_value else None,
-                currency=currency,
-                amount=amount,
-                created_at=created_at,
-                updated_at=updated_at,
-            )
+        key = (source_user_id, category_id, period_type)
+        budget = Budget(
+            id=uuid.uuid5(UUID_NAMESPACE, f"{source_user_id}:{category_id}:{period_type}"),
+            user_id=source_user_id,
+            category_id=category_id,
+            period_type=period_type,
+            currency=currency,
+            amount=amount,
+            created_at=created_at,
+            updated_at=updated_at,
         )
+
+        existing = chosen.get(key)
+        if existing is None or updated_at >= existing[0]:
+            chosen[key] = (updated_at, budget)
+
+    budgets: list[Budget] = [budget for _, budget in chosen.values()]
 
     return budgets
 

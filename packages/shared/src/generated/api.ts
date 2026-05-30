@@ -213,23 +213,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/budgets/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create Budgets Bulk */
-        post: operations["create_budgets_bulk_api_v1_budgets_bulk_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/budgets/{budget_id}": {
         parameters: {
             query?: never;
@@ -637,29 +620,6 @@ export interface components {
             /** Mapping */
             mapping: string;
         };
-        /** BudgetBulkCreate */
-        BudgetBulkCreate: {
-            /** Amount */
-            amount: number | string;
-            /**
-             * Category Id
-             * Format: uuid
-             */
-            category_id: string;
-            /** Currency */
-            currency: string;
-            /** Months */
-            months: number[];
-            /** Year */
-            year: number;
-        };
-        /** BudgetBulkCreateResponse */
-        BudgetBulkCreateResponse: {
-            /** Created Count */
-            created_count: number;
-            /** Items */
-            items: components["schemas"]["BudgetRead"][];
-        };
         /** BudgetCreate */
         BudgetCreate: {
             /** Amount */
@@ -671,12 +631,8 @@ export interface components {
             category_id: string;
             /** Currency */
             currency: string;
-            /** Month */
-            month?: number | null;
             /** @default monthly */
             period_type: components["schemas"]["BudgetPeriodType"];
-            /** Year */
-            year: number;
         };
         /** BudgetListResponse */
         BudgetListResponse: {
@@ -715,16 +671,12 @@ export interface components {
              * Format: uuid
              */
             id: string;
-            /** Month */
-            month: number | null;
             period_type: components["schemas"]["BudgetPeriodType"];
             /**
              * Updated At
              * Format: date-time
              */
             updated_at: string;
-            /** Year */
-            year: number;
         };
         /** BudgetUpdate */
         BudgetUpdate: {
@@ -734,11 +686,7 @@ export interface components {
             category_id?: string | null;
             /** Currency */
             currency?: string | null;
-            /** Month */
-            month?: number | null;
             period_type?: components["schemas"]["BudgetPeriodType"] | null;
-            /** Year */
-            year?: number | null;
         };
         /** CategoryCreate */
         CategoryCreate: {
@@ -1799,11 +1747,9 @@ export interface operations {
             query?: {
                 limit?: number;
                 offset?: number;
-                year?: number | null;
-                month?: number | null;
                 period_type?: components["schemas"]["BudgetPeriodType"] | null;
                 category_id?: string | null;
-                sort_by?: "amount" | "created_at" | "month" | "period_type" | "year";
+                sort_by?: "amount" | "created_at" | "period_type";
                 sort_order?: "asc" | "desc";
             };
             header?: {
@@ -1860,43 +1806,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BudgetRead"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_budgets_bulk_api_v1_budgets_bulk_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "X-User-Id"?: string | null;
-            };
-            path?: never;
-            cookie?: {
-                finance_foundation_session?: string | null;
-            };
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["BudgetBulkCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["BudgetBulkCreateResponse"];
                 };
             };
             /** @description Validation Error */

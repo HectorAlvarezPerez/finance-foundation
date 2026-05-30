@@ -11,8 +11,6 @@ export type User = components["schemas"]["AuthUserRead"];
 
 export type Budget = components["schemas"]["BudgetRead"];
 export type BudgetCreate = components["schemas"]["BudgetCreate"];
-export type BudgetBulkCreate = components["schemas"]["BudgetBulkCreate"];
-export type BudgetBulkCreateResponse = components["schemas"]["BudgetBulkCreateResponse"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdate"];
 
 export type Category = components["schemas"]["CategoryRead"];

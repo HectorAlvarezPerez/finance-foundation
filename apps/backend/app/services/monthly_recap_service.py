@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.llm.runtime import build_llm_runtime
 from app.llm.types import FlowHandle, LlmObservabilityClient, PromptProvider
 from app.models.budget import Budget
+from app.models.enums import BudgetPeriodType
 from app.models.monthly_insight_recap import MonthlyInsightRecap
 from app.models.transaction import Transaction
 from app.repositories.budget_repository import BudgetRepository
@@ -141,9 +142,8 @@ class MonthlyRecapService:
             )
             budgets = self.budget_repository.list_all_for_user(
                 user_id=user_id,
-                year=window.year,
-                month=window.month,
-                sort_by="month",
+                period_type=BudgetPeriodType.MONTHLY,
+                sort_by="created_at",
                 sort_order="asc",
             )
 
