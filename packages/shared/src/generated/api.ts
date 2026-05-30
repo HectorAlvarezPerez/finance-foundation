@@ -213,6 +213,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budgets/batch-delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Batch Delete Budgets */
+        post: operations["batch_delete_budgets_api_v1_budgets_batch_delete_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/budgets/{budget_id}": {
         parameters: {
             query?: never;
@@ -619,6 +636,16 @@ export interface components {
             file: string;
             /** Mapping */
             mapping: string;
+        };
+        /** BudgetBatchDeleteRequest */
+        BudgetBatchDeleteRequest: {
+            /** Budget Ids */
+            budget_ids: string[];
+        };
+        /** BudgetBatchDeleteResponse */
+        BudgetBatchDeleteResponse: {
+            /** Deleted Count */
+            deleted_count: number;
         };
         /** BudgetCreate */
         BudgetCreate: {
@@ -1806,6 +1833,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BudgetRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    batch_delete_budgets_api_v1_budgets_batch_delete_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetBatchDeleteRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetBatchDeleteResponse"];
                 };
             };
             /** @description Validation Error */

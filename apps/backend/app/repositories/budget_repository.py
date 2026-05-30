@@ -1,6 +1,7 @@
 import uuid
 
 from sqlalchemy import Select, func, select
+from sqlalchemy import delete as sa_delete
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
@@ -109,3 +110,20 @@ class BudgetRepository:
     def delete(self, budget: Budget) -> None:
         self.db.delete(budget)
         self.db.flush()
+
+    def delete_many_for_user(self, *, user_id: uuid.UUID, budget_ids: list[uuid.UUID]) -> int:
+        if not budget_ids:
+            return 0
+        count = (
+            self.db.scalar(
+                select(func.count())
+                .select_from(Budget)
+                .where(Budget.user_id == user_id, Budget.id.in_(budget_ids))
+            )
+            or 0
+        )
+        self.db.execute(
+            sa_delete(Budget).where(Budget.user_id == user_id, Budget.id.in_(budget_ids))
+        )
+        self.db.flush()
+        return count

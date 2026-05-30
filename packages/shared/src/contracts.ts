@@ -12,6 +12,7 @@ export type User = components["schemas"]["AuthUserRead"];
 export type Budget = components["schemas"]["BudgetRead"];
 export type BudgetCreate = components["schemas"]["BudgetCreate"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdate"];
+export type BudgetBatchDeleteResponse = components["schemas"]["BudgetBatchDeleteResponse"];
 
 export type Category = components["schemas"]["CategoryRead"];
 export type CategoryCreate = components["schemas"]["CategoryCreate"];

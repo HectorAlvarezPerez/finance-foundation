@@ -160,6 +160,36 @@ def test_monthly_and_annual_budget_can_coexist_for_same_category(client, user_id
     assert list_response.json()["total"] == 2
 
 
+def test_batch_delete_budgets(client, user_id) -> None:
+    ids: list[str] = []
+    for name in ("Gym", "Books", "Music"):
+        category_id = _create_category(client, user_id, name)
+        created = client.post(
+            "/api/v1/budgets",
+            headers={"X-User-Id": str(user_id)},
+            json={
+                "category_id": category_id,
+                "period_type": "monthly",
+                "currency": "EUR",
+                "amount": "30.00",
+            },
+        )
+        assert created.status_code == 201
+        ids.append(created.json()["id"])
+
+    response = client.post(
+        "/api/v1/budgets/batch-delete",
+        headers={"X-User-Id": str(user_id)},
+        json={"budget_ids": ids[:2]},
+    )
+    assert response.status_code == 200
+    assert response.json()["deleted_count"] == 2
+
+    remaining = client.get("/api/v1/budgets", headers={"X-User-Id": str(user_id)})
+    assert remaining.json()["total"] == 1
+    assert remaining.json()["items"][0]["id"] == ids[2]
+
+
 def test_update_budget_amount(client, user_id) -> None:
     category_id = _create_category(client, user_id, "Cafe")
 

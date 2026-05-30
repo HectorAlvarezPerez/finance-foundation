@@ -429,6 +429,37 @@
         "title": "Body_preview_transaction_import_api_v1_transactions_import_preview_post",
         "type": "object"
       },
+      "BudgetBatchDeleteRequest": {
+        "properties": {
+          "budget_ids": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "minItems": 1,
+            "title": "Budget Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "budget_ids"
+        ],
+        "title": "BudgetBatchDeleteRequest",
+        "type": "object"
+      },
+      "BudgetBatchDeleteResponse": {
+        "properties": {
+          "deleted_count": {
+            "title": "Deleted Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "deleted_count"
+        ],
+        "title": "BudgetBatchDeleteResponse",
+        "type": "object"
+      },
       "BudgetCreate": {
         "properties": {
           "amount": {
@@ -3495,6 +3526,81 @@
           }
         },
         "summary": "Create Budget",
+        "tags": [
+          "budgets"
+        ]
+      }
+    },
+    "/api/v1/budgets/batch-delete": {
+      "post": {
+        "operationId": "batch_delete_budgets_api_v1_budgets_batch_delete_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetBatchDeleteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetBatchDeleteResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Batch Delete Budgets",
         "tags": [
           "budgets"
         ]

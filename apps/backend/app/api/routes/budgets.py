@@ -8,6 +8,8 @@ from app.models.enums import BudgetPeriodType
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
 from app.schemas.budgets import (
+    BudgetBatchDeleteRequest,
+    BudgetBatchDeleteResponse,
     BudgetCreate,
     BudgetListResponse,
     BudgetRead,
@@ -55,6 +57,16 @@ def create_budget(
 ) -> BudgetRead:
     budget = service.create_budget(user_id=user_id, payload=payload)
     return BudgetRead.model_validate(budget)
+
+
+@router.post("/batch-delete", response_model=BudgetBatchDeleteResponse)
+def batch_delete_budgets(
+    payload: BudgetBatchDeleteRequest,
+    user_id: CurrentUserId,
+    service: BudgetServiceDep,
+) -> BudgetBatchDeleteResponse:
+    deleted_count = service.delete_budgets(user_id=user_id, budget_ids=payload.budget_ids)
+    return BudgetBatchDeleteResponse(deleted_count=deleted_count)
 
 
 @router.get("/{budget_id}", response_model=BudgetRead)

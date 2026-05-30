@@ -43,3 +43,11 @@ class BudgetListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class BudgetBatchDeleteRequest(BaseModel):
+    budget_ids: list[uuid.UUID] = Field(min_length=1)
+
+
+class BudgetBatchDeleteResponse(BaseModel):
+    deleted_count: int

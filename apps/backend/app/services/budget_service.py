@@ -112,6 +112,14 @@ class BudgetService:
         self.repository.delete(budget)
         self.db.commit()
 
+    def delete_budgets(self, *, user_id: uuid.UUID, budget_ids: list[uuid.UUID]) -> int:
+        deleted_count = self.repository.delete_many_for_user(
+            user_id=user_id,
+            budget_ids=budget_ids,
+        )
+        self.db.commit()
+        return deleted_count
+
     def _require_category(self, *, user_id: uuid.UUID, category_id: uuid.UUID) -> None:
         category = self.category_repository.get_for_user(user_id=user_id, category_id=category_id)
         if category is None:
