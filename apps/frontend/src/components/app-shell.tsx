@@ -11,6 +11,7 @@ import {
   Menu,
   MoonStar,
   Sun,
+  PieChart,
   PiggyBank,
   Settings,
   Tag,
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/app/categories", label: "Categorías", icon: Tag },
   { href: "/app/insights", label: "Análisis", icon: LineChart },
   { href: "/app/budgets", label: "Presupuestos", icon: PiggyBank },
+  { href: "/app/portfolio", label: "Inversiones", icon: PieChart },
 ];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -81,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     navItems[2],
   ];
 
-  const mobileMoreItems = [navItems[3], navItems[5]];
+  const mobileMoreItems = [navItems[3], navItems[5], navItems[6]];
   const isMoreActive = mobileMoreItems.some((item) => pathname.startsWith(item.href)) || pathname.startsWith("/app/settings");
 
   return (
