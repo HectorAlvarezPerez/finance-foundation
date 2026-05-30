@@ -371,6 +371,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolio/holdings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Holdings */
+        get: operations["list_holdings_api_v1_portfolio_holdings_get"];
+        put?: never;
+        /** Create Holding */
+        post: operations["create_holding_api_v1_portfolio_holdings_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolio/holdings/{holding_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Holding */
+        get: operations["get_holding_api_v1_portfolio_holdings__holding_id__get"];
+        put?: never;
+        post?: never;
+        /** Delete Holding */
+        delete: operations["delete_holding_api_v1_portfolio_holdings__holding_id__delete"];
+        options?: never;
+        head?: never;
+        /** Update Holding */
+        patch: operations["update_holding_api_v1_portfolio_holdings__holding_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/portfolio/holdings/{holding_id}/price": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Update Holding Price */
+        post: operations["update_holding_price_api_v1_portfolio_holdings__holding_id__price_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/portfolio/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Portfolio Summary */
+        get: operations["get_portfolio_summary_api_v1_portfolio_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/settings": {
         parameters: {
             query?: never;
@@ -576,6 +647,11 @@ export interface components {
             name?: string | null;
             type?: components["schemas"]["AccountType"] | null;
         };
+        /**
+         * AssetType
+         * @enum {string}
+         */
+        AssetType: "index_fund" | "bond_fund" | "crypto" | "stock" | "gold" | "etf";
         /** AuthLoginRequest */
         AuthLoginRequest: {
             /**
@@ -814,6 +890,79 @@ export interface components {
             /** Status */
             status: string;
         };
+        /** HoldingCreate */
+        HoldingCreate: {
+            /** Asset Name */
+            asset_name: string;
+            /** Asset Symbol */
+            asset_symbol?: string | null;
+            asset_type: components["schemas"]["AssetType"];
+            /** Average Buy Price */
+            average_buy_price: number | string;
+            /** Currency */
+            currency: string;
+            /** Quantity */
+            quantity: number | string;
+        };
+        /** HoldingListResponse */
+        HoldingListResponse: {
+            /** Items */
+            items: components["schemas"]["HoldingRead"][];
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Total */
+            total: number;
+        };
+        /** HoldingPriceUpdate */
+        HoldingPriceUpdate: {
+            /** Price */
+            price: number | string;
+        };
+        /** HoldingRead */
+        HoldingRead: {
+            /** Asset Name */
+            asset_name: string;
+            /** Asset Symbol */
+            asset_symbol: string | null;
+            asset_type: components["schemas"]["AssetType"];
+            /** Average Buy Price */
+            average_buy_price: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Currency */
+            currency: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Quantity */
+            quantity: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** HoldingUpdate */
+        HoldingUpdate: {
+            /** Asset Name */
+            asset_name?: string | null;
+            /** Asset Symbol */
+            asset_symbol?: string | null;
+            asset_type?: components["schemas"]["AssetType"] | null;
+            /** Average Buy Price */
+            average_buy_price?: number | string | null;
+            /** Currency */
+            currency?: string | null;
+            /** Quantity */
+            quantity?: number | string | null;
+        };
         /** InsightsAccountBalanceRead */
         InsightsAccountBalanceRead: {
             /**
@@ -1030,6 +1179,46 @@ export interface components {
             name: string;
             /** Total */
             total: string;
+        };
+        /** PortfolioHoldingRead */
+        PortfolioHoldingRead: {
+            /** Allocation Pct */
+            allocation_pct: number;
+            /** Asset Name */
+            asset_name: string;
+            /** Asset Symbol */
+            asset_symbol: string | null;
+            asset_type: components["schemas"]["AssetType"];
+            /** Average Buy Price */
+            average_buy_price: string;
+            /** Currency */
+            currency: string;
+            /** Current Price */
+            current_price: string | null;
+            /** Current Value */
+            current_value: string | null;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Invested */
+            invested: string;
+            /** Quantity */
+            quantity: string;
+            /** Unrealized Pnl */
+            unrealized_pnl: string | null;
+        };
+        /** PortfolioSummaryRead */
+        PortfolioSummaryRead: {
+            /** Holdings */
+            holdings: components["schemas"]["PortfolioHoldingRead"][];
+            /** Total Invested */
+            total_invested: string;
+            /** Total Unrealized Pnl */
+            total_unrealized_pnl: string;
+            /** Total Value */
+            total_value: string;
         };
         /** SettingsRead */
         SettingsRead: {
@@ -2353,6 +2542,260 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InsightsSummaryRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_holdings_api_v1_portfolio_holdings_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+                sort_by?: "asset_name" | "created_at";
+                sort_order?: "asc" | "desc";
+            };
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_holding_api_v1_portfolio_holdings_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_holding_api_v1_portfolio_holdings__holding_id__get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_holding_api_v1_portfolio_holdings__holding_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_holding_api_v1_portfolio_holdings__holding_id__patch: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_holding_price_api_v1_portfolio_holdings__holding_id__price_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingPriceUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_portfolio_summary_api_v1_portfolio_summary_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PortfolioSummaryRead"];
                 };
             };
             /** @description Validation Error */

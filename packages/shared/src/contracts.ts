@@ -14,6 +14,14 @@ export type BudgetCreate = components["schemas"]["BudgetCreate"];
 export type BudgetUpdate = components["schemas"]["BudgetUpdate"];
 export type BudgetBatchDeleteResponse = components["schemas"]["BudgetBatchDeleteResponse"];
 
+export type Holding = components["schemas"]["HoldingRead"];
+export type HoldingCreate = components["schemas"]["HoldingCreate"];
+export type HoldingUpdate = components["schemas"]["HoldingUpdate"];
+export type HoldingListResponse = components["schemas"]["HoldingListResponse"];
+export type HoldingPriceUpdate = components["schemas"]["HoldingPriceUpdate"];
+export type PortfolioHolding = components["schemas"]["PortfolioHoldingRead"];
+export type PortfolioSummary = components["schemas"]["PortfolioSummaryRead"];
+
 export type Category = components["schemas"]["CategoryRead"];
 export type CategoryCreate = components["schemas"]["CategoryCreate"];
 export type CategoryUpdate = components["schemas"]["CategoryUpdate"];
