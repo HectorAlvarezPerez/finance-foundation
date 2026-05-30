@@ -2,7 +2,6 @@
 .env
 .env.*
 !.env.example
-.python-version
 .idea/
 .vscode/
 .venv/
