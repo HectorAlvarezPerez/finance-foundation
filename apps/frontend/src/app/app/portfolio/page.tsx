@@ -30,6 +30,9 @@ const ASSET_TYPE_OPTIONS = Object.entries(ASSET_TYPE_LABELS).map(([value, label]
   label,
 }));
 
+// Deshabilitado hasta tener la API key de precios (Twelve Data). Poner a true para reactivar.
+const PRICE_REFRESH_ENABLED = false;
+
 const ALLOCATION_PALETTE = [
   "#6366f1",
   "#10b981",
@@ -250,11 +253,20 @@ export default function PortfolioPage() {
         <button
           type="button"
           onClick={() => void handleRefreshPrices()}
-          disabled={isRefreshing}
+          disabled={!PRICE_REFRESH_ENABLED || isRefreshing}
+          title={
+            PRICE_REFRESH_ENABLED
+              ? undefined
+              : "Disponible cuando se configure la API key de precios"
+          }
           className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3.5 py-2 text-sm font-medium text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
-          {isRefreshing ? "Actualizando..." : "Actualizar precios"}
+          {!PRICE_REFRESH_ENABLED
+            ? "Actualizar precios (pronto)"
+            : isRefreshing
+              ? "Actualizando..."
+              : "Actualizar precios"}
         </button>
         <button
           type="button"
