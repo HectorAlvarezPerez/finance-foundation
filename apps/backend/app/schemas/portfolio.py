@@ -73,3 +73,14 @@ class HoldingListResponse(BaseModel):
     total: int
     limit: int
     offset: int
+
+
+class PriceRefreshItem(BaseModel):
+    asset: str
+    price: str | None = None
+    reason: str | None = None
+
+
+class PriceRefreshResponse(BaseModel):
+    updated: list[PriceRefreshItem]
+    failed: list[PriceRefreshItem]

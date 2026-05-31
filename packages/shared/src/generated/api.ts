@@ -460,6 +460,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/portfolio/prices/refresh": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Refresh Prices */
+        post: operations["refresh_prices_api_v1_portfolio_prices_refresh_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portfolio/summary": {
         parameters: {
             query?: never;
@@ -1316,6 +1333,22 @@ export interface components {
             total_unrealized_pnl: string;
             /** Total Value */
             total_value: string;
+        };
+        /** PriceRefreshItem */
+        PriceRefreshItem: {
+            /** Asset */
+            asset: string;
+            /** Price */
+            price?: string | null;
+            /** Reason */
+            reason?: string | null;
+        };
+        /** PriceRefreshResponse */
+        PriceRefreshResponse: {
+            /** Failed */
+            failed: components["schemas"]["PriceRefreshItem"][];
+            /** Updated */
+            updated: components["schemas"]["PriceRefreshItem"][];
         };
         /** SettingsRead */
         SettingsRead: {
@@ -2994,6 +3027,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    refresh_prices_api_v1_portfolio_prices_refresh_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PriceRefreshResponse"];
                 };
             };
             /** @description Validation Error */

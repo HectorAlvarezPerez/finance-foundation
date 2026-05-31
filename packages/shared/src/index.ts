@@ -25,6 +25,7 @@ export type {
   HoldingUpdate,
   PortfolioHolding,
   PortfolioSummary,
+  PriceRefreshResponse,
   InsightsAccountBalance,
   InsightsMonthlyBucket,
   InsightsMonthlyRecap,

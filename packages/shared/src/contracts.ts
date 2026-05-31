@@ -21,6 +21,7 @@ export type HoldingListResponse = components["schemas"]["HoldingListResponse"];
 export type HoldingPriceUpdate = components["schemas"]["HoldingPriceUpdate"];
 export type PortfolioHolding = components["schemas"]["PortfolioHoldingRead"];
 export type PortfolioSummary = components["schemas"]["PortfolioSummaryRead"];
+export type PriceRefreshResponse = components["schemas"]["PriceRefreshResponse"];
 
 export type ExchangeRate = components["schemas"]["ExchangeRateRead"];
 export type ExchangeRateCreate = components["schemas"]["ExchangeRateCreate"];

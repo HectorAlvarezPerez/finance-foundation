@@ -113,6 +113,7 @@ export type {
   PaginatedResponse,
   PortfolioHolding,
   PortfolioSummary,
+  PriceRefreshResponse,
   Settings,
   SettingsUpdate,
   Transaction,

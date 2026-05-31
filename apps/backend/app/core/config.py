@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     monthly_recap_require_llm: bool = False
     azure_openai_api_version: str = "2025-03-01-preview"
     classification_debug: bool = False
+    twelvedata_api_key: str | None = None
     notion_api_token: str | None = None
     notion_docs_data_source_id: str | None = None
     notion_api_version: str = "2026-03-11"

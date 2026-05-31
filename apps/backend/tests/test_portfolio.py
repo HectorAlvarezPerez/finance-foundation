@@ -93,3 +93,55 @@ def test_delete_holding(client, user_id) -> None:
 
     listed = client.get("/api/v1/portfolio/holdings", headers={"X-User-Id": str(user_id)})
     assert listed.json()["total"] == 0
+
+
+def test_refresh_prices_updates_crypto_via_provider(client, user_id, monkeypatch) -> None:
+    from decimal import Decimal
+
+    from app.services import price_fetch_service
+
+    headers = {"X-User-Id": str(user_id)}
+    holding = _create_holding(
+        client,
+        user_id,
+        asset_name="Bitcoin",
+        asset_symbol="BTC",
+        asset_type="crypto",
+        quantity="2",
+        average_buy_price="30000.0000",
+    )
+
+    monkeypatch.setattr(
+        price_fetch_service.CoinGeckoProvider,
+        "fetch_price",
+        lambda self, *, symbol, currency: Decimal("50000"),
+    )
+
+    response = client.post("/api/v1/portfolio/prices/refresh", headers=headers)
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["updated"]) == 1
+    assert body["updated"][0]["asset"] == "BTC"
+
+    summary = client.get("/api/v1/portfolio/summary", headers=headers).json()
+    row = next(item for item in summary["holdings"] if item["id"] == holding["id"])
+    assert row["current_price"] == "50000.0000"
+    assert row["current_value"] == "100000.00"
+
+
+def test_refresh_prices_reports_missing_stock_provider(client, user_id) -> None:
+    headers = {"X-User-Id": str(user_id)}
+    _create_holding(
+        client,
+        user_id,
+        asset_name="Apple",
+        asset_symbol="AAPL",
+        asset_type="stock",
+        quantity="5",
+        average_buy_price="150.0000",
+    )
+
+    response = client.post("/api/v1/portfolio/prices/refresh", headers=headers)
+    assert response.status_code == 200
+    failed = response.json()["failed"]
+    assert any(item["asset"] == "AAPL" for item in failed)

@@ -4,6 +4,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import CurrentUserId, DBSession
+from app.core.config import settings
 from app.repositories.exchange_rate_repository import ExchangeRateRepository
 from app.repositories.holding_repository import HoldingRepository
 from app.repositories.price_repository import PriceRepository
@@ -15,9 +16,16 @@ from app.schemas.portfolio import (
     HoldingRead,
     HoldingUpdate,
     PortfolioSummaryRead,
+    PriceRefreshItem,
+    PriceRefreshResponse,
 )
 from app.services.fx_service import CurrencyConverter
 from app.services.portfolio_service import PortfolioService
+from app.services.price_fetch_service import (
+    CoinGeckoProvider,
+    PriceFetchService,
+    TwelveDataProvider,
+)
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 
@@ -27,6 +35,22 @@ def get_portfolio_service(db: DBSession) -> PortfolioService:
 
 
 PortfolioServiceDep = Annotated[PortfolioService, Depends(get_portfolio_service)]
+
+
+def get_price_fetch_service(db: DBSession) -> PriceFetchService:
+    stock_provider = (
+        TwelveDataProvider(settings.twelvedata_api_key) if settings.twelvedata_api_key else None
+    )
+    return PriceFetchService(
+        HoldingRepository(db),
+        PriceRepository(db),
+        db,
+        crypto_provider=CoinGeckoProvider(),
+        stock_provider=stock_provider,
+    )
+
+
+PriceFetchServiceDep = Annotated[PriceFetchService, Depends(get_price_fetch_service)]
 
 
 @router.get("/summary", response_model=PortfolioSummaryRead)
@@ -44,6 +68,18 @@ def get_portfolio_summary(
         user_id=user_id,
         base_currency=base_currency,
         converter=converter,
+    )
+
+
+@router.post("/prices/refresh", response_model=PriceRefreshResponse)
+def refresh_prices(
+    user_id: CurrentUserId,
+    service: PriceFetchServiceDep,
+) -> PriceRefreshResponse:
+    result = service.refresh_prices(user_id=user_id)
+    return PriceRefreshResponse(
+        updated=[PriceRefreshItem(**item) for item in result.updated],
+        failed=[PriceRefreshItem(**item) for item in result.failed],
     )
 
 

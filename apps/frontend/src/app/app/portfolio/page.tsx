@@ -14,7 +14,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useSettings } from "@/components/settings-provider";
 import { apiRequest } from "@/lib/api";
-import type { PortfolioHolding, PortfolioSummary } from "@/lib/types";
+import type { PortfolioHolding, PortfolioSummary, PriceRefreshResponse } from "@/lib/types";
 
 const ASSET_TYPE_LABELS: Record<string, string> = {
   index_fund: "Fondo indexado",
@@ -67,6 +67,7 @@ export default function PortfolioPage() {
   const [summary, setSummary] = useState<PortfolioSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -125,6 +126,30 @@ export default function PortfolioPage() {
       .map(([type, pct]) => ({ type, pct }))
       .sort((left, right) => right.pct - left.pct);
   }, [holdings]);
+
+  async function handleRefreshPrices() {
+    setIsRefreshing(true);
+    setError(null);
+    try {
+      const result = await apiRequest<PriceRefreshResponse>("/portfolio/prices/refresh", {
+        method: "POST",
+      });
+      const updated = result.updated.length;
+      const failed = result.failed.length;
+      if (updated > 0) {
+        toast(`Precios actualizados: ${updated}${failed ? ` · ${failed} sin actualizar` : ""}`, "success");
+      } else if (failed > 0) {
+        toast(`No se pudo actualizar ningún precio (${failed})`, "error");
+      } else {
+        toast("No hay activos con símbolo para actualizar", "success");
+      }
+      await load();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudieron actualizar los precios");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -221,7 +246,16 @@ export default function PortfolioPage() {
         description="Cuánto tienes en cada activo, qué porcentaje representa de tu cartera y cuánto ha ganado o perdido."
       />
 
-      <div className="flex items-center justify-end">
+      <div className="flex items-center justify-end gap-2">
+        <button
+          type="button"
+          onClick={() => void handleRefreshPrices()}
+          disabled={isRefreshing}
+          className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3.5 py-2 text-sm font-medium text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+          {isRefreshing ? "Actualizando..." : "Actualizar precios"}
+        </button>
         <button
           type="button"
           onClick={openCreate}
