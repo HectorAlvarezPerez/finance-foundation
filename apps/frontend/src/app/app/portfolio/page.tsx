@@ -203,10 +203,10 @@ export default function PortfolioPage() {
         </div>
       ) : (
         <section className="grid gap-3 lg:grid-cols-3">
-          <SummaryCard title="Valor total" value={totals.value} currency={defaultCurrency} tone="neutral" />
-          <SummaryCard title="Invertido" value={totals.invested} currency={defaultCurrency} tone="neutral" />
+          <SummaryCard title={`Valor total (${defaultCurrency})`} value={totals.value} currency={defaultCurrency} tone="neutral" />
+          <SummaryCard title={`Invertido (${defaultCurrency})`} value={totals.invested} currency={defaultCurrency} tone="neutral" />
           <SummaryCard
-            title={`Ganancia / Pérdida${totals.invested > 0 ? ` (${totals.pnlPct >= 0 ? "+" : ""}${totals.pnlPct.toFixed(1)}%)` : ""}`}
+            title={`Ganancia / Pérdida (${defaultCurrency})${totals.invested > 0 ? ` · ${totals.pnlPct >= 0 ? "+" : ""}${totals.pnlPct.toFixed(1)}%` : ""}`}
             value={totals.pnl}
             currency={defaultCurrency}
             tone={totals.pnl >= 0 ? "success" : "danger"}
@@ -442,6 +442,14 @@ function HoldingRow({
                 {holding.asset_symbol}
               </span>
             ) : null}
+            {holding.currency !== currency ? (
+              <span
+                className="rounded-md bg-[var(--app-warning-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--app-warning)]"
+                title={`Este activo está en ${holding.currency}; el total se convierte a ${currency} si tienes un tipo de cambio`}
+              >
+                en {holding.currency}
+              </span>
+            ) : null}
           </div>
           <p className="mt-0.5 text-xs text-[var(--app-muted)]">
             {ASSET_TYPE_LABELS[holding.asset_type] ?? holding.asset_type} ·{" "}
@@ -485,7 +493,6 @@ function HoldingRow({
           {holding.allocation_pct.toFixed(1)}% de la cartera
         </span>
       </div>
-      <p className="sr-only">{currency}</p>
     </div>
   );
 }

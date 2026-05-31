@@ -546,7 +546,8 @@ export default function BudgetsPage() {
             <div>
               <CardTitle className="text-lg">Presupuestos</CardTitle>
               <p className="mt-1 text-xs text-[var(--app-muted)]">
-                Gasto real del periodo seleccionado frente a cada objetivo recurrente.
+                Gastado de los mensuales en {formatMonthLabel(Number(selectedYear), Number(selectedMonth))};
+                de los anuales en {selectedYear}.
               </p>
             </div>
             <div className="rounded-full bg-[var(--app-muted-surface)] px-2.5 py-1 text-xs text-[var(--app-muted)]">

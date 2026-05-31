@@ -38,6 +38,17 @@ const LOCALE_OPTIONS = [
   { value: "en-US", label: "English (US)" },
 ];
 
+const CURRENCY_OPTIONS = [
+  { value: "EUR", label: "Euro (EUR)" },
+  { value: "USD", label: "Dólar estadounidense (USD)" },
+  { value: "GBP", label: "Libra esterlina (GBP)" },
+  { value: "CHF", label: "Franco suizo (CHF)" },
+  { value: "JPY", label: "Yen japonés (JPY)" },
+  { value: "CAD", label: "Dólar canadiense (CAD)" },
+  { value: "AUD", label: "Dólar australiano (AUD)" },
+  { value: "MXN", label: "Peso mexicano (MXN)" },
+];
+
 export default function SettingsPage() {
   const router = useRouter();
   const { deleteAccount, user } = useAuth();
@@ -192,7 +203,7 @@ export default function SettingsPage() {
             </CardHeader>
             <CardContent className="space-y-6 pt-6">
               <label className="grid gap-2">
-                <span className="text-sm font-medium">Moneda principal (Global)</span>
+                <span className="text-sm font-medium">Moneda principal</span>
                 <select
                   required
                   value={form.default_currency}
@@ -204,11 +215,15 @@ export default function SettingsPage() {
                   }
                   className={inputClasses}
                 >
-                  <option value="EUR">Euros (EUR)</option>
-                  <option value="USD">Dólares Estadounidenses (USD)</option>
+                  {CURRENCY_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
                 </select>
                 <span className="text-xs text-[var(--app-muted)]">
-                  Esta será la única moneda utilizada en todas las cuentas y transacciones.
+                  Divisa en la que se muestran tus totales de análisis y cartera. Las cuentas y
+                  transacciones pueden estar en otras divisas; se convierten con los tipos de cambio.
                 </span>
               </label>
 
@@ -408,7 +423,8 @@ function ExchangeRatesCard({ inputClasses }: { inputClasses: string }) {
       <CardHeader>
         <CardTitle>Tipos de cambio</CardTitle>
         <CardDescription>
-          Convierte importes a tu moneda principal en análisis y cartera. Define cuánto vale 1 unidad de una divisa en otra.
+          Define el cambio de cada divisa <strong>hacia tu moneda principal</strong> para convertir
+          importes en análisis y cartera. Ejemplo: 1 USD = 0,92 EUR.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

@@ -222,6 +222,12 @@ function TransactionsContent() {
   const categoryMap = new Map(categories.map((category) => [category.id, category]));
   const selectedCount = selectedIds.length;
 
+  const transferFromCurrency = accountMap.get(transferForm.from_account_id)?.currency;
+  const transferToCurrency = accountMap.get(transferForm.to_account_id)?.currency;
+  const transferCurrencyMismatch = Boolean(
+    transferFromCurrency && transferToCurrency && transferFromCurrency !== transferToCurrency,
+  );
+
   // Close type picker on outside click
   useEffect(() => {
     if (!isTypePickerOpen) return;
@@ -793,7 +799,7 @@ function TransactionsContent() {
   return (
     <div>
       <PageHeader
-        eyebrow="Transactions"
+        eyebrow="Transacciones"
         title="Transacciones"
         description="Consulta y registra tus movimientos en un solo lugar."
       />
@@ -828,7 +834,7 @@ function TransactionsContent() {
               className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
             >
               <FileUp className="h-4 w-4" />
-              Import transactions
+              Importar transacciones
             </button>
             <div ref={typePickerRef} className="relative">
               <div className="inline-flex rounded-xl bg-[var(--app-accent)] shadow-sm transition-all hover:brightness-110">
@@ -977,10 +983,16 @@ function TransactionsContent() {
                 className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)]"
               />
             </label>
+            {transferCurrencyMismatch ? (
+              <p className="rounded-xl bg-[var(--app-warning-soft)] px-3 py-2 text-sm text-[var(--app-warning)]">
+                Las dos cuentas tienen divisas distintas ({transferFromCurrency} y {transferToCurrency}).
+                Las transferencias entre divisas todavía no están soportadas.
+              </p>
+            ) : null}
             {transferError ? <p className="text-sm text-[var(--app-danger)]">{transferError}</p> : null}
             <button
               type="submit"
-              disabled={accounts.length < 2}
+              disabled={accounts.length < 2 || transferCurrencyMismatch}
               className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Crear transferencia
@@ -1817,7 +1829,14 @@ function TransactionsContent() {
                               />
                               Seleccionar
                             </label>
-                            <p className="font-medium">{transaction.description}</p>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium">{transaction.description}</p>
+                              {transaction.transfer_group_id ? (
+                                <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--app-muted-surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--app-muted)]">
+                                  <ArrowLeftRight className="h-3 w-3" /> Transferencia
+                                </span>
+                              ) : null}
+                            </div>
                             <p className="text-sm text-[var(--app-muted)]">
                               {accountMap.get(transaction.account_id)?.name ?? "Cuenta desconocida"}
                             </p>
@@ -1898,7 +1917,14 @@ function TransactionsContent() {
                             </TableCell>
                             <TableCell>
                               <div className="space-y-1 overflow-hidden">
-                                <p className="truncate font-medium">{transaction.description}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="truncate font-medium">{transaction.description}</p>
+                                  {transaction.transfer_group_id ? (
+                                    <span className="inline-flex shrink-0 items-center gap-1 rounded-md bg-[var(--app-muted-surface)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--app-muted)]">
+                                      <ArrowLeftRight className="h-3 w-3" /> Transferencia
+                                    </span>
+                                  ) : null}
+                                </div>
                                 {transaction.notes ? (
                                   <p className="truncate text-xs text-[var(--app-muted)]">
                                     {transaction.notes}

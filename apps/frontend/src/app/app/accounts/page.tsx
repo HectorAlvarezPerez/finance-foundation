@@ -359,6 +359,24 @@ export default function AccountsPage() {
               <option value="other">{accountTypeLabels.other}</option>
             </select>
             {editingAccountId ? null : (
+              <label className="grid gap-1.5">
+                <span className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--app-muted)]">Divisa</span>
+                <select
+                  aria-label="Divisa de la cuenta"
+                  value={form.currency}
+                  onChange={(event) => setForm((current) => ({ ...current, currency: event.target.value }))}
+                  className={inputClasses}
+                >
+                  {["EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD", "MXN"].map((code) => (
+                    <option key={code} value={code}>{code}</option>
+                  ))}
+                </select>
+                <span className="text-xs text-[var(--app-muted)]">
+                  La divisa de la cuenta no se puede cambiar después de crearla.
+                </span>
+              </label>
+            )}
+            {editingAccountId ? null : (
               <input aria-label="Saldo inicial" value={form.initial_balance} onChange={(event) => setForm((current) => ({ ...current, initial_balance: event.target.value }))} inputMode="decimal" placeholder="Saldo inicial (opcional)" className={inputClasses} />
             )}
 
