@@ -303,6 +303,41 @@ export interface paths {
         patch: operations["update_category_api_v1_categories__category_id__patch"];
         trace?: never;
     };
+    "/api/v1/categorization-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Rules */
+        get: operations["list_rules_api_v1_categorization_rules_get"];
+        put?: never;
+        /** Create Rule */
+        post: operations["create_rule_api_v1_categorization_rules_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/categorization-rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Rule */
+        delete: operations["delete_rule_api_v1_categorization_rules__rule_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/fx/rates": {
         parameters: {
             query?: never;
@@ -901,6 +936,58 @@ export interface components {
             currency?: string | null;
             period_type?: components["schemas"]["BudgetPeriodType"] | null;
         };
+        /** CategorizationRuleCreate */
+        CategorizationRuleCreate: {
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** @default contains */
+            match_type: components["schemas"]["RuleMatchType"];
+            /** Pattern */
+            pattern: string;
+            /**
+             * Priority
+             * @default 0
+             */
+            priority: number;
+        };
+        /** CategorizationRuleListResponse */
+        CategorizationRuleListResponse: {
+            /** Items */
+            items: components["schemas"]["CategorizationRuleRead"][];
+            /** Total */
+            total: number;
+        };
+        /** CategorizationRuleRead */
+        CategorizationRuleRead: {
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            match_type: components["schemas"]["RuleMatchType"];
+            /** Pattern */
+            pattern: string;
+            /** Priority */
+            priority: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** CategoryCreate */
         CategoryCreate: {
             /** Color */
@@ -1389,6 +1476,11 @@ export interface components {
             /** Updated */
             updated: components["schemas"]["PriceRefreshItem"][];
         };
+        /**
+         * RuleMatchType
+         * @enum {string}
+         */
+        RuleMatchType: "contains" | "equals" | "starts_with";
         /** SettingsRead */
         SettingsRead: {
             /** Auto Categorization Enabled */
@@ -2609,6 +2701,109 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["CategoryRead"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_rules_api_v1_categorization_rules_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorizationRuleListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_rule_api_v1_categorization_rules_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CategorizationRuleCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CategorizationRuleRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_rule_api_v1_categorization_rules__rule_id__delete: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path: {
+                rule_id: string;
+            };
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {

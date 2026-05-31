@@ -11,7 +11,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useTheme } from "@/components/theme-provider";
 import { apiRequest } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { ExchangeRate, Settings } from "@/lib/types";
+import type { CategorizationRule, Category, ExchangeRate, Settings } from "@/lib/types";
 
 type SettingsForm = {
   default_currency: string;
@@ -306,6 +306,8 @@ export default function SettingsPage() {
 
           <ExchangeRatesCard inputClasses={inputClasses} />
 
+          <CategorizationRulesCard inputClasses={inputClasses} />
+
           {error ? (
             <div className="animate-fadeIn rounded-xl bg-[var(--app-danger-soft)] px-4 py-3 text-sm text-[var(--app-danger)]">
               {error}
@@ -488,6 +490,157 @@ function ExchangeRatesCard({ inputClasses }: { inputClasses: string }) {
             <Plus className="h-4 w-4" />
             Añadir
           </button>
+        </form>
+
+        {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+const MATCH_TYPE_LABELS: Record<string, string> = {
+  contains: "contiene",
+  equals: "es igual a",
+  starts_with: "empieza por",
+};
+
+function CategorizationRulesCard({ inputClasses }: { inputClasses: string }) {
+  const [rules, setRules] = useState<CategorizationRule[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [form, setForm] = useState({ category_id: "", match_type: "contains", pattern: "" });
+  const [error, setError] = useState<string | null>(null);
+
+  const categoryMap = useMemo(
+    () => new Map(categories.map((category) => [category.id, category])),
+    [categories],
+  );
+
+  const load = useCallback(async () => {
+    try {
+      const [rulesResponse, categoriesResponse] = await Promise.all([
+        apiRequest<{ items: CategorizationRule[] }>("/categorization-rules"),
+        apiRequest<{ items: Category[] }>("/categories?limit=100&sort_by=name&sort_order=asc"),
+      ]);
+      setRules(rulesResponse.items);
+      setCategories(categoriesResponse.items);
+      setError(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar las reglas");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await apiRequest("/categorization-rules", {
+        method: "POST",
+        body: JSON.stringify({
+          category_id: form.category_id,
+          match_type: form.match_type,
+          pattern: form.pattern.trim(),
+        }),
+      });
+      setForm((current) => ({ ...current, pattern: "" }));
+      await load();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo añadir la regla");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setError(null);
+    try {
+      await apiRequest(`/categorization-rules/${id}`, { method: "DELETE", skipJson: true });
+      await load();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo eliminar la regla");
+    }
+  }
+
+  return (
+    <Card className="animate-slideUp stagger-3">
+      <CardHeader>
+        <CardTitle>Reglas de categorización</CardTitle>
+        <CardDescription>
+          Asigna categoría automáticamente a transacciones nuevas o importadas según su descripción.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {rules.length ? (
+          <ul className="space-y-2">
+            {rules.map((rule) => (
+              <li
+                key={rule.id}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 text-sm"
+              >
+                <span className="min-w-0">
+                  Si la descripción <strong>{MATCH_TYPE_LABELS[rule.match_type] ?? rule.match_type}</strong>{" "}
+                  «{rule.pattern}» → {categoryMap.get(rule.category_id)?.name ?? "Categoría"}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(rule.id)}
+                  className="shrink-0 rounded-lg p-1 text-[var(--app-muted)] transition-all hover:bg-[var(--app-danger-soft)] hover:text-[var(--app-danger)]"
+                  aria-label={`Eliminar regla ${rule.pattern}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-[var(--app-muted)]">
+            Aún no hay reglas. Crea una para automatizar la categorización.
+          </p>
+        )}
+
+        <form onSubmit={handleAdd} className="space-y-2">
+          <div className="grid gap-2 sm:grid-cols-2">
+            <select
+              required
+              aria-label="Tipo de coincidencia"
+              value={form.match_type}
+              onChange={(event) => setForm((current) => ({ ...current, match_type: event.target.value }))}
+              className={inputClasses}
+            >
+              <option value="contains">La descripción contiene…</option>
+              <option value="equals">La descripción es igual a…</option>
+              <option value="starts_with">La descripción empieza por…</option>
+            </select>
+            <input
+              required
+              aria-label="Texto de la regla"
+              value={form.pattern}
+              onChange={(event) => setForm((current) => ({ ...current, pattern: event.target.value }))}
+              placeholder="p. ej. Mercadona"
+              className={inputClasses}
+            />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+            <select
+              required
+              aria-label="Categoría de la regla"
+              value={form.category_id}
+              onChange={(event) => setForm((current) => ({ ...current, category_id: event.target.value }))}
+              className={inputClasses}
+            >
+              <option value="">Selecciona categoría</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>{category.name}</option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-3.5 py-2.5 text-sm font-medium text-white transition-all hover:brightness-110"
+            >
+              <Plus className="h-4 w-4" /> Añadir regla
+            </button>
+          </div>
         </form>
 
         {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}

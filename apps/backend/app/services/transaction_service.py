@@ -9,6 +9,7 @@ from app.models.category import Category
 from app.models.enums import CategoryType
 from app.models.transaction import Transaction
 from app.repositories.account_repository import AccountRepository
+from app.repositories.categorization_rule_repository import CategorizationRuleRepository
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.transactions import (
@@ -18,6 +19,7 @@ from app.schemas.transactions import (
     TransactionUpdate,
     TransferCreate,
 )
+from app.services.categorization_rule_service import match_rule_category
 
 
 class TransactionService:
@@ -86,7 +88,14 @@ class TransactionService:
         self._validate_currency_matches_account(currency=payload.currency, account=account)
         self._validate_category_is_compatible(category=category)
 
-        transaction = self.repository.create(user_id=user_id, payload=payload.model_dump())
+        data = payload.model_dump()
+        if data.get("category_id") is None:
+            rules = CategorizationRuleRepository(self.db).list_for_user(user_id=user_id)
+            matched = match_rule_category(rules, data.get("description") or "")
+            if matched is not None:
+                data["category_id"] = matched
+
+        transaction = self.repository.create(user_id=user_id, payload=data)
         self.db.commit()
         return transaction
 

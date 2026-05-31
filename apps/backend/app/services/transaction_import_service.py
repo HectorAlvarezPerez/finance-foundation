@@ -25,6 +25,7 @@ from app.llm.types import LlmObservabilityClient
 from app.models.account import Account
 from app.models.category import Category
 from app.repositories.account_repository import AccountRepository
+from app.repositories.categorization_rule_repository import CategorizationRuleRepository
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.settings_repository import SettingsRepository
 from app.repositories.transaction_repository import TransactionRepository
@@ -47,6 +48,7 @@ from app.services.azure_openai_pdf_parser_service import AzureOpenAIPdfParserSer
 from app.services.azure_openai_transaction_category_service import (
     AzureOpenAITransactionCategoryService,
 )
+from app.services.categorization_rule_service import match_rule_category
 
 SUPPORTED_IMPORT_TYPES = {"csv", "xlsx", "xlsm", "xltx", "xltm", "pdf"}
 REQUIRED_IMPORT_FIELDS = ("date", "amount", "description")
@@ -249,12 +251,16 @@ class TransactionImportService:
         seen_fingerprints = set(existing_fingerprints)
         imported_count = 0
         skipped_duplicates = 0
+        rules = CategorizationRuleRepository(self.db).list_for_user(user_id=user_id)
 
         for item in payload.items:
             account = self._require_account(user_id=user_id, account_id=item.account_id)
+            resolved_category_id = item.category_id
+            if resolved_category_id is None:
+                resolved_category_id = match_rule_category(rules, item.description)
             category = self._require_category_if_present(
                 user_id=user_id,
-                category_id=item.category_id,
+                category_id=resolved_category_id,
             )
             if item.currency != account.currency:
                 raise HTTPException(
@@ -279,7 +285,7 @@ class TransactionImportService:
 
             create_payload = TransactionCreate(
                 account_id=item.account_id,
-                category_id=item.category_id,
+                category_id=resolved_category_id,
                 date=item.date,
                 amount=item.amount,
                 currency=item.currency,

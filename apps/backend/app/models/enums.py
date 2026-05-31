@@ -41,3 +41,9 @@ class PriceSource(StrEnum):
 class TradeSide(StrEnum):
     BUY = "buy"
     SELL = "sell"
+
+
+class RuleMatchType(StrEnum):
+    CONTAINS = "contains"
+    EQUALS = "equals"
+    STARTS_WITH = "starts_with"

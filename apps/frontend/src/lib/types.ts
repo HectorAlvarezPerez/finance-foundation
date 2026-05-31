@@ -96,6 +96,8 @@ export type {
   BudgetBatchDeleteResponse,
   BudgetCreate,
   BudgetUpdate,
+  CategorizationRule,
+  CategorizationRuleCreate,
   Category,
   CategoryCreate,
   CategoryType,

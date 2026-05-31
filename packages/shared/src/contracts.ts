@@ -31,6 +31,9 @@ export type Category = components["schemas"]["CategoryRead"];
 export type CategoryCreate = components["schemas"]["CategoryCreate"];
 export type CategoryUpdate = components["schemas"]["CategoryUpdate"];
 
+export type CategorizationRule = components["schemas"]["CategorizationRuleRead"];
+export type CategorizationRuleCreate = components["schemas"]["CategorizationRuleCreate"];
+
 export type Transaction = components["schemas"]["TransactionRead"];
 export type TransactionCreate = components["schemas"]["TransactionCreate"];
 export type TransactionUpdate = components["schemas"]["TransactionUpdate"];
