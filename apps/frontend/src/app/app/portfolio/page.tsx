@@ -2,6 +2,7 @@
 
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MoreVertical, Pencil, Plus, RefreshCw, Trash2, TrendingUp } from "lucide-react";
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 
 import { AmountValue } from "@/components/amount-value";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,6 +29,17 @@ const ASSET_TYPE_OPTIONS = Object.entries(ASSET_TYPE_LABELS).map(([value, label]
   value,
   label,
 }));
+
+const ALLOCATION_PALETTE = [
+  "#6366f1",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#06b6d4",
+  "#a855f7",
+  "#ec4899",
+  "#84cc16",
+];
 
 type HoldingFormState = {
   asset_name: string;
@@ -79,7 +91,7 @@ export default function PortfolioPage() {
     void load();
   }, [load]);
 
-  const holdings = summary?.holdings ?? [];
+  const holdings = useMemo(() => summary?.holdings ?? [], [summary]);
 
   const totals = useMemo(() => {
     const value = Number(summary?.total_value ?? 0);
@@ -88,6 +100,31 @@ export default function PortfolioPage() {
     const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
     return { value, invested, pnl, pnlPct };
   }, [summary]);
+
+  const allocationData = useMemo(
+    () =>
+      holdings
+        .filter((holding) => holding.allocation_pct > 0)
+        .map((holding, index) => ({
+          name: holding.asset_name,
+          value: holding.allocation_pct,
+          fill: ALLOCATION_PALETTE[index % ALLOCATION_PALETTE.length],
+        })),
+    [holdings],
+  );
+
+  const byType = useMemo(() => {
+    const totalsByType = new Map<string, number>();
+    holdings.forEach((holding) => {
+      totalsByType.set(
+        holding.asset_type,
+        (totalsByType.get(holding.asset_type) ?? 0) + holding.allocation_pct,
+      );
+    });
+    return [...totalsByType.entries()]
+      .map(([type, pct]) => ({ type, pct }))
+      .sort((left, right) => right.pct - left.pct);
+  }, [holdings]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -214,6 +251,64 @@ export default function PortfolioPage() {
           />
         </section>
       )}
+
+      {!isLoading && holdings.length ? (
+        <Card className="animate-slideUp">
+          <CardHeader>
+            <CardTitle className="text-lg">Distribución</CardTitle>
+            <p className="mt-1 text-xs text-[var(--app-muted)]">
+              Peso de cada activo y por tipo, sobre el valor total ({defaultCurrency}).
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="grid items-center gap-6 md:grid-cols-2">
+              <div className="h-56">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={allocationData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={55}
+                      outerRadius={85}
+                      paddingAngle={2}
+                      stroke="none"
+                    >
+                      {allocationData.map((entry) => (
+                        <Cell key={entry.name} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${Number(value).toFixed(1)}%`} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="space-y-3">
+                <p className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--app-muted)]">
+                  Por tipo de activo
+                </p>
+                {byType.map((entry) => (
+                  <div key={entry.type} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-medium text-[var(--app-ink)]">
+                        {ASSET_TYPE_LABELS[entry.type] ?? entry.type}
+                      </span>
+                      <span className="tabular-nums text-[var(--app-muted)]">
+                        {entry.pct.toFixed(1)}%
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--app-muted-surface)_80%,transparent)]">
+                      <div
+                        className="h-2 rounded-full bg-[var(--app-accent)]"
+                        style={{ width: `${Math.min(Math.max(entry.pct, 0), 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Modal
         open={isDialogOpen}
