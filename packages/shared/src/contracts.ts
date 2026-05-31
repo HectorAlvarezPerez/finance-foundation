@@ -64,6 +64,7 @@ export type InsightsMonthlyRecap = components["schemas"]["InsightsMonthlyRecapRe
 export type InsightsMonthlyRecapRegenerateRequest =
   components["schemas"]["InsightsMonthlyRecapRegenerateRequest"];
 export type InsightsSummary = components["schemas"]["InsightsSummaryRead"];
+export type NetWorth = components["schemas"]["NetWorthRead"];
 
 export type PaginatedResponse<T> = {
   items: T[];

@@ -10,8 +10,9 @@ import { EmptyState } from "@/components/empty-state";
 import { PageHeader } from "@/components/page-header";
 import { DashboardSkeleton } from "@/components/ui/skeleton";
 import { apiRequest } from "@/lib/api";
-import { formatDate, formatMonthLabel } from "@/lib/format";
-import type { Account, Budget, Category, InsightsSummary, PaginatedResponse, Transaction } from "@/lib/types";
+import { formatCurrency, formatDate, formatMonthLabel } from "@/lib/format";
+import type { Account, Budget, Category, InsightsSummary, NetWorth, PaginatedResponse, Transaction } from "@/lib/types";
+import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis } from "recharts";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 type DashboardState = {
@@ -20,6 +21,7 @@ type DashboardState = {
   recentTransactions: PaginatedResponse<Transaction> | null;
   budgets: PaginatedResponse<Budget> | null;
   insights: InsightsSummary | null;
+  netWorth: NetWorth | null;
 };
 
 function getBudgetPeriodLabel(budget: Pick<Budget, "period_type">): string {
@@ -33,6 +35,7 @@ export default function DashboardPage() {
     recentTransactions: null,
     budgets: null,
     insights: null,
+    netWorth: null,
   });
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -45,14 +48,16 @@ export default function DashboardPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [accounts, categories, recentTransactions, budgets, insights] = await Promise.all([
-          apiRequest<PaginatedResponse<Account>>("/accounts?limit=100"),
-          apiRequest<PaginatedResponse<Category>>("/categories?limit=100"),
-          apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100&sort_by=date&sort_order=desc"),
-          apiRequest<PaginatedResponse<Budget>>(`/budgets?limit=100&sort_by=amount&sort_order=desc`),
-          apiRequest<InsightsSummary>("/insights/summary"),
-        ]);
-        setState({ accounts, categories, recentTransactions, budgets, insights });
+        const [accounts, categories, recentTransactions, budgets, insights, netWorth] =
+          await Promise.all([
+            apiRequest<PaginatedResponse<Account>>("/accounts?limit=100"),
+            apiRequest<PaginatedResponse<Category>>("/categories?limit=100"),
+            apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100&sort_by=date&sort_order=desc"),
+            apiRequest<PaginatedResponse<Budget>>(`/budgets?limit=100&sort_by=amount&sort_order=desc`),
+            apiRequest<InsightsSummary>("/insights/summary"),
+            apiRequest<NetWorth>("/insights/net-worth"),
+          ]);
+        setState({ accounts, categories, recentTransactions, budgets, insights, netWorth });
       } catch (requestError) {
         setError(requestError instanceof Error ? requestError.message : "No se pudo cargar el dashboard");
       } finally {
@@ -157,6 +162,10 @@ export default function DashboardPage() {
               </Card>
             ))}
           </div>
+
+          {state.netWorth ? (
+            <NetWorthCard netWorth={state.netWorth} currency={defaultCurrency} />
+          ) : null}
 
           <div className="mt-8 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
             <Card className="animate-slideUp stagger-5">
@@ -309,5 +318,62 @@ export default function DashboardPage() {
         </>
       )}
     </div>
+  );
+}
+
+function NetWorthCard({ netWorth, currency }: { netWorth: NetWorth; currency: string }) {
+  const data = netWorth.history.map((point) => ({
+    label: point.month_label,
+    value: Number(point.value),
+  }));
+
+  return (
+    <Card className="mt-8 animate-slideUp">
+      <CardHeader>
+        <CardTitle className="text-sm font-medium text-[var(--app-muted)]">Patrimonio neto</CardTitle>
+        <div className="mt-1 text-3xl font-bold">
+          <AmountValue amount={Number(netWorth.net_worth)} currency={currency} />
+        </div>
+        <p className="mt-1 text-xs text-[var(--app-muted)]">
+          Cuentas{" "}
+          <AmountValue amount={Number(netWorth.accounts_value)} currency={currency} className="!text-[var(--app-muted)]" />
+          {" · "}Inversiones{" "}
+          <AmountValue amount={Number(netWorth.investments_value)} currency={currency} className="!text-[var(--app-muted)]" />
+        </p>
+      </CardHeader>
+      <CardContent>
+        {data.length > 1 ? (
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="netWorthFill" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="var(--app-accent)" stopOpacity={0.35} />
+                    <stop offset="100%" stopColor="var(--app-accent)" stopOpacity={0} />
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value), currency)} />
+                <Area
+                  type="monotone"
+                  dataKey="value"
+                  stroke="var(--app-accent)"
+                  strokeWidth={2}
+                  fill="url(#netWorthFill)"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-sm text-[var(--app-muted)]">
+            Aún no hay suficiente histórico para el gráfico.
+          </p>
+        )}
+        <p className="mt-2 text-[11px] text-[var(--app-muted)]">
+          El histórico refleja el saldo de tus cuentas mes a mes; las inversiones se incluyen solo
+          en el total actual.
+        </p>
+      </CardContent>
+    </Card>
   );
 }

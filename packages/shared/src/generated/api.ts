@@ -389,6 +389,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/insights/net-worth": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Net Worth */
+        get: operations["get_net_worth_api_v1_insights_net_worth_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/insights/summary": {
         parameters: {
             query?: never;
@@ -1293,6 +1310,28 @@ export interface components {
             name: string;
             /** Total */
             total: string;
+        };
+        /** NetWorthPointRead */
+        NetWorthPointRead: {
+            /** Month Key */
+            month_key: string;
+            /** Month Label */
+            month_label: string;
+            /** Value */
+            value: string;
+        };
+        /** NetWorthRead */
+        NetWorthRead: {
+            /** Accounts Value */
+            accounts_value: string;
+            /** Currency */
+            currency: string | null;
+            /** History */
+            history: components["schemas"]["NetWorthPointRead"][];
+            /** Investments Value */
+            investments_value: string;
+            /** Net Worth */
+            net_worth: string;
         };
         /** PortfolioHoldingRead */
         PortfolioHoldingRead: {
@@ -2773,6 +2812,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InsightsMonthlyRecapRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_net_worth_api_v1_insights_net_worth_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NetWorthRead"];
                 };
             };
             /** @description Validation Error */

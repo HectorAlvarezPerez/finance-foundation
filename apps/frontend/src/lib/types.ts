@@ -110,6 +110,7 @@ export type {
   InsightsMonthlyBucket,
   InsightsSummary,
   InsightsTopCategory,
+  NetWorth,
   PaginatedResponse,
   PortfolioHolding,
   PortfolioSummary,

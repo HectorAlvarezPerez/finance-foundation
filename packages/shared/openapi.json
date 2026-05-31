@@ -1949,6 +1949,76 @@
         "title": "InsightsTopCategoryRead",
         "type": "object"
       },
+      "NetWorthPointRead": {
+        "properties": {
+          "month_key": {
+            "title": "Month Key",
+            "type": "string"
+          },
+          "month_label": {
+            "title": "Month Label",
+            "type": "string"
+          },
+          "value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "month_key",
+          "month_label",
+          "value"
+        ],
+        "title": "NetWorthPointRead",
+        "type": "object"
+      },
+      "NetWorthRead": {
+        "properties": {
+          "accounts_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Accounts Value",
+            "type": "string"
+          },
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "history": {
+            "items": {
+              "$ref": "#/components/schemas/NetWorthPointRead"
+            },
+            "title": "History",
+            "type": "array"
+          },
+          "investments_value": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Investments Value",
+            "type": "string"
+          },
+          "net_worth": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Net Worth",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "accounts_value",
+          "investments_value",
+          "net_worth",
+          "history"
+        ],
+        "title": "NetWorthRead",
+        "type": "object"
+      },
       "PortfolioHoldingRead": {
         "properties": {
           "allocation_pct": {
@@ -5397,6 +5467,71 @@
           }
         },
         "summary": "Regenerate Monthly Recap",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/api/v1/insights/net-worth": {
+      "get": {
+        "operationId": "get_net_worth_api_v1_insights_net_worth_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NetWorthRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Net Worth",
         "tags": [
           "insights"
         ]

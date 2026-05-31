@@ -27,6 +27,20 @@ class InsightsDailyPacingRead(BaseModel):
     previous_month_cumulative: Decimal | None = None
 
 
+class NetWorthPointRead(BaseModel):
+    month_key: str
+    month_label: str
+    value: Decimal
+
+
+class NetWorthRead(BaseModel):
+    currency: str | None
+    accounts_value: Decimal
+    investments_value: Decimal
+    net_worth: Decimal
+    history: list[NetWorthPointRead]
+
+
 class InsightsMonthlyBucketRead(BaseModel):
     month_key: str
     month_label: str

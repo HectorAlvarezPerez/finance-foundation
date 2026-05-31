@@ -8,18 +8,22 @@ from app.repositories.account_repository import AccountRepository
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
 from app.repositories.exchange_rate_repository import ExchangeRateRepository
+from app.repositories.holding_repository import HoldingRepository
 from app.repositories.monthly_insight_recap_repository import MonthlyInsightRecapRepository
+from app.repositories.price_repository import PriceRepository
 from app.repositories.settings_repository import SettingsRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.insights import (
     InsightsMonthlyRecapRead,
     InsightsMonthlyRecapRegenerateRequest,
     InsightsSummaryRead,
+    NetWorthRead,
 )
 from app.services.azure_openai_monthly_recap_service import AzureOpenAIMonthlyRecapService
 from app.services.fx_service import CurrencyConverter
 from app.services.insights_service import InsightsService
 from app.services.monthly_recap_service import MonthlyRecapService
+from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/insights", tags=["insights"])
 
@@ -70,6 +74,37 @@ def get_insights_summary(
         user_id=user_id,
         base_currency=base_currency,
         converter=converter,
+    )
+
+
+@router.get("/net-worth", response_model=NetWorthRead)
+def get_net_worth(
+    user_id: CurrentUserId,
+    service: InsightsServiceDep,
+    db: DBSession,
+) -> NetWorthRead:
+    settings_obj = SettingsRepository(db).get_for_user(user_id=user_id)
+    base_currency = settings_obj.default_currency if settings_obj is not None else None
+    converter = CurrencyConverter(
+        ExchangeRateRepository(db).latest_rates_for_user(user_id=user_id)
+    )
+    accounts_value, history = service.get_net_worth_history(
+        user_id=user_id,
+        base_currency=base_currency,
+        converter=converter,
+    )
+    portfolio = PortfolioService(HoldingRepository(db), PriceRepository(db), db).get_summary(
+        user_id=user_id,
+        base_currency=base_currency,
+        converter=converter,
+    )
+    investments_value = portfolio.total_value
+    return NetWorthRead(
+        currency=base_currency,
+        accounts_value=accounts_value,
+        investments_value=investments_value,
+        net_worth=accounts_value + investments_value,
+        history=history,
     )
 
 

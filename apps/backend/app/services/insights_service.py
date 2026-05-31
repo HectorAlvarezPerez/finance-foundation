@@ -19,6 +19,7 @@ from app.schemas.insights import (
     InsightsMonthlyRecapMonthRead,
     InsightsSummaryRead,
     InsightsTopCategoryRead,
+    NetWorthPointRead,
 )
 from app.services.fx_service import CurrencyConverter
 
@@ -248,6 +249,51 @@ class InsightsService:
             daily_pacing=daily_pacing,
             savings_rate=round(savings_rate, 2),
         )
+
+    def get_net_worth_history(
+        self,
+        *,
+        user_id: uuid.UUID,
+        base_currency: str | None = None,
+        converter: "CurrencyConverter | None" = None,
+        months: int = 12,
+    ) -> tuple[Decimal, list[NetWorthPointRead]]:
+        """Cumulative cash balance (all accounts) at each month-end, in base currency.
+
+        Returns (current_accounts_value, monthly_history). Investment value is not
+        reconstructable without price history, so it is added by the caller for the
+        current figure only.
+        """
+        transactions = self.transaction_repository.list_all_for_user(
+            user_id=user_id,
+            sort_by="date",
+            sort_order="asc",
+        )
+
+        def to_base(amount: Decimal, currency: str) -> Decimal:
+            if base_currency is None or converter is None:
+                return amount
+            converted = converter.convert(amount, currency, base_currency)
+            return converted.quantize(Decimal("0.01")) if converted is not None else amount
+
+        running = Decimal("0.00")
+        month_end: dict[str, Decimal] = {}
+        for transaction in transactions:
+            running += to_base(transaction.amount, transaction.currency)
+            month_end[transaction.date.strftime("%Y-%m")] = running
+
+        history = [
+            NetWorthPointRead(
+                month_key=month_key,
+                month_label=self.format_month_label_parts(
+                    int(month_key[:4]), int(month_key[5:7])
+                ),
+                value=value,
+            )
+            for month_key, value in sorted(month_end.items())
+        ][-months:]
+
+        return running, history
 
     def build_available_recap_months(
         self,

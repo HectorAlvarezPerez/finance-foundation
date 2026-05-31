@@ -37,6 +37,7 @@ export type {
   InsightsMonthlyRecapVisualDatum,
   InsightsSummary,
   InsightsTopCategory,
+  NetWorth,
   PaginatedResponse,
   Settings,
   SettingsUpdate,

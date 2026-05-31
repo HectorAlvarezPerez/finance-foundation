@@ -142,3 +142,33 @@ def test_get_insights_summary(client, user_id) -> None:
 
     account_names = [item["name"] for item in payload["account_balances"]]
     assert account_names == ["Cuenta principal", "Ahorro"]
+
+
+def test_net_worth_endpoint(client, user_id) -> None:
+    headers = {"X-User-Id": str(user_id)}
+    account_id = client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"name": "Principal", "bank_name": "X", "type": "checking", "currency": "EUR"},
+    ).json()["id"]
+
+    for payload in (
+        {"date": "2026-01-10", "amount": "1000.00", "description": "Nómina enero"},
+        {"date": "2026-02-05", "amount": "-200.00", "description": "Compra"},
+    ):
+        response = client.post(
+            "/api/v1/transactions",
+            headers=headers,
+            json={"account_id": account_id, "category_id": None, "currency": "EUR", **payload},
+        )
+        assert response.status_code == 201
+
+    net_worth = client.get("/api/v1/insights/net-worth", headers=headers)
+    assert net_worth.status_code == 200
+    data = net_worth.json()
+    assert data["accounts_value"] == "800.00"
+    assert data["investments_value"] == "0"
+    assert data["net_worth"] == "800.00"
+    assert [point["month_key"] for point in data["history"]] == ["2026-01", "2026-02"]
+    assert data["history"][0]["value"] == "1000.00"
+    assert data["history"][1]["value"] == "800.00"
