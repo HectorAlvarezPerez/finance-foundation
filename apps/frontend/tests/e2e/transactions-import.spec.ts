@@ -227,7 +227,7 @@ test("mantiene la categoría sugerida editable durante la revisión de importaci
   });
 
   await page.goto("/app/transactions");
-  await page.getByRole("button", { name: "Import transactions" }).click();
+  await page.getByRole("button", { name: "Importar transacciones" }).click();
   const importDialog = page.getByRole("dialog", { name: "Importar transacciones" });
   await importDialog.getByRole("combobox").selectOption({ label: `${accountName} · EUR` });
   await importDialog.locator('input[type="file"]').setInputFiles({
@@ -303,7 +303,7 @@ test("recupera la revisión temporal tras recargar y bloquea iniciar una segunda
   });
 
   await page.goto("/app/transactions");
-  await page.getByRole("button", { name: "Import transactions" }).click();
+  await page.getByRole("button", { name: "Importar transacciones" }).click();
   const importDialog = page.getByRole("dialog", { name: "Importar transacciones" });
   await importDialog.getByRole("combobox").selectOption({ label: `${accountName} · EUR` });
   await importDialog.locator('input[type="file"]').setInputFiles({
@@ -322,7 +322,7 @@ test("recupera la revisión temporal tras recargar y bloquea iniciar una segunda
   await expect(page.getByText("Se ha recuperado una revisión de importación pendiente")).toBeVisible();
   await expect(page.getByText("Revisión temporal de importación")).toBeVisible();
 
-  await page.getByRole("button", { name: "Import transactions" }).click();
+  await page.getByRole("button", { name: "Importar transacciones" }).click();
   const replaceDialog = page.getByRole("dialog", { name: "Descartar revisión pendiente" });
   await expect(replaceDialog).toBeVisible();
   await replaceDialog.getByRole("button", { name: "Cancelar" }).click();
@@ -391,7 +391,7 @@ test("permite editar y descartar filas antes de confirmar la importación", asyn
   });
 
   await page.goto("/app/transactions");
-  await page.getByRole("button", { name: "Import transactions" }).click();
+  await page.getByRole("button", { name: "Importar transacciones" }).click();
   const importDialog = page.getByRole("dialog", { name: "Importar transacciones" });
   await importDialog.getByRole("combobox").selectOption({ label: `${accountName} · EUR` });
   await importDialog.locator('input[type="file"]').setInputFiles({
@@ -481,7 +481,7 @@ test("muestra cuántos duplicados se omiten al confirmar la importación", async
   });
 
   await page.goto("/app/transactions");
-  await page.getByRole("button", { name: "Import transactions" }).click();
+  await page.getByRole("button", { name: "Importar transacciones" }).click();
   const importDialog = page.getByRole("dialog", { name: "Importar transacciones" });
   await importDialog.getByRole("combobox").selectOption({ label: `${accountName} · EUR` });
   await importDialog.locator('input[type="file"]').setInputFiles({
