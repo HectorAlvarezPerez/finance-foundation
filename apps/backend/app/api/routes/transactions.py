@@ -19,6 +19,8 @@ from app.schemas.transactions import (
     TransactionListResponse,
     TransactionRead,
     TransactionUpdate,
+    TransferCreate,
+    TransferResponse,
 )
 from app.services.transaction_import_service import TransactionImportService
 from app.services.transaction_service import TransactionService
@@ -95,6 +97,16 @@ def create_transaction(
 ) -> TransactionRead:
     transaction = service.create_transaction(user_id=user_id, payload=payload)
     return TransactionRead.model_validate(transaction)
+
+
+@router.post("/transfer", response_model=TransferResponse, status_code=status.HTTP_201_CREATED)
+def create_transfer(
+    payload: TransferCreate,
+    user_id: CurrentUserId,
+    service: TransactionServiceDep,
+) -> TransferResponse:
+    legs = service.create_transfer(user_id=user_id, payload=payload)
+    return TransferResponse(transactions=[TransactionRead.model_validate(leg) for leg in legs])
 
 
 @router.post(

@@ -114,7 +114,9 @@ class InsightsService:
                 if transaction.category_id is not None
                 else None
             )
-            is_transfer = category is not None and category.type == CategoryType.TRANSFER
+            is_transfer = transaction.transfer_group_id is not None or (
+                category is not None and category.type == CategoryType.TRANSFER
+            )
 
             month_key = transaction.date.strftime("%Y-%m")
             bucket = monthly_buckets.get(month_key)
@@ -201,6 +203,8 @@ class InsightsService:
 
         for t in transactions:
             if t.amount < 0:
+                if t.transfer_group_id is not None:
+                    continue
                 category = category_map.get(t.category_id) if t.category_id is not None else None
                 if category is not None and category.type == CategoryType.TRANSFER:
                     continue

@@ -16,6 +16,7 @@ from app.schemas.transactions import (
     TransactionListResponse,
     TransactionRead,
     TransactionUpdate,
+    TransferCreate,
 )
 
 
@@ -116,8 +117,49 @@ class TransactionService:
 
     def delete_transaction(self, *, user_id: uuid.UUID, transaction_id: uuid.UUID) -> None:
         transaction = self.get_transaction(user_id=user_id, transaction_id=transaction_id)
-        self.repository.delete(transaction)
+        if transaction.transfer_group_id is not None:
+            # Deleting one leg of a transfer removes both legs.
+            self.repository.delete_group(
+                user_id=user_id,
+                transfer_group_id=transaction.transfer_group_id,
+            )
+        else:
+            self.repository.delete(transaction)
         self.db.commit()
+
+    def create_transfer(self, *, user_id: uuid.UUID, payload: TransferCreate) -> list[Transaction]:
+        if payload.from_account_id == payload.to_account_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Las cuentas de origen y destino deben ser distintas",
+            )
+        from_account = self._require_account(user_id=user_id, account_id=payload.from_account_id)
+        to_account = self._require_account(user_id=user_id, account_id=payload.to_account_id)
+        if from_account.currency != to_account.currency:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Las transferencias entre divisas distintas no están soportadas todavía",
+            )
+
+        group_id = uuid.uuid4()
+        common = {
+            "category_id": None,
+            "date": payload.date,
+            "currency": from_account.currency,
+            "description": payload.description,
+            "notes": payload.notes,
+            "transfer_group_id": group_id,
+        }
+        out_leg = self.repository.create(
+            user_id=user_id,
+            payload={**common, "account_id": from_account.id, "amount": -payload.amount},
+        )
+        in_leg = self.repository.create(
+            user_id=user_id,
+            payload={**common, "account_id": to_account.id, "amount": payload.amount},
+        )
+        self.db.commit()
+        return [out_leg, in_leg]
 
     def _require_account(self, *, user_id: uuid.UUID, account_id: uuid.UUID) -> Account:
         account = self.account_repository.get_for_user(user_id=user_id, account_id=account_id)

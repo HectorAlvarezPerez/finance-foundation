@@ -172,3 +172,11 @@ class TransactionRepository:
         )
         self.db.execute(statement)
         self.db.flush()
+
+    def delete_group(self, *, user_id: uuid.UUID, transfer_group_id: uuid.UUID) -> None:
+        statement = delete(Transaction).where(
+            Transaction.user_id == user_id,
+            Transaction.transfer_group_id == transfer_group_id,
+        )
+        self.db.execute(statement)
+        self.db.flush()

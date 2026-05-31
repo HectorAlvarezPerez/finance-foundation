@@ -43,6 +43,9 @@ class Transaction(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     currency: Mapped[str] = mapped_column(String(3), nullable=False)
     description: Mapped[str] = mapped_column(String(512), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Two transactions sharing a transfer_group_id are the debit/credit legs of a
+    # transfer between the user's own accounts.
+    transfer_group_id: Mapped[uuid.UUID | None] = mapped_column(Uuid, nullable=True, index=True)
 
     user: Mapped["User"] = relationship(back_populates="transactions")
     account: Mapped["Account"] = relationship(back_populates="transactions")

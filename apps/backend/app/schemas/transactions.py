@@ -43,8 +43,22 @@ class TransactionRead(ORMBaseModel):
     currency: str
     description: str
     notes: str | None
+    transfer_group_id: uuid.UUID | None
     created_at: datetime
     updated_at: datetime
+
+
+class TransferCreate(BaseModel):
+    from_account_id: uuid.UUID
+    to_account_id: uuid.UUID
+    date: date_value
+    amount: Decimal = Field(gt=0, decimal_places=2, max_digits=12)
+    description: str = Field(min_length=1, max_length=512)
+    notes: str | None = None
+
+
+class TransferResponse(BaseModel):
+    transactions: list[TransactionRead]
 
 
 class TransactionListResponse(BaseModel):

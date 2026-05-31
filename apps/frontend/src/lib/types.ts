@@ -119,6 +119,7 @@ export type {
   TransactionCreate,
   TransactionImportAnalysisResponse,
   TransactionImportColumnMapping,
+  TransferCreate,
   TransactionImportCommitRequest,
   TransactionImportCommitResponse,
   TransactionImportDraft,

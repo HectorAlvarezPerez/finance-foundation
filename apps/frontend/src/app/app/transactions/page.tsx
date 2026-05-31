@@ -188,6 +188,15 @@ function TransactionsContent() {
   const [isTypePickerOpen, setIsTypePickerOpen] = useState(false);
   const typePickerRef = useRef<HTMLDivElement | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferForm, setTransferForm] = useState({
+    from_account_id: "",
+    to_account_id: "",
+    date: new Date().toISOString().slice(0, 10),
+    amount: "",
+    description: "Transferencia entre cuentas",
+  });
+  const [transferError, setTransferError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ open: boolean; ids: string[] }>({
     open: false,
     ids: [],
@@ -352,6 +361,44 @@ function TransactionsContent() {
     const params = new URLSearchParams(searchParams);
     params.set("page", newPage.toString());
     router.replace(`${pathname}?${params.toString()}`);
+  }
+
+  function handleOpenTransfer() {
+    if (accounts.length < 2) {
+      setTransferError("Necesitas al menos dos cuentas para hacer una transferencia.");
+    } else {
+      setTransferError(null);
+    }
+    setTransferForm((current) => ({
+      ...current,
+      from_account_id: current.from_account_id || accounts[0]?.id || "",
+      to_account_id: current.to_account_id || accounts[1]?.id || "",
+    }));
+    setIsTransferDialogOpen(true);
+  }
+
+  async function handleTransferSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setTransferError(null);
+    try {
+      await apiRequest<{ transactions: Transaction[] }>("/transactions/transfer", {
+        method: "POST",
+        body: JSON.stringify({
+          from_account_id: transferForm.from_account_id,
+          to_account_id: transferForm.to_account_id,
+          date: transferForm.date,
+          amount: transferForm.amount,
+          description: transferForm.description,
+        }),
+      });
+      setIsTransferDialogOpen(false);
+      setTransferForm((current) => ({ ...current, amount: "" }));
+      await mutateTrans();
+    } catch (requestError) {
+      setTransferError(
+        requestError instanceof Error ? requestError.message : "No se pudo crear la transferencia",
+      );
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -769,6 +816,14 @@ function TransactionsContent() {
             ) : null}
             <button
               type="button"
+              onClick={handleOpenTransfer}
+              className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
+            >
+              <ArrowLeftRight className="h-4 w-4" />
+              Transferencia
+            </button>
+            <button
+              type="button"
               onClick={handleOpenImport}
               className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-semibold text-[var(--app-foreground)] transition-all hover:border-[var(--app-accent)] hover:text-[var(--app-accent)]"
             >
@@ -843,6 +898,95 @@ function TransactionsContent() {
           onConfirm={handleConfirmReplaceImport}
           onCancel={() => setIsReplaceImportDialogOpen(false)}
         />
+
+        <Modal
+          open={isTransferDialogOpen}
+          onClose={() => setIsTransferDialogOpen(false)}
+          title="Nueva transferencia"
+          description="Mueve dinero entre dos de tus cuentas. Se registran las dos patas y no cuenta como ingreso ni gasto."
+        >
+          <form className="space-y-4" onSubmit={handleTransferSubmit}>
+            <label className="grid gap-1.5">
+              <span className="text-sm font-medium">Desde</span>
+              <select
+                required
+                value={transferForm.from_account_id}
+                onChange={(event) =>
+                  setTransferForm((current) => ({ ...current, from_account_id: event.target.value }))
+                }
+                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)]"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.currency})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1.5">
+              <span className="text-sm font-medium">Hacia</span>
+              <select
+                required
+                value={transferForm.to_account_id}
+                onChange={(event) =>
+                  setTransferForm((current) => ({ ...current, to_account_id: event.target.value }))
+                }
+                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)]"
+              >
+                {accounts.map((account) => (
+                  <option key={account.id} value={account.id}>
+                    {account.name} ({account.currency})
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <label className="grid gap-1.5">
+                <span className="text-sm font-medium">Fecha</span>
+                <input
+                  required
+                  type="date"
+                  value={transferForm.date}
+                  onChange={(event) =>
+                    setTransferForm((current) => ({ ...current, date: event.target.value }))
+                  }
+                  className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)]"
+                />
+              </label>
+              <label className="grid gap-1.5">
+                <span className="text-sm font-medium">Importe</span>
+                <input
+                  required
+                  value={transferForm.amount}
+                  onChange={(event) =>
+                    setTransferForm((current) => ({ ...current, amount: event.target.value }))
+                  }
+                  placeholder="200.00"
+                  className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)]"
+                />
+              </label>
+            </div>
+            <label className="grid gap-1.5">
+              <span className="text-sm font-medium">Descripción</span>
+              <input
+                required
+                value={transferForm.description}
+                onChange={(event) =>
+                  setTransferForm((current) => ({ ...current, description: event.target.value }))
+                }
+                className="w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)]"
+              />
+            </label>
+            {transferError ? <p className="text-sm text-[var(--app-danger)]">{transferError}</p> : null}
+            <button
+              type="submit"
+              disabled={accounts.length < 2}
+              className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              Crear transferencia
+            </button>
+          </form>
+        </Modal>
 
         <Modal
           open={isDialogOpen}

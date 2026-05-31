@@ -48,5 +48,6 @@ export type {
   TransactionImportDraft,
   TransactionImportPreviewResponse,
   TransactionUpdate,
+  TransferCreate,
   User,
 } from "./contracts";

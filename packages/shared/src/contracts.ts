@@ -37,6 +37,8 @@ export type TransactionImportAnalysisResponse =
   components["schemas"]["TransactionImportAnalysisResponse"];
 export type TransactionImportColumnMapping =
   components["schemas"]["TransactionImportColumnMapping"];
+export type TransferCreate = components["schemas"]["TransferCreate"];
+export type TransferResponse = components["schemas"]["TransferResponse"];
 export type TransactionImportCommitRequest =
   components["schemas"]["TransactionImportCommitRequest"];
 export type TransactionImportCommitResponse =

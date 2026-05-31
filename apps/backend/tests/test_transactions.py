@@ -1470,3 +1470,99 @@ def test_pdf_import_uses_llm_fallback_when_table_parser_finds_no_rows(
     analyze_payload = analyze_response.json()
     assert analyze_payload["total_rows"] == 1
     assert "capa asistida" in analyze_payload["message"]
+
+
+def _make_account(client, user_id, name: str, currency: str = "EUR") -> str:
+    response = client.post(
+        "/api/v1/accounts",
+        headers={"X-User-Id": str(user_id)},
+        json={"name": name, "bank_name": "Bank", "type": "checking", "currency": currency},
+    )
+    assert response.status_code == 201, response.text
+    return response.json()["id"]
+
+
+def test_create_transfer_links_two_legs(client, user_id) -> None:
+    headers = {"X-User-Id": str(user_id)}
+    src = _make_account(client, user_id, "Origen")
+    dst = _make_account(client, user_id, "Destino")
+
+    response = client.post(
+        "/api/v1/transactions/transfer",
+        headers=headers,
+        json={
+            "from_account_id": src,
+            "to_account_id": dst,
+            "date": "2026-03-10",
+            "amount": "200.00",
+            "description": "Traspaso a ahorro",
+        },
+    )
+    assert response.status_code == 201, response.text
+    legs = response.json()["transactions"]
+    assert len(legs) == 2
+    group_ids = {leg["transfer_group_id"] for leg in legs}
+    assert len(group_ids) == 1 and None not in group_ids
+    amounts = sorted(leg["amount"] for leg in legs)
+    assert amounts == ["-200.00", "200.00"]
+
+    listed = client.get("/api/v1/transactions", headers=headers).json()
+    assert listed["total"] == 2
+
+    # Transfers must not count as income or expenses.
+    summary = client.get("/api/v1/insights/summary", headers=headers).json()
+    assert summary["income"] == "0.00"
+    assert summary["expenses"] == "0.00"
+
+
+def test_deleting_one_transfer_leg_removes_both(client, user_id) -> None:
+    headers = {"X-User-Id": str(user_id)}
+    src = _make_account(client, user_id, "A")
+    dst = _make_account(client, user_id, "B")
+    legs = client.post(
+        "/api/v1/transactions/transfer",
+        headers=headers,
+        json={
+            "from_account_id": src,
+            "to_account_id": dst,
+            "date": "2026-03-10",
+            "amount": "50.00",
+            "description": "mov",
+        },
+    ).json()["transactions"]
+
+    deleted = client.delete(f"/api/v1/transactions/{legs[0]['id']}", headers=headers)
+    assert deleted.status_code == 204
+    assert client.get("/api/v1/transactions", headers=headers).json()["total"] == 0
+
+
+def test_transfer_rejects_same_account_and_cross_currency(client, user_id) -> None:
+    headers = {"X-User-Id": str(user_id)}
+    eur = _make_account(client, user_id, "EUR acct", "EUR")
+    usd = _make_account(client, user_id, "USD acct", "USD")
+
+    same = client.post(
+        "/api/v1/transactions/transfer",
+        headers=headers,
+        json={
+            "from_account_id": eur,
+            "to_account_id": eur,
+            "date": "2026-03-10",
+            "amount": "10.00",
+            "description": "x",
+        },
+    )
+    assert same.status_code == 400
+
+    cross = client.post(
+        "/api/v1/transactions/transfer",
+        headers=headers,
+        json={
+            "from_account_id": eur,
+            "to_account_id": usd,
+            "date": "2026-03-10",
+            "amount": "10.00",
+            "description": "x",
+        },
+    )
+    assert cross.status_code == 400
