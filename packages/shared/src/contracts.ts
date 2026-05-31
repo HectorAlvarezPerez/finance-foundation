@@ -22,6 +22,10 @@ export type HoldingPriceUpdate = components["schemas"]["HoldingPriceUpdate"];
 export type PortfolioHolding = components["schemas"]["PortfolioHoldingRead"];
 export type PortfolioSummary = components["schemas"]["PortfolioSummaryRead"];
 
+export type ExchangeRate = components["schemas"]["ExchangeRateRead"];
+export type ExchangeRateCreate = components["schemas"]["ExchangeRateCreate"];
+export type ExchangeRateListResponse = components["schemas"]["ExchangeRateListResponse"];
+
 export type Category = components["schemas"]["CategoryRead"];
 export type CategoryCreate = components["schemas"]["CategoryCreate"];
 export type CategoryUpdate = components["schemas"]["CategoryUpdate"];

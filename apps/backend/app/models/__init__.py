@@ -1,6 +1,7 @@
 from app.models.account import Account
 from app.models.budget import Budget
 from app.models.category import Category
+from app.models.exchange_rate import ExchangeRate
 from app.models.holding import Holding
 from app.models.monthly_insight_recap import MonthlyInsightRecap
 from app.models.price import Price
@@ -14,6 +15,7 @@ __all__ = [
     "Account",
     "Budget",
     "Category",
+    "ExchangeRate",
     "Holding",
     "MonthlyInsightRecap",
     "Price",

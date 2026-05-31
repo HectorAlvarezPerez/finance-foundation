@@ -18,6 +18,7 @@ from app.schemas.portfolio import (
     PortfolioHoldingRead,
     PortfolioSummaryRead,
 )
+from app.services.fx_service import CurrencyConverter
 
 ZERO = Decimal("0")
 
@@ -29,7 +30,7 @@ class _ComputedHolding:
     current_price: Decimal | None
     current_value: Decimal | None
     unrealized_pnl: Decimal | None
-    effective_value: Decimal
+    effective_value_base: Decimal
 
 
 class PortfolioService:
@@ -129,9 +130,23 @@ class PortfolioService:
         self.db.commit()
         return holding
 
-    def get_summary(self, *, user_id: uuid.UUID) -> PortfolioSummaryRead:
+    def get_summary(
+        self,
+        *,
+        user_id: uuid.UUID,
+        base_currency: str | None = None,
+        converter: "CurrencyConverter | None" = None,
+    ) -> PortfolioSummaryRead:
         holdings = self.holding_repository.list_all_for_user(user_id=user_id)
         latest_prices = self.price_repository.latest_prices_for_user(user_id=user_id)
+
+        def to_base(amount: Decimal, currency: str) -> Decimal:
+            # Totals and allocation use the base currency; per-holding figures
+            # stay in the holding's own currency. Fall back to raw when no rate.
+            if base_currency is None or converter is None:
+                return amount
+            converted = converter.convert(amount, currency, base_currency)
+            return converted.quantize(Decimal("0.01")) if converted is not None else amount
 
         computed: list[_ComputedHolding] = []
         total_value = ZERO
@@ -151,10 +166,11 @@ class PortfolioService:
                 unrealized_pnl = None
 
             effective_value = current_value if current_value is not None else invested
-            total_value += effective_value
-            total_invested += invested
+            effective_value_base = to_base(effective_value, holding.currency)
+            total_value += effective_value_base
+            total_invested += to_base(invested, holding.currency)
             if unrealized_pnl is not None:
-                total_pnl += unrealized_pnl
+                total_pnl += to_base(unrealized_pnl, holding.currency)
 
             computed.append(
                 _ComputedHolding(
@@ -163,7 +179,7 @@ class PortfolioService:
                     current_price=current_price,
                     current_value=current_value,
                     unrealized_pnl=unrealized_pnl,
-                    effective_value=effective_value,
+                    effective_value_base=effective_value_base,
                 )
             )
 
@@ -171,7 +187,7 @@ class PortfolioService:
         for entry in computed:
             holding = entry.holding
             allocation = (
-                float(entry.effective_value / total_value * 100) if total_value > 0 else 0.0
+                float(entry.effective_value_base / total_value * 100) if total_value > 0 else 0.0
             )
             holding_reads.append(
                 PortfolioHoldingRead(

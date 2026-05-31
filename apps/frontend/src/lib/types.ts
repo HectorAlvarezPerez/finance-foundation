@@ -100,6 +100,8 @@ export type {
   CategoryCreate,
   CategoryType,
   CategoryUpdate,
+  ExchangeRate,
+  ExchangeRateCreate,
   Holding,
   HoldingCreate,
   HoldingListResponse,

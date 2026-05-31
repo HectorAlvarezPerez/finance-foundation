@@ -4,8 +4,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Depends, Query, Response, status
 
 from app.api.deps import CurrentUserId, DBSession
+from app.repositories.exchange_rate_repository import ExchangeRateRepository
 from app.repositories.holding_repository import HoldingRepository
 from app.repositories.price_repository import PriceRepository
+from app.repositories.settings_repository import SettingsRepository
 from app.schemas.portfolio import (
     HoldingCreate,
     HoldingListResponse,
@@ -14,6 +16,7 @@ from app.schemas.portfolio import (
     HoldingUpdate,
     PortfolioSummaryRead,
 )
+from app.services.fx_service import CurrencyConverter
 from app.services.portfolio_service import PortfolioService
 
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
@@ -30,8 +33,18 @@ PortfolioServiceDep = Annotated[PortfolioService, Depends(get_portfolio_service)
 def get_portfolio_summary(
     user_id: CurrentUserId,
     service: PortfolioServiceDep,
+    db: DBSession,
 ) -> PortfolioSummaryRead:
-    return service.get_summary(user_id=user_id)
+    settings = SettingsRepository(db).get_for_user(user_id=user_id)
+    base_currency = settings.default_currency if settings is not None else None
+    converter = CurrencyConverter(
+        ExchangeRateRepository(db).latest_rates_for_user(user_id=user_id)
+    )
+    return service.get_summary(
+        user_id=user_id,
+        base_currency=base_currency,
+        converter=converter,
+    )
 
 
 @router.get("/holdings", response_model=HoldingListResponse)

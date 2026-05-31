@@ -20,6 +20,7 @@ from app.schemas.insights import (
     InsightsSummaryRead,
     InsightsTopCategoryRead,
 )
+from app.services.fx_service import CurrencyConverter
 
 
 @dataclass
@@ -69,7 +70,13 @@ class InsightsService:
             ),
         )
 
-    def get_summary(self, *, user_id: uuid.UUID) -> InsightsSummaryRead:
+    def get_summary(
+        self,
+        *,
+        user_id: uuid.UUID,
+        base_currency: str | None = None,
+        converter: "CurrencyConverter | None" = None,
+    ) -> InsightsSummaryRead:
         snapshot = self.get_snapshot(user_id=user_id)
         accounts = snapshot.accounts
         categories = snapshot.categories
@@ -77,6 +84,14 @@ class InsightsService:
 
         category_map = {category.id: category for category in categories}
         account_map = {account.id: account for account in accounts}
+
+        def to_base(amount: Decimal, currency: str) -> Decimal:
+            # Convert cash-flow figures to the user's base currency. When no rate
+            # exists (or FX is not configured) fall back to the raw amount.
+            if base_currency is None or converter is None:
+                return amount
+            converted = converter.convert(amount, currency, base_currency)
+            return converted.quantize(Decimal("0.01")) if converted is not None else amount
 
         income = Decimal("0.00")
         expenses = Decimal("0.00")
@@ -88,9 +103,11 @@ class InsightsService:
         monthly_buckets: dict[str, MonthlyBucket] = {}
 
         for transaction in transactions:
-            amount = transaction.amount
+            # Account balances stay in each account's own currency; cash-flow
+            # totals are normalised to the base currency.
+            amount = to_base(transaction.amount, transaction.currency)
             balance += amount
-            balance_by_account[transaction.account_id] += amount
+            balance_by_account[transaction.account_id] += transaction.amount
 
             category = (
                 category_map.get(transaction.category_id)
@@ -187,11 +204,12 @@ class InsightsService:
                 category = category_map.get(t.category_id) if t.category_id is not None else None
                 if category is not None and category.type == CategoryType.TRANSFER:
                     continue
+                spent = abs(to_base(t.amount, t.currency))
                 month_key = t.date.strftime("%Y-%m")
                 if month_key == current_month_key:
-                    current_pacing[t.date.day] += abs(t.amount)
+                    current_pacing[t.date.day] += spent
                 elif month_key == prev_month_key:
-                    prev_pacing[t.date.day] += abs(t.amount)
+                    prev_pacing[t.date.day] += spent
 
         current_cum = Decimal("0.00")
         prev_cum = Decimal("0.00")

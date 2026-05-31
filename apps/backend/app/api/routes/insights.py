@@ -7,7 +7,9 @@ from app.llm.runtime import build_llm_runtime
 from app.repositories.account_repository import AccountRepository
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
+from app.repositories.exchange_rate_repository import ExchangeRateRepository
 from app.repositories.monthly_insight_recap_repository import MonthlyInsightRecapRepository
+from app.repositories.settings_repository import SettingsRepository
 from app.repositories.transaction_repository import TransactionRepository
 from app.schemas.insights import (
     InsightsMonthlyRecapRead,
@@ -15,6 +17,7 @@ from app.schemas.insights import (
     InsightsSummaryRead,
 )
 from app.services.azure_openai_monthly_recap_service import AzureOpenAIMonthlyRecapService
+from app.services.fx_service import CurrencyConverter
 from app.services.insights_service import InsightsService
 from app.services.monthly_recap_service import MonthlyRecapService
 
@@ -56,8 +59,18 @@ MonthlyRecapServiceDep = Annotated[MonthlyRecapService, Depends(get_monthly_reca
 def get_insights_summary(
     user_id: CurrentUserId,
     service: InsightsServiceDep,
+    db: DBSession,
 ) -> InsightsSummaryRead:
-    return service.get_summary(user_id=user_id)
+    settings = SettingsRepository(db).get_for_user(user_id=user_id)
+    base_currency = settings.default_currency if settings is not None else None
+    converter = CurrencyConverter(
+        ExchangeRateRepository(db).latest_rates_for_user(user_id=user_id)
+    )
+    return service.get_summary(
+        user_id=user_id,
+        base_currency=base_currency,
+        converter=converter,
+    )
 
 
 @router.get("/monthly-recap", response_model=InsightsMonthlyRecapRead)

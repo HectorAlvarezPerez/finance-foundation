@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Clock3, Globe2, MoonStar, Wallet } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, Globe2, MoonStar, Plus, Trash2, Wallet } from "lucide-react";
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -11,7 +11,7 @@ import { useAuth } from "@/components/auth-provider";
 import { useTheme } from "@/components/theme-provider";
 import { apiRequest } from "@/lib/api";
 import { formatCurrency } from "@/lib/format";
-import type { Settings } from "@/lib/types";
+import type { ExchangeRate, Settings } from "@/lib/types";
 
 type SettingsForm = {
   default_currency: string;
@@ -289,6 +289,8 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          <ExchangeRatesCard inputClasses={inputClasses} />
+
           {error ? (
             <div className="animate-fadeIn rounded-xl bg-[var(--app-danger-soft)] px-4 py-3 text-sm text-[var(--app-danger)]">
               {error}
@@ -350,6 +352,131 @@ export default function SettingsPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function ExchangeRatesCard({ inputClasses }: { inputClasses: string }) {
+  const [rates, setRates] = useState<ExchangeRate[]>([]);
+  const [form, setForm] = useState({ from_currency: "USD", to_currency: "EUR", rate: "" });
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const response = await apiRequest<{ items: ExchangeRate[] }>("/fx/rates");
+      setRates(response.items);
+      setError(null);
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar los tipos de cambio");
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function handleAdd(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setError(null);
+    try {
+      await apiRequest("/fx/rates", {
+        method: "POST",
+        body: JSON.stringify({
+          from_currency: form.from_currency.toUpperCase(),
+          to_currency: form.to_currency.toUpperCase(),
+          rate: form.rate,
+        }),
+      });
+      setForm((current) => ({ ...current, rate: "" }));
+      await load();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo añadir el tipo de cambio");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setError(null);
+    try {
+      await apiRequest(`/fx/rates/${id}`, { method: "DELETE", skipJson: true });
+      await load();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo eliminar el tipo de cambio");
+    }
+  }
+
+  return (
+    <Card className="animate-slideUp stagger-2">
+      <CardHeader>
+        <CardTitle>Tipos de cambio</CardTitle>
+        <CardDescription>
+          Convierte importes a tu moneda principal en análisis y cartera. Define cuánto vale 1 unidad de una divisa en otra.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {rates.length ? (
+          <ul className="space-y-2">
+            {rates.map((rate) => (
+              <li
+                key={rate.id}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5"
+              >
+                <span className="text-sm font-medium tabular-nums">
+                  1 {rate.from_currency} = {rate.rate} {rate.to_currency}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void handleDelete(rate.id)}
+                  className="rounded-lg p-1 text-[var(--app-muted)] transition-all hover:bg-[var(--app-danger-soft)] hover:text-[var(--app-danger)]"
+                  aria-label={`Eliminar tipo de cambio ${rate.from_currency} a ${rate.to_currency}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-[var(--app-muted)]">
+            Aún no hay tipos de cambio. Añade uno si manejas más de una divisa.
+          </p>
+        )}
+
+        <form onSubmit={handleAdd} className="flex flex-wrap items-end gap-2">
+          <input
+            required
+            aria-label="Divisa de origen"
+            value={form.from_currency}
+            maxLength={3}
+            onChange={(event) => setForm((current) => ({ ...current, from_currency: event.target.value.toUpperCase() }))}
+            className={`${inputClasses} w-20 uppercase`}
+          />
+          <ArrowRight className="mb-3 h-4 w-4 shrink-0 text-[var(--app-muted)]" />
+          <input
+            required
+            aria-label="Divisa de destino"
+            value={form.to_currency}
+            maxLength={3}
+            onChange={(event) => setForm((current) => ({ ...current, to_currency: event.target.value.toUpperCase() }))}
+            className={`${inputClasses} w-20 uppercase`}
+          />
+          <input
+            required
+            aria-label="Tipo de cambio"
+            value={form.rate}
+            onChange={(event) => setForm((current) => ({ ...current, rate: event.target.value }))}
+            placeholder="0.92"
+            className={`${inputClasses} w-28`}
+          />
+          <button
+            type="submit"
+            className="inline-flex items-center gap-2 rounded-xl bg-[var(--app-accent)] px-3.5 py-3 text-sm font-medium text-white transition-all hover:brightness-110"
+          >
+            <Plus className="h-4 w-4" />
+            Añadir
+          </button>
+        </form>
+
+        {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}
+      </CardContent>
+    </Card>
   );
 }
 
