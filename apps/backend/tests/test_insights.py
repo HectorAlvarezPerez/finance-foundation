@@ -172,3 +172,51 @@ def test_net_worth_endpoint(client, user_id) -> None:
     assert [point["month_key"] for point in data["history"]] == ["2026-01", "2026-02"]
     assert data["history"][0]["value"] == "1000.00"
     assert data["history"][1]["value"] == "800.00"
+
+
+def test_subscriptions_detection(client, user_id) -> None:
+    headers = {"X-User-Id": str(user_id)}
+    account_id = client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"name": "Cuenta", "bank_name": "X", "type": "checking", "currency": "EUR"},
+    ).json()["id"]
+
+    for month in (1, 2, 3):
+        response = client.post(
+            "/api/v1/transactions",
+            headers=headers,
+            json={
+                "account_id": account_id,
+                "category_id": None,
+                "date": f"2026-0{month}-15",
+                "amount": "-12.99",
+                "currency": "EUR",
+                "description": "Netflix Espana 0001",
+            },
+        )
+        assert response.status_code == 201
+
+    # one-off purchase, must NOT be detected as a subscription
+    client.post(
+        "/api/v1/transactions",
+        headers=headers,
+        json={
+            "account_id": account_id,
+            "category_id": None,
+            "date": "2026-02-20",
+            "amount": "-80.00",
+            "currency": "EUR",
+            "description": "Compra puntual zapatos",
+        },
+    )
+
+    subscriptions = client.get("/api/v1/insights/subscriptions", headers=headers)
+    assert subscriptions.status_code == 200
+    data = subscriptions.json()
+    assert len(data["items"]) == 1
+    item = data["items"][0]
+    assert "Netflix" in item["label"]
+    assert item["occurrences"] == 3
+    assert item["monthly_estimate"] == "12.99"
+    assert data["total_monthly_estimate"] == "12.99"

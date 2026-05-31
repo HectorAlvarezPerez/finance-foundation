@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from typing import Literal
 
@@ -39,6 +39,22 @@ class NetWorthRead(BaseModel):
     investments_value: Decimal
     net_worth: Decimal
     history: list[NetWorthPointRead]
+
+
+class SubscriptionRead(BaseModel):
+    label: str
+    category_id: uuid.UUID | None
+    category_name: str | None
+    currency: str
+    monthly_estimate: Decimal
+    occurrences: int
+    last_date: date
+
+
+class SubscriptionsRead(BaseModel):
+    currency: str | None
+    total_monthly_estimate: Decimal
+    items: list[SubscriptionRead]
 
 
 class InsightsMonthlyBucketRead(BaseModel):

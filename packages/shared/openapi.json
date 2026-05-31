@@ -2408,6 +2408,100 @@
         "title": "SettingsUpdate",
         "type": "object"
       },
+      "SubscriptionRead": {
+        "properties": {
+          "category_id": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Id"
+          },
+          "category_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Category Name"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "last_date": {
+            "format": "date",
+            "title": "Last Date",
+            "type": "string"
+          },
+          "monthly_estimate": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Monthly Estimate",
+            "type": "string"
+          },
+          "occurrences": {
+            "title": "Occurrences",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "label",
+          "category_id",
+          "category_name",
+          "currency",
+          "monthly_estimate",
+          "occurrences",
+          "last_date"
+        ],
+        "title": "SubscriptionRead",
+        "type": "object"
+      },
+      "SubscriptionsRead": {
+        "properties": {
+          "currency": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currency"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubscriptionRead"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "total_monthly_estimate": {
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Total Monthly Estimate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "currency",
+          "total_monthly_estimate",
+          "items"
+        ],
+        "title": "SubscriptionsRead",
+        "type": "object"
+      },
       "TransactionCreate": {
         "properties": {
           "account_id": {
@@ -5846,6 +5940,71 @@
           }
         },
         "summary": "Get Net Worth",
+        "tags": [
+          "insights"
+        ]
+      }
+    },
+    "/api/v1/insights/subscriptions": {
+      "get": {
+        "operationId": "get_subscriptions_api_v1_insights_subscriptions_get",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-User-Id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-User-Id"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "finance_foundation_session",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Finance Foundation Session"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubscriptionsRead"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Subscriptions",
         "tags": [
           "insights"
         ]

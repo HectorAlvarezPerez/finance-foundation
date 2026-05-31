@@ -41,6 +41,8 @@ export type {
   InsightsTopCategory,
   NetWorth,
   PaginatedResponse,
+  Subscription,
+  Subscriptions,
   Settings,
   SettingsUpdate,
   Transaction,

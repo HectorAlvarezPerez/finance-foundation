@@ -18,6 +18,7 @@ from app.schemas.insights import (
     InsightsMonthlyRecapRegenerateRequest,
     InsightsSummaryRead,
     NetWorthRead,
+    SubscriptionsRead,
 )
 from app.services.azure_openai_monthly_recap_service import AzureOpenAIMonthlyRecapService
 from app.services.fx_service import CurrencyConverter
@@ -105,6 +106,29 @@ def get_net_worth(
         investments_value=investments_value,
         net_worth=accounts_value + investments_value,
         history=history,
+    )
+
+
+@router.get("/subscriptions", response_model=SubscriptionsRead)
+def get_subscriptions(
+    user_id: CurrentUserId,
+    service: InsightsServiceDep,
+    db: DBSession,
+) -> SubscriptionsRead:
+    settings_obj = SettingsRepository(db).get_for_user(user_id=user_id)
+    base_currency = settings_obj.default_currency if settings_obj is not None else None
+    converter = CurrencyConverter(
+        ExchangeRateRepository(db).latest_rates_for_user(user_id=user_id)
+    )
+    items, total = service.detect_subscriptions(
+        user_id=user_id,
+        base_currency=base_currency,
+        converter=converter,
+    )
+    return SubscriptionsRead(
+        currency=base_currency,
+        total_monthly_estimate=total,
+        items=items,
     )
 
 

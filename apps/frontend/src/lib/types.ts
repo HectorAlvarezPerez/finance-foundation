@@ -114,6 +114,8 @@ export type {
   InsightsTopCategory,
   NetWorth,
   PaginatedResponse,
+  Subscription,
+  Subscriptions,
   PortfolioHolding,
   PortfolioSummary,
   PriceRefreshResponse,

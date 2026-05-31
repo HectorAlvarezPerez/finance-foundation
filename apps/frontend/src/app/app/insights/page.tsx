@@ -33,6 +33,7 @@ import type {
   InsightsMonthlyRecapRegenerateRequest,
   InsightsRecapMonth,
   InsightsSummaryWithRecapMonths,
+  Subscriptions,
 } from "@/lib/types";
 
 const chartPalette = {
@@ -68,6 +69,20 @@ export default function InsightsPage() {
     }
 
     void load();
+  }, []);
+
+  const [subscriptions, setSubscriptions] = useState<Subscriptions | null>(null);
+
+  useEffect(() => {
+    async function loadSubscriptions() {
+      try {
+        setSubscriptions(await apiRequest<Subscriptions>("/insights/subscriptions"));
+      } catch {
+        setSubscriptions(null);
+      }
+    }
+
+    void loadSubscriptions();
   }, []);
 
   const currentMonthKey = useMemo(() => {
@@ -500,6 +515,47 @@ export default function InsightsPage() {
                 )}
               </CardContent>
             </Card>
+
+            {subscriptions && subscriptions.items.length > 0 ? (
+              <Card className="min-w-0 animate-slideUp stagger-6 xl:col-span-2">
+                <CardHeader>
+                  <CardTitle>Suscripciones detectadas</CardTitle>
+                  <CardDescription>
+                    Cargos recurrentes (3+ meses). Estimado:{" "}
+                    {formatCurrency(
+                      Number(subscriptions.total_monthly_estimate),
+                      subscriptions.currency || settings?.default_currency || "EUR",
+                      settings?.locale || "es-ES",
+                    )}
+                    /mes.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                  {subscriptions.items.map((subscription) => (
+                    <div
+                      key={`${subscription.label}-${subscription.currency}`}
+                      className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-[var(--app-ink)]">
+                          {subscription.label}
+                        </p>
+                        <p className="text-xs text-[var(--app-muted)]">
+                          {subscription.category_name ?? "Sin categoría"} · {subscription.occurrences} cargos
+                        </p>
+                      </div>
+                      <div className="shrink-0 text-sm font-semibold">
+                        <AmountValue
+                          amount={Number(subscription.monthly_estimate)}
+                          currency={subscription.currency}
+                        />
+                        <span className="text-xs font-normal text-[var(--app-muted)]">/mes</span>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            ) : null}
           </div>
         </>
       )}

@@ -1,5 +1,6 @@
+import re
 import uuid
-from collections import defaultdict
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -20,6 +21,7 @@ from app.schemas.insights import (
     InsightsSummaryRead,
     InsightsTopCategoryRead,
     NetWorthPointRead,
+    SubscriptionRead,
 )
 from app.services.fx_service import CurrencyConverter
 
@@ -294,6 +296,82 @@ class InsightsService:
         ][-months:]
 
         return running, history
+
+    @staticmethod
+    def _subscription_key(description: str) -> str:
+        text = (description or "").lower()
+        text = re.sub(r"[0-9]+", " ", text)
+        text = re.sub(r"[^0-9a-záéíóúñü ]", " ", text)
+        tokens = [token for token in text.split() if len(token) > 2][:3]
+        return " ".join(tokens)
+
+    def detect_subscriptions(
+        self,
+        *,
+        user_id: uuid.UUID,
+        base_currency: str | None = None,
+        converter: "CurrencyConverter | None" = None,
+    ) -> tuple[list[SubscriptionRead], Decimal]:
+        """Detect likely subscriptions: recurring same-merchant expenses with a
+        stable amount across at least 3 distinct months."""
+        snapshot = self.get_snapshot(user_id=user_id)
+        category_map = {category.id: category for category in snapshot.categories}
+
+        groups: defaultdict[tuple[str, str], list[Transaction]] = defaultdict(list)
+        for transaction in snapshot.transactions:
+            if transaction.amount >= 0 or transaction.transfer_group_id is not None:
+                continue
+            category = (
+                category_map.get(transaction.category_id) if transaction.category_id else None
+            )
+            if category is not None and category.type == CategoryType.TRANSFER:
+                continue
+            key = self._subscription_key(transaction.description)
+            if not key:
+                continue
+            groups[(key, transaction.currency)].append(transaction)
+
+        items: list[SubscriptionRead] = []
+        for (_, currency), txns in groups.items():
+            if len(txns) < 3:
+                continue
+            if len({t.date.strftime("%Y-%m") for t in txns}) < 3:
+                continue
+            amounts = [abs(t.amount) for t in txns]
+            mean = sum(amounts, Decimal("0")) / len(amounts)
+            if mean <= 0 or (max(amounts) - min(amounts)) / mean > Decimal("0.35"):
+                continue
+
+            label = Counter(t.description for t in txns).most_common(1)[0][0]
+            category_id = Counter(t.category_id for t in txns).most_common(1)[0][0]
+            category = category_map.get(category_id) if category_id else None
+            items.append(
+                SubscriptionRead(
+                    label=label,
+                    category_id=category_id,
+                    category_name=category.name if category is not None else None,
+                    currency=currency,
+                    monthly_estimate=mean.quantize(Decimal("0.01")),
+                    occurrences=len(txns),
+                    last_date=max(t.date for t in txns),
+                )
+            )
+
+        items.sort(key=lambda item: item.monthly_estimate, reverse=True)
+
+        total = Decimal("0.00")
+        for item in items:
+            if base_currency is not None and converter is not None:
+                converted = converter.convert(item.monthly_estimate, item.currency, base_currency)
+                total += (
+                    converted.quantize(Decimal("0.01"))
+                    if converted is not None
+                    else item.monthly_estimate
+                )
+            else:
+                total += item.monthly_estimate
+
+        return items, total
 
     def build_available_recap_months(
         self,
