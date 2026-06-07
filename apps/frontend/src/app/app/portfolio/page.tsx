@@ -650,30 +650,51 @@ function HoldingActionsMenu({
   onDelete: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
 
     function handleClick(event: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(event.target as Node) &&
+        triggerRef.current &&
+        !triggerRef.current.contains(event.target as Node)
+      ) {
         setIsOpen(false);
       }
     }
 
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setIsOpen(false);
-      }
+      if (event.key === "Escape") setIsOpen(false);
+    }
+
+    function handleScroll() {
+      setIsOpen(false);
     }
 
     document.addEventListener("click", handleClick);
     document.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("scroll", handleScroll, true);
     return () => {
       document.removeEventListener("click", handleClick);
       document.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("scroll", handleScroll, true);
     };
   }, [isOpen]);
+
+  function openMenu() {
+    if (!triggerRef.current) return;
+    const rect = triggerRef.current.getBoundingClientRect();
+    setMenuPos({
+      top: rect.bottom + 4,
+      right: window.innerWidth - rect.right,
+    });
+    setIsOpen(true);
+  }
 
   function runAndClose(action: () => void) {
     action();
@@ -681,17 +702,22 @@ function HoldingActionsMenu({
   }
 
   return (
-    <div ref={menuRef} className="relative z-30">
+    <div>
       <button
+        ref={triggerRef}
         type="button"
-        onClick={() => setIsOpen((current) => !current)}
+        onClick={openMenu}
         className="rounded-lg p-1 text-[var(--app-muted)] transition-all hover:bg-[var(--app-muted-surface)]"
         aria-label={`Acciones de inversión ${label}`}
       >
         <MoreVertical className="h-4 w-4" />
       </button>
-      {isOpen ? (
-        <div className="animate-slideDown absolute right-0 z-[80] mt-1 min-w-48 rounded-xl border border-[var(--app-border)] bg-[var(--app-glass)] p-1 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl">
+      {isOpen && menuPos ? (
+        <div
+          ref={menuRef}
+          className="animate-slideDown fixed z-[200] min-w-48 rounded-xl border border-[var(--app-border)] bg-[var(--app-glass)] p-1 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl"
+          style={{ top: menuPos.top, right: menuPos.right }}
+        >
           <button type="button" onClick={() => runAndClose(onUpdatePrice)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-all hover:bg-[var(--app-muted-surface)]">
             <RefreshCw className="h-4 w-4" /> Actualizar precio
           </button>
