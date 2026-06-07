@@ -358,33 +358,21 @@ export default function InsightsPage() {
         <ListSkeleton rows={4} />
       ) : (
         <>
-          <div className="grid gap-4 xl:grid-cols-[0.82fr_1.18fr] xl:items-start">
-            <MonthlyRecapLauncher
-              compact
-              hasSelectedMonth={Boolean(recapTargetMonthKey)}
-              onPlay={() => void loadMonthlyRecap(false)}
-              onRegenerate={() => void loadMonthlyRecap(true)}
-              isLoading={isRecapLoading || isRegenerating}
-              recap={recap}
-              error={recapError}
-            />
-
-            <div className="grid gap-4 md:grid-cols-3">
-              {metricCards.map((item, index) => (
-                <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle className="text-sm font-medium text-[var(--app-muted)]">{item.title}</CardTitle>
-                    <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${item.bgClass}`}>
-                      <span className={item.accentClass}>{item.icon}</span>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{item.value}</div>
-                    <p className="text-xs text-[var(--app-muted)]">{item.description}</p>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {metricCards.map((item, index) => (
+              <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium text-[var(--app-muted)]">{item.title}</CardTitle>
+                  <div className={`flex h-8 w-8 items-center justify-center rounded-xl ${item.bgClass}`}>
+                    <span className={item.accentClass}>{item.icon}</span>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{item.value}</div>
+                  <p className="text-xs text-[var(--app-muted)]">{item.description}</p>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           <div className="animate-slideUp stagger-4">
@@ -556,6 +544,17 @@ export default function InsightsPage() {
                 </CardContent>
               </Card>
             ) : null}
+          </div>
+
+          <div className="animate-slideUp stagger-6">
+            <MonthlyRecapLauncher
+              hasSelectedMonth={Boolean(recapTargetMonthKey)}
+              onPlay={() => void loadMonthlyRecap(false)}
+              onRegenerate={() => void loadMonthlyRecap(true)}
+              isLoading={isRecapLoading || isRegenerating}
+              recap={recap}
+              error={recapError}
+            />
           </div>
         </>
       )}
