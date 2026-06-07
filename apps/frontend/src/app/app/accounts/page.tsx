@@ -32,7 +32,7 @@ import { Modal } from "@/components/ui/modal";
 import { useToast } from "@/components/ui/toast";
 import { useSettings } from "@/components/settings-provider";
 import { apiRequest } from "@/lib/api";
-import type { Account, AccountType, PaginatedResponse, Transaction, Settings } from "@/lib/types";
+import type { Account, AccountType, InsightsSummary, PaginatedResponse } from "@/lib/types";
 
 type AccountFormState = {
   name: string;
@@ -120,7 +120,7 @@ export default function AccountsPage() {
   const { toast } = useToast();
   const { settings } = useSettings();
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [accountBalances, setAccountBalances] = useState<Map<string, number>>(new Map());
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [form, setForm] = useState({ ...defaultForm, currency: settings?.default_currency || "EUR" });
@@ -132,13 +132,20 @@ export default function AccountsPage() {
 
   async function loadAccounts() {
     try {
-      const [accountsResponse, transactionsResponse] = await Promise.all([
+      const [accountsResponse, insightsResponse] = await Promise.all([
         apiRequest<PaginatedResponse<Account>>("/accounts?sort_by=name&sort_order=asc&limit=100"),
-        apiRequest<PaginatedResponse<Transaction>>("/transactions?limit=100"),
+        apiRequest<InsightsSummary>("/insights/summary"),
       ]);
 
       setAccounts(accountsResponse.items);
-      setTransactions(transactionsResponse.items);
+      setAccountBalances(
+        new Map(
+          insightsResponse.account_balances.map((account) => [
+            account.account_id,
+            Number(account.total),
+          ]),
+        ),
+      );
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar las cuentas");
     } finally {
@@ -153,15 +160,6 @@ export default function AccountsPage() {
   useEffect(() => {
     void loadAccountsOnMount();
   }, []);
-
-  const balances = new Map<string, number>();
-
-  transactions.forEach((transaction) => {
-    balances.set(
-      transaction.account_id,
-      (balances.get(transaction.account_id) ?? 0) + Number(transaction.amount),
-    );
-  });
 
   useEffect(() => {
     if (activeIndex >= accounts.length && accounts.length > 0) {
@@ -474,7 +472,7 @@ export default function AccountsPage() {
                   const isActive = index === activeIndex;
                   const gradient = accountTypeGradients[account.type];
                   const Icon = accountTypeIcons[account.type];
-                  const balance = balances.get(account.id) ?? 0;
+                  const balance = accountBalances.get(account.id) ?? 0;
 
                   // Cards beyond ±2 circular positions are hidden
                   if (absOffset > 2) return null;
@@ -586,7 +584,7 @@ export default function AccountsPage() {
                     label="Saldo"
                     value={
                       <AmountValue
-                        amount={balances.get(activeAccount.id) ?? 0}
+                        amount={accountBalances.get(activeAccount.id) ?? 0}
                         currency={activeAccount.currency}
                       />
                     }
