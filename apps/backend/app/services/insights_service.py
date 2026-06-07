@@ -141,16 +141,17 @@ class InsightsService:
             if is_transfer:
                 continue
 
-            if amount >= 0:
+            category_type = category.type if category is not None else None
+            if category_type == CategoryType.INCOME:
                 income += amount
                 bucket.income += amount
-            else:
+                bucket.net += amount
+            elif category_type == CategoryType.EXPENSE:
                 expense_amount = abs(amount)
                 expenses += expense_amount
                 expense_by_category[transaction.category_id] += expense_amount
                 bucket.expenses += expense_amount
-
-            bucket.net += amount
+                bucket.net += amount
 
         top_categories = sorted(
             (
@@ -205,18 +206,17 @@ class InsightsService:
         prev_pacing = {day: Decimal("0.00") for day in range(1, 32)}
 
         for t in transactions:
-            if t.amount < 0:
-                if t.transfer_group_id is not None:
-                    continue
-                category = category_map.get(t.category_id) if t.category_id is not None else None
-                if category is not None and category.type == CategoryType.TRANSFER:
-                    continue
-                spent = abs(to_base(t.amount, t.currency))
-                month_key = t.date.strftime("%Y-%m")
-                if month_key == current_month_key:
-                    current_pacing[t.date.day] += spent
-                elif month_key == prev_month_key:
-                    prev_pacing[t.date.day] += spent
+            if t.transfer_group_id is not None:
+                continue
+            category = category_map.get(t.category_id) if t.category_id is not None else None
+            if category is None or category.type != CategoryType.EXPENSE:
+                continue
+            spent = abs(to_base(t.amount, t.currency))
+            month_key = t.date.strftime("%Y-%m")
+            if month_key == current_month_key:
+                current_pacing[t.date.day] += spent
+            elif month_key == prev_month_key:
+                prev_pacing[t.date.day] += spent
 
         current_cum = Decimal("0.00")
         prev_cum = Decimal("0.00")

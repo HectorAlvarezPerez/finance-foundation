@@ -122,9 +122,11 @@ def test_get_insights_summary(client, user_id) -> None:
 
     assert summary_response.status_code == 200
     payload = summary_response.json()
-    # Transfers (categoría tipo "transfer") mueven dinero entre cuentas propias:
-    # afectan al saldo pero NO deben contar como ingreso ni como gasto.
-    assert payload["income"] == "2100.00"
+    # Income/expense classification uses category type, not amount sign.
+    # Uncategorized transactions (like "Traspaso ahorro") affect balance but are
+    # not counted as income or expense until categorized.
+    # Transfers (categoría tipo "transfer") are excluded from cash-flow totals.
+    assert payload["income"] == "2000.00"
     assert payload["expenses"] == "45.00"
     assert payload["balance"] == "2055.00"
     assert payload["transaction_count"] == 5
@@ -135,7 +137,7 @@ def test_get_insights_summary(client, user_id) -> None:
     assert "Traspasos" not in category_names
 
     assert payload["monthly_comparison"][0]["month_key"] == "2026-02"
-    assert payload["monthly_comparison"][0]["income"] == "100.00"
+    assert payload["monthly_comparison"][0]["income"] == "0.00"
     assert payload["monthly_comparison"][1]["month_key"] == "2026-03"
     assert payload["monthly_comparison"][1]["income"] == "2000.00"
     assert payload["monthly_comparison"][1]["expenses"] == "45.00"
