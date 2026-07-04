@@ -26,6 +26,8 @@ type DailyPacingData = {
 type CumulativePacingChartProps = {
   data: DailyPacingData[];
   className?: string;
+  currentLabel?: string;
+  previousLabel?: string;
 };
 
 type ChartTooltipEntry = {
@@ -40,7 +42,12 @@ type ChartTooltipContent = {
   label?: string | number;
 };
 
-export function CumulativePacingChart({ data, className }: CumulativePacingChartProps) {
+export function CumulativePacingChart({
+  data,
+  className,
+  currentLabel = "Mes actual",
+  previousLabel = "Mes anterior",
+}: CumulativePacingChartProps) {
   const formattedData = useMemo(() => {
     return data.map((item) => ({
       ...item,
@@ -93,11 +100,11 @@ export function CumulativePacingChart({ data, className }: CumulativePacingChart
         <div className="flex items-center gap-4 text-xs font-medium">
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-[var(--app-accent)]" />
-            <span className="text-[var(--app-text)]">Mes actual</span>
+            <span className="text-[var(--app-text)]">{currentLabel}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-full bg-[var(--app-border)] border border-[var(--app-muted)] border-dashed" />
-            <span className="text-[var(--app-muted)]">Mes anterior</span>
+            <span className="text-[var(--app-muted)]">{previousLabel}</span>
           </div>
         </div>
       </div>

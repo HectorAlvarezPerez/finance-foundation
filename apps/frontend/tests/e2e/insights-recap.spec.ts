@@ -78,7 +78,7 @@ function buildRecap(monthLabel: string, headlinePrefix: string, generatedAt: str
 test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
   await loginWithDemo(page);
 
-  await page.route("**/api/v1/insights/summary", async (route) => {
+  await page.route("**/api/v1/insights/summary**", async (route) => {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -125,6 +125,9 @@ test("muestra y regenera el recap mensual en Insights", async ({ page }) => {
           { month_key: "2026-02", month_label: "febrero 2026" },
           { month_key: "2026-03", month_label: "marzo 2026" },
         ],
+        expense_categories: [],
+        daily_pacing: [],
+        savings_rate: 54.69,
       }),
     });
   });

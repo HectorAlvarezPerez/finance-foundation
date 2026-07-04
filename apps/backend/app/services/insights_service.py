@@ -79,7 +79,15 @@ class InsightsService:
         user_id: uuid.UUID,
         base_currency: str | None = None,
         converter: "CurrencyConverter | None" = None,
+        month_key: str | None = None,
     ) -> InsightsSummaryRead:
+        """Aggregate insights for the user.
+
+        When ``month_key`` (``YYYY-MM``) is provided, the cash-flow fields
+        (income, expenses, transaction_count, top/expense categories, daily
+        pacing, savings_rate) are scoped to that month. Balance, account
+        balances, monthly comparison and available recap months stay global.
+        """
         snapshot = self.get_snapshot(user_id=user_id)
         accounts = snapshot.accounts
         categories = snapshot.categories
@@ -99,6 +107,7 @@ class InsightsService:
         income = Decimal("0.00")
         expenses = Decimal("0.00")
         balance = Decimal("0.00")
+        transaction_count = 0
         expense_by_category: defaultdict[uuid.UUID | None, Decimal] = defaultdict(
             lambda: Decimal("0.00")
         )
@@ -121,18 +130,23 @@ class InsightsService:
                 category is not None and category.type == CategoryType.TRANSFER
             )
 
-            month_key = transaction.date.strftime("%Y-%m")
-            bucket = monthly_buckets.get(month_key)
+            transaction_month_key = transaction.date.strftime("%Y-%m")
+            # Cash-flow scope: everything when unscoped, one month otherwise.
+            in_scope = month_key is None or transaction_month_key == month_key
+            if in_scope:
+                transaction_count += 1
+
+            bucket = monthly_buckets.get(transaction_month_key)
             if bucket is None:
                 bucket = MonthlyBucket(
-                    month_key=month_key,
+                    month_key=transaction_month_key,
                     month_label=self.format_month_label(transaction.date),
                     income=Decimal("0.00"),
                     expenses=Decimal("0.00"),
                     net=Decimal("0.00"),
                     transactions=0,
                 )
-                monthly_buckets[month_key] = bucket
+                monthly_buckets[transaction_month_key] = bucket
             bucket.transactions += 1
 
             # Transfers move money between the user's own accounts: they still
@@ -143,13 +157,15 @@ class InsightsService:
 
             category_type = category.type if category is not None else None
             if category_type == CategoryType.INCOME:
-                income += amount
+                if in_scope:
+                    income += amount
                 bucket.income += amount
                 bucket.net += amount
             elif category_type == CategoryType.EXPENSE:
                 expense_amount = abs(amount)
-                expenses += expense_amount
-                expense_by_category[transaction.category_id] += expense_amount
+                if in_scope:
+                    expenses += expense_amount
+                    expense_by_category[transaction.category_id] += expense_amount
                 bucket.expenses += expense_amount
                 bucket.net += amount
 
@@ -193,14 +209,23 @@ class InsightsService:
         )
 
         today = date.today()
-        current_month_key = today.strftime("%Y-%m")
-        if today.month == 1:
-            prev_year = today.year - 1
+        real_current_month_key = today.strftime("%Y-%m")
+        # Pacing compares the selected month (or the real current month when
+        # unscoped) against the immediately previous calendar month.
+        selected_month_key = month_key if month_key is not None else real_current_month_key
+        selected_year = int(selected_month_key[:4])
+        selected_month = int(selected_month_key[5:7])
+        if selected_month == 1:
+            prev_year = selected_year - 1
             prev_month = 12
         else:
-            prev_year = today.year
-            prev_month = today.month - 1
+            prev_year = selected_year
+            prev_month = selected_month - 1
         prev_month_key = f"{prev_year}-{prev_month:02d}"
+
+        # Only the real, in-progress calendar month gets truncated after today;
+        # past months show their full series.
+        truncate_after_day = today.day if selected_month_key == real_current_month_key else None
 
         current_pacing = {day: Decimal("0.00") for day in range(1, 32)}
         prev_pacing = {day: Decimal("0.00") for day in range(1, 32)}
@@ -212,10 +237,10 @@ class InsightsService:
             if category is None or category.type != CategoryType.EXPENSE:
                 continue
             spent = abs(to_base(t.amount, t.currency))
-            month_key = t.date.strftime("%Y-%m")
-            if month_key == current_month_key:
+            pacing_month_key = t.date.strftime("%Y-%m")
+            if pacing_month_key == selected_month_key:
                 current_pacing[t.date.day] += spent
-            elif month_key == prev_month_key:
+            elif pacing_month_key == prev_month_key:
                 prev_pacing[t.date.day] += spent
 
         current_cum = Decimal("0.00")
@@ -225,7 +250,9 @@ class InsightsService:
             current_cum += current_pacing[day]
             prev_cum += prev_pacing[day]
 
-            curr_val = current_cum if day <= today.day else None
+            curr_val = (
+                current_cum if truncate_after_day is None or day <= truncate_after_day else None
+            )
             daily_pacing.append(
                 InsightsDailyPacingRead(
                     day=day,
@@ -236,13 +263,13 @@ class InsightsService:
 
         savings_rate = 0.0
         if income > 0:
-            savings_rate = max(0.0, float((balance / income) * 100))
+            savings_rate = max(0.0, float(((income - expenses) / income) * 100))
 
         return InsightsSummaryRead(
             income=income,
             expenses=expenses,
             balance=balance,
-            transaction_count=len(transactions),
+            transaction_count=transaction_count,
             top_categories=top_categories,
             monthly_comparison=monthly_comparison,
             account_balances=account_balances,

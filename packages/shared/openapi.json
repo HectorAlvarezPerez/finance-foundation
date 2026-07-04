@@ -6015,6 +6015,23 @@
         "operationId": "get_insights_summary_api_v1_insights_summary_get",
         "parameters": [
           {
+            "in": "query",
+            "name": "month_key",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^\\d{4}-\\d{2}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Month Key"
+            }
+          },
+          {
             "in": "header",
             "name": "X-User-Id",
             "required": false,

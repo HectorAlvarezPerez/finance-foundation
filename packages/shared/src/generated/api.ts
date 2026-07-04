@@ -3134,7 +3134,9 @@ export interface operations {
     };
     get_insights_summary_api_v1_insights_summary_get: {
         parameters: {
-            query?: never;
+            query?: {
+                month_key?: string | null;
+            };
             header?: {
                 "X-User-Id"?: string | null;
             };

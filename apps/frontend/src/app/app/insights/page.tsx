@@ -43,11 +43,15 @@ const chartPalette = {
   muted: "#8E8E93",
 };
 
+const TOTAL_PERIOD_KEY = "total";
+const MONTH_KEY_PATTERN = /^\d{4}-\d{2}$/;
+
 export default function InsightsPage() {
   const { toast } = useToast();
   const [summary, setSummary] = useState<InsightsSummaryWithRecapMonths | null>(null);
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [selectedAnalysisMonthKey, setSelectedAnalysisMonthKey] = useState("");
   const [recap, setRecap] = useState<InsightsMonthlyRecap | null>(null);
   const [recapError, setRecapError] = useState<string | null>(null);
@@ -56,20 +60,43 @@ export default function InsightsPage() {
   const [isRecapOpen, setIsRecapOpen] = useState(false);
 
   useEffect(() => {
+    // Stale-response guard: fast prev/next clicks must not paint an older
+    // response over a newer selection.
+    let isStale = false;
+
     async function load() {
+      const path = MONTH_KEY_PATTERN.test(selectedAnalysisMonthKey)
+        ? `/insights/summary?month_key=${encodeURIComponent(selectedAnalysisMonthKey)}`
+        : "/insights/summary";
+
+      setIsUpdating(true);
+
       try {
-        const nextSummary = await apiRequest<InsightsSummaryWithRecapMonths>("/insights/summary");
+        const nextSummary = await apiRequest<InsightsSummaryWithRecapMonths>(path);
+        if (isStale) {
+          return;
+        }
         setSummary(nextSummary);
         setSummaryError(null);
       } catch (requestError) {
+        if (isStale) {
+          return;
+        }
         setSummaryError(requestError instanceof Error ? requestError.message : "No se pudo cargar el análisis");
       } finally {
-        setIsLoading(false);
+        if (!isStale) {
+          setIsLoading(false);
+          setIsUpdating(false);
+        }
       }
     }
 
     void load();
-  }, []);
+
+    return () => {
+      isStale = true;
+    };
+  }, [selectedAnalysisMonthKey]);
 
   const [subscriptions, setSubscriptions] = useState<Subscriptions | null>(null);
 
@@ -91,13 +118,15 @@ export default function InsightsPage() {
   }, []);
 
   const recapMonths = useMemo(() => normalizeRecapMonths(summary), [summary]);
+  // Navigable months come from available_recap_months when the API provides
+  // them, falling back to monthly_comparison (normalizeRecapMonths handles both).
   const analysisMonths = useMemo(
     () =>
-      (summary?.monthly_comparison ?? []).map((bucket) => ({
-        monthKey: bucket.month_key,
-        label: formatMonthKeyLabel(bucket.month_key),
+      recapMonths.map((month) => ({
+        monthKey: month.monthKey,
+        label: month.label,
       })),
-    [summary],
+    [recapMonths],
   );
 
   useEffect(() => {
@@ -107,6 +136,10 @@ export default function InsightsPage() {
     }
 
     setSelectedAnalysisMonthKey((current) => {
+      if (current === TOTAL_PERIOD_KEY) {
+        return current;
+      }
+
       if (current && analysisMonths.some((month) => month.monthKey === current)) {
         return current;
       }
@@ -116,6 +149,8 @@ export default function InsightsPage() {
     });
   }, [analysisMonths, currentMonthKey]);
 
+  const isTotalMode = selectedAnalysisMonthKey === TOTAL_PERIOD_KEY;
+
   const selectedAnalysisMonthIndex = useMemo(
     () => analysisMonths.findIndex((month) => month.monthKey === selectedAnalysisMonthKey),
     [analysisMonths, selectedAnalysisMonthKey],
@@ -124,28 +159,37 @@ export default function InsightsPage() {
   const selectedAnalysisMonth =
     selectedAnalysisMonthIndex >= 0 ? analysisMonths[selectedAnalysisMonthIndex] : null;
 
-  const periodLabel = selectedAnalysisMonth?.label ?? formatMonthLabel(new Date().getFullYear(), new Date().getMonth() + 1);
+  // "Total" sits one position past the newest month in the navigator.
+  const totalPositionIndex = analysisMonths.length;
+  const selectedPositionIndex = isTotalMode ? totalPositionIndex : selectedAnalysisMonthIndex;
+
+  const periodLabel = isTotalMode
+    ? "Total"
+    : selectedAnalysisMonth?.label ?? formatMonthLabel(new Date().getFullYear(), new Date().getMonth() + 1);
 
   const recapTargetMonth = recapMonths.find((month) => month.monthKey === selectedAnalysisMonthKey) ?? null;
   const recapTargetMonthKey = recapTargetMonth?.monthKey ?? "";
 
+  // Past months get explicit legend labels on the pacing chart; the real
+  // current month keeps the component defaults ("Mes actual"/"Mes anterior").
+  const isPastMonthSelected =
+    !isTotalMode && selectedAnalysisMonth !== null && selectedAnalysisMonthKey !== currentMonthKey;
+  const pacingPreviousMonthKey = isPastMonthSelected
+    ? previousMonthKeyOf(selectedAnalysisMonthKey)
+    : null;
+  const pacingCurrentLabel = isPastMonthSelected ? selectedAnalysisMonth.label : undefined;
+  const pacingPreviousLabel = pacingPreviousMonthKey
+    ? formatMonthKeyLabel(pacingPreviousMonthKey)
+    : undefined;
+
   const analytics = useMemo(() => {
-    const monthlyComparison = summary?.monthly_comparison ?? [];
-    const selectedMonthBucket =
-      monthlyComparison.find((bucket) => bucket.month_key === selectedAnalysisMonthKey) ??
-      monthlyComparison[monthlyComparison.length - 1];
-
-    const selectedMonthIncome = Number(selectedMonthBucket?.income ?? 0);
-    const selectedMonthExpenses = Number(selectedMonthBucket?.expenses ?? 0);
-    const selectedMonthNet = Number(selectedMonthBucket?.net ?? 0);
-    const savingsRate =
-      selectedMonthIncome > 0 ? Math.max(0, Number(((selectedMonthNet / selectedMonthIncome) * 100).toFixed(2))) : 0;
-
+    // KPIs come straight from the response: the API already scopes them to the
+    // selected month (or the whole history in Total mode).
     return {
-      income: selectedMonthIncome,
-      expenses: selectedMonthExpenses,
+      income: Number(summary?.income ?? 0),
+      expenses: Number(summary?.expenses ?? 0),
       balance: Number(summary?.balance ?? 0),
-      transactionCount: selectedMonthBucket?.transactions ?? 0,
+      transactionCount: summary?.transaction_count ?? 0,
       topCategories:
         summary?.top_categories.map((category) => ({
           categoryId: category.category_id ?? `missing-${category.name}`,
@@ -180,9 +224,9 @@ export default function InsightsPage() {
           value: Number(category.total),
           fill: category.color,
         })) ?? [],
-      savingsRate,
+      savingsRate: Number(summary?.savings_rate ?? 0),
     };
-  }, [selectedAnalysisMonthKey, summary]);
+  }, [summary]);
 
   async function loadMonthlyRecap(forceRegenerate: boolean) {
     if (!recapTargetMonthKey) {
@@ -308,13 +352,13 @@ export default function InsightsPage() {
             <button
               type="button"
               onClick={() => {
-                if (selectedAnalysisMonthIndex <= 0) {
+                if (selectedPositionIndex <= 0) {
                   return;
                 }
 
-                setSelectedAnalysisMonthKey(analysisMonths[selectedAnalysisMonthIndex - 1]?.monthKey ?? "");
+                setSelectedAnalysisMonthKey(analysisMonths[selectedPositionIndex - 1]?.monthKey ?? "");
               }}
-              disabled={selectedAnalysisMonthIndex <= 0}
+              disabled={selectedPositionIndex <= 0}
               aria-label="Mes anterior"
               className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-ink)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -326,19 +370,18 @@ export default function InsightsPage() {
             <button
               type="button"
               onClick={() => {
-                if (
-                  selectedAnalysisMonthIndex < 0 ||
-                  selectedAnalysisMonthIndex >= analysisMonths.length - 1
-                ) {
+                if (selectedPositionIndex < 0 || selectedPositionIndex >= totalPositionIndex) {
                   return;
                 }
 
-                setSelectedAnalysisMonthKey(analysisMonths[selectedAnalysisMonthIndex + 1]?.monthKey ?? "");
+                if (selectedPositionIndex === totalPositionIndex - 1) {
+                  setSelectedAnalysisMonthKey(TOTAL_PERIOD_KEY);
+                  return;
+                }
+
+                setSelectedAnalysisMonthKey(analysisMonths[selectedPositionIndex + 1]?.monthKey ?? "");
               }}
-              disabled={
-                selectedAnalysisMonthIndex < 0 ||
-                selectedAnalysisMonthIndex >= analysisMonths.length - 1
-              }
+              disabled={selectedPositionIndex < 0 || selectedPositionIndex >= totalPositionIndex}
               aria-label="Mes siguiente"
               className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] text-[var(--app-ink)] transition-all hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -357,7 +400,10 @@ export default function InsightsPage() {
       {isLoading ? (
         <ListSkeleton rows={4} />
       ) : (
-        <>
+        <div
+          className={`space-y-6 transition-opacity ${isUpdating ? "opacity-60" : ""}`}
+          aria-busy={isUpdating}
+        >
           <div className="grid gap-4 md:grid-cols-3">
             {metricCards.map((item, index) => (
               <Card key={item.title} className={`animate-slideUp stagger-${index + 1}`}>
@@ -375,9 +421,15 @@ export default function InsightsPage() {
             ))}
           </div>
 
-          <div className="animate-slideUp stagger-4">
-            <CumulativePacingChart data={analytics.dailyPacing} />
-          </div>
+          {!isTotalMode ? (
+            <div className="animate-slideUp stagger-4">
+              <CumulativePacingChart
+                data={analytics.dailyPacing}
+                currentLabel={pacingCurrentLabel}
+                previousLabel={pacingPreviousLabel}
+              />
+            </div>
+          ) : null}
 
           <div className="grid gap-6 xl:grid-cols-2">
             <CategoryTreemap data={analytics.expenseCategories} />
@@ -556,7 +608,7 @@ export default function InsightsPage() {
               error={recapError}
             />
           </div>
-        </>
+        </div>
       )}
 
       {isRecapOpen && recap ? (
@@ -639,6 +691,18 @@ function formatMonthKeyLabel(monthKey: string) {
   }
 
   return formatMonthLabel(Number(match[1]), Number(match[2]));
+}
+
+function previousMonthKeyOf(monthKey: string): string | null {
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+  if (!match) {
+    return null;
+  }
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+
+  return month === 1 ? `${year - 1}-12` : `${year}-${String(month - 1).padStart(2, "0")}`;
 }
 
 const tooltipStyle: CSSProperties = {

@@ -65,6 +65,7 @@ def get_insights_summary(
     user_id: CurrentUserId,
     service: InsightsServiceDep,
     db: DBSession,
+    month_key: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"),
 ) -> InsightsSummaryRead:
     settings = SettingsRepository(db).get_for_user(user_id=user_id)
     base_currency = settings.default_currency if settings is not None else None
@@ -75,6 +76,7 @@ def get_insights_summary(
         user_id=user_id,
         base_currency=base_currency,
         converter=converter,
+        month_key=month_key,
     )
 
 
