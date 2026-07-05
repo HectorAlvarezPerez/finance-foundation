@@ -30,8 +30,7 @@ const ASSET_TYPE_OPTIONS = Object.entries(ASSET_TYPE_LABELS).map(([value, label]
   label,
 }));
 
-// Deshabilitado hasta tener la API key de precios (Twelve Data). Poner a true para reactivar.
-const PRICE_REFRESH_ENABLED = false;
+const PRICE_REFRESH_ENABLED = true;
 
 const ALLOCATION_PALETTE = [
   "#6366f1",
