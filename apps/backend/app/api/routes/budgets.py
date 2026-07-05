@@ -14,6 +14,7 @@ from app.schemas.budgets import (
     BudgetListResponse,
     BudgetRead,
     BudgetReorderRequest,
+    BudgetSpendResponse,
     BudgetUpdate,
 )
 from app.services.budget_service import BudgetService
@@ -48,6 +49,16 @@ def list_budgets(
         sort_by=sort_by,
         sort_order=sort_order,
     )
+
+
+# NOTE: declared before "/{budget_id}" so "spend" is not captured as a budget id.
+@router.get("/spend", response_model=BudgetSpendResponse)
+def get_budget_spend(
+    user_id: CurrentUserId,
+    service: BudgetServiceDep,
+    year: int = Query(ge=2000, le=2100),
+) -> BudgetSpendResponse:
+    return service.get_spend(user_id=user_id, year=year)
 
 
 @router.post("", response_model=BudgetRead, status_code=status.HTTP_201_CREATED)

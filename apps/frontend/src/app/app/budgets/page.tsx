@@ -15,7 +15,7 @@ import { PaginationControls } from "@/components/ui/pagination-controls";
 import { useToast } from "@/components/ui/toast";
 import { useSettings } from "@/components/settings-provider";
 import { apiRequest } from "@/lib/api";
-import { formatDate, formatMonthLabel } from "@/lib/format";
+import { formatDate, formatMonthLabel, formatMonthName } from "@/lib/format";
 import type {
   Budget,
   BudgetBatchDeleteResponse,
@@ -23,6 +23,41 @@ import type {
   PaginatedResponse,
   Transaction,
 } from "@/lib/types";
+
+type BudgetSpendItem = {
+  category_id: string;
+  month: number;
+  spent: string;
+};
+
+type BudgetSpendResponse = {
+  year: number;
+  items: BudgetSpendItem[];
+};
+
+type SortMode =
+  | "manual"
+  | "usage_desc"
+  | "usage_asc"
+  | "amount_desc"
+  | "amount_asc"
+  | "spent_desc"
+  | "name_asc";
+
+type PageSize = number | "all";
+
+const SORT_OPTIONS: { value: SortMode; label: string }[] = [
+  { value: "manual", label: "Orden manual" },
+  { value: "usage_desc", label: "% usado (mayor primero)" },
+  { value: "usage_asc", label: "% usado (menor primero)" },
+  { value: "amount_desc", label: "Importe (mayor primero)" },
+  { value: "amount_asc", label: "Importe (menor primero)" },
+  { value: "spent_desc", label: "Gastado (mayor primero)" },
+  { value: "name_asc", label: "Nombre (A-Z)" },
+];
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50] as const;
+const PAGE_SIZE_STORAGE_KEY = "budgets-page-size";
 
 type BudgetFormState = {
   category_id: string;
@@ -49,7 +84,7 @@ type BudgetCard = {
 
 const MONTH_OPTIONS = Array.from({ length: 12 }, (_, index) => ({
   value: String(index + 1),
-  label: formatMonthLabel(2026, index + 1),
+  label: formatMonthName(index + 1),
 }));
 
 function getBudgetPeriodLabel(budget: Pick<Budget, "period_type">): string {
@@ -63,15 +98,20 @@ export default function BudgetsPage() {
   const currentMonth = new Date().getMonth() + 1;
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [spendItems, setSpendItems] = useState<BudgetSpendItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedYear, setSelectedYear] = useState(String(currentYear));
   const [selectedMonth, setSelectedMonth] = useState(String(currentMonth));
   const [periodFilter, setPeriodFilter] = useState<"all" | "monthly" | "annual">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [sortMode, setSortMode] = useState<SortMode>("manual");
+  const [pageSize, setPageSize] = useState<PageSize>(10);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [confirmBatchDelete, setConfirmBatchDelete] = useState(false);
   const [breakdownBudget, setBreakdownBudget] = useState<BudgetCard | null>(null);
+  const [breakdownTransactions, setBreakdownTransactions] = useState<Transaction[]>([]);
+  const [isBreakdownLoading, setIsBreakdownLoading] = useState(false);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingBudgetId, setEditingBudgetId] = useState<string | null>(null);
@@ -87,26 +127,31 @@ export default function BudgetsPage() {
     currency: settings?.default_currency || "EUR",
     amount: "",
   });
-  const pageSize = 8;
-
   const categoryMap = useMemo(
     () => new Map(categories.map((category) => [category.id, category])),
     [categories],
   );
 
+  useEffect(() => {
+    const stored = window.localStorage.getItem(PAGE_SIZE_STORAGE_KEY);
+    if (stored === "all") {
+      setPageSize("all");
+    } else if (stored && PAGE_SIZE_OPTIONS.some((option) => option === Number(stored))) {
+      setPageSize(Number(stored));
+    }
+  }, []);
+
   async function loadAll(year: string) {
     try {
-      const [budgetsResponse, categoriesResponse, transactionsResponse] = await Promise.all([
+      const [budgetsResponse, categoriesResponse, spendResponse] = await Promise.all([
         apiRequest<PaginatedResponse<Budget>>("/budgets?limit=100&sort_by=position&sort_order=asc"),
         apiRequest<PaginatedResponse<Category>>("/categories?limit=100&category_type=expense&sort_by=name&sort_order=asc"),
-        apiRequest<PaginatedResponse<Transaction>>(
-          `/transactions?limit=100&category_type=expense&date_from=${year}-01-01&date_to=${year}-12-31&sort_by=date&sort_order=desc`,
-        ),
+        apiRequest<BudgetSpendResponse>(`/budgets/spend?year=${year}`),
       ]);
 
       setBudgets(budgetsResponse.items);
       setCategories(categoriesResponse.items);
-      setTransactions(transactionsResponse.items);
+      setSpendItems(spendResponse.items);
       setError(null);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "No se pudieron cargar los presupuestos");
@@ -125,75 +170,150 @@ export default function BudgetsPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [selectedYear, selectedMonth, periodFilter]);
+  }, [selectedYear, selectedMonth, periodFilter, categoryFilter, sortMode, pageSize]);
 
-  // Spent per category for the selected period: monthly budgets compare against
-  // the selected month, annual budgets against the whole selected year.
+  // Spend per category derived from /budgets/spend for the selected year:
+  // monthlySpent covers the selected month, ytdSpent the months up to and
+  // including it, and annualSpent the whole year.
   const spentByCategory = useMemo(() => {
     const monthlySpent = new Map<string, number>();
+    const ytdSpent = new Map<string, number>();
     const annualSpent = new Map<string, number>();
     const month = Number(selectedMonth);
 
-    transactions.forEach((transaction) => {
-      if (!transaction.category_id) return;
-      const amount = Number(transaction.amount);
-      if (amount >= 0) return;
-      const transactionDate = new Date(transaction.date);
-      const spent = Math.abs(amount);
-      annualSpent.set(transaction.category_id, (annualSpent.get(transaction.category_id) ?? 0) + spent);
-      if (transactionDate.getMonth() + 1 === month) {
-        monthlySpent.set(transaction.category_id, (monthlySpent.get(transaction.category_id) ?? 0) + spent);
+    spendItems.forEach((item) => {
+      const spent = Number(item.spent);
+      if (!Number.isFinite(spent)) return;
+      annualSpent.set(item.category_id, (annualSpent.get(item.category_id) ?? 0) + spent);
+      if (item.month <= month) {
+        ytdSpent.set(item.category_id, (ytdSpent.get(item.category_id) ?? 0) + spent);
+      }
+      if (item.month === month) {
+        monthlySpent.set(item.category_id, (monthlySpent.get(item.category_id) ?? 0) + spent);
       }
     });
 
-    return { monthlySpent, annualSpent };
-  }, [transactions, selectedMonth]);
+    return { monthlySpent, ytdSpent, annualSpent };
+  }, [spendItems, selectedMonth]);
+
+  // Cards for every budget (unfiltered) so KPIs stay stable across filters.
+  const allBudgetCards = useMemo(() => {
+    return budgets.map((budget) => {
+      const amount = Number(budget.amount);
+      const spent =
+        budget.period_type === "annual"
+          ? spentByCategory.annualSpent.get(budget.category_id) ?? 0
+          : spentByCategory.monthlySpent.get(budget.category_id) ?? 0;
+      const remaining = amount - spent;
+      const usageRatio = amount > 0 ? spent / amount : 0;
+      const usagePercent = usageRatio * 100;
+      const category = categoryMap.get(budget.category_id);
+
+      let statusLabel = "OK";
+      let tone = "ok" as "ok" | "warning" | "danger";
+
+      if (usagePercent > 100) {
+        statusLabel = "Superado";
+        tone = "danger";
+      } else if (usagePercent >= 85) {
+        statusLabel = "Al límite";
+        tone = "warning";
+      }
+
+      return { ...budget, amountNumber: amount, spent, remaining, usagePercent, statusLabel, tone, category };
+    });
+  }, [budgets, categoryMap, spentByCategory]);
 
   const budgetCards = useMemo(() => {
-    return budgets
-      .filter((budget) => periodFilter === "all" || budget.period_type === periodFilter)
-      .map((budget) => {
-        const amount = Number(budget.amount);
-        const spent =
-          budget.period_type === "annual"
-            ? spentByCategory.annualSpent.get(budget.category_id) ?? 0
-            : spentByCategory.monthlySpent.get(budget.category_id) ?? 0;
-        const remaining = amount - spent;
-        const usageRatio = amount > 0 ? spent / amount : 0;
-        const usagePercent = usageRatio * 100;
-        const category = categoryMap.get(budget.category_id);
+    const filtered = allBudgetCards.filter(
+      (budget) =>
+        (periodFilter === "all" || budget.period_type === periodFilter) &&
+        (categoryFilter === "all" || budget.category_id === categoryFilter),
+    );
 
-        let statusLabel = "OK";
-        let tone = "ok" as "ok" | "warning" | "danger";
+    const compare = (left: BudgetCard, right: BudgetCard): number => {
+      switch (sortMode) {
+        case "usage_desc":
+          return right.usagePercent - left.usagePercent;
+        case "usage_asc":
+          return left.usagePercent - right.usagePercent;
+        case "amount_desc":
+          return right.amountNumber - left.amountNumber;
+        case "amount_asc":
+          return left.amountNumber - right.amountNumber;
+        case "spent_desc":
+          return right.spent - left.spent;
+        case "name_asc":
+          return (left.category?.name ?? "").localeCompare(right.category?.name ?? "", "es");
+        default:
+          return 0;
+      }
+    };
 
-        if (usagePercent > 100) {
-          statusLabel = "Superado";
-          tone = "danger";
-        } else if (usagePercent >= 85) {
-          statusLabel = "Al límite";
-          tone = "warning";
-        }
+    return filtered.sort((left, right) => {
+      const delta = compare(left, right);
+      // Stable tiebreak (and manual order) by persisted position.
+      return delta !== 0 ? delta : left.position - right.position;
+    });
+  }, [allBudgetCards, periodFilter, categoryFilter, sortMode]);
 
-        return { ...budget, amountNumber: amount, spent, remaining, usagePercent, statusLabel, tone, category };
-      })
-      .sort((left, right) => left.position - right.position);
-  }, [budgets, categoryMap, spentByCategory, periodFilter]);
+  const budgetCategories = useMemo(() => {
+    const idsWithBudget = new Set(budgets.map((budget) => budget.category_id));
+    return categories.filter((category) => idsWithBudget.has(category.id));
+  }, [budgets, categories]);
 
+  // KPIs are computed over ALL budgets, not the filtered view.
   const summary = useMemo(() => {
-    const totalBudgeted = budgetCards.reduce((sum, item) => sum + item.amountNumber, 0);
-    const totalSpent = budgetCards.reduce((sum, item) => sum + item.spent, 0);
-    const totalAvailable = totalBudgeted - totalSpent;
-    return { totalBudgeted, totalSpent, totalAvailable };
-  }, [budgetCards]);
+    let budgetedMonthly = 0;
+    let budgetedAnnual = 0;
+    let spentPeriod = 0;
+    let monthlySpentTotal = 0;
+    let ytdAndAnnualSpent = 0;
+
+    allBudgetCards.forEach((budget) => {
+      if (budget.period_type === "monthly") {
+        const monthlySpent = spentByCategory.monthlySpent.get(budget.category_id) ?? 0;
+        budgetedMonthly += budget.amountNumber;
+        budgetedAnnual += budget.amountNumber * 12;
+        spentPeriod += monthlySpent;
+        monthlySpentTotal += monthlySpent;
+        ytdAndAnnualSpent += spentByCategory.ytdSpent.get(budget.category_id) ?? 0;
+      } else {
+        const annualSpent = spentByCategory.annualSpent.get(budget.category_id) ?? 0;
+        budgetedAnnual += budget.amountNumber;
+        spentPeriod += annualSpent;
+        ytdAndAnnualSpent += annualSpent;
+      }
+    });
+
+    return {
+      budgetedMonthly,
+      budgetedAnnual,
+      spentPeriod,
+      availableMonth: budgetedMonthly - monthlySpentTotal,
+      availableYear: budgetedAnnual - ytdAndAnnualSpent,
+    };
+  }, [allBudgetCards, spentByCategory]);
+
+  const effectivePageSize = pageSize === "all" ? Math.max(budgetCards.length, 1) : pageSize;
 
   useEffect(() => {
-    const totalPages = Math.max(1, Math.ceil(budgetCards.length / pageSize));
+    const totalPages = Math.max(1, Math.ceil(budgetCards.length / effectivePageSize));
     if (page > totalPages) {
       setPage(totalPages);
     }
-  }, [budgetCards.length, page, pageSize]);
+  }, [budgetCards.length, page, effectivePageSize]);
 
-  const visibleBudgetCards = budgetCards.slice((page - 1) * pageSize, page * pageSize);
+  const visibleBudgetCards =
+    pageSize === "all"
+      ? budgetCards
+      : budgetCards.slice((page - 1) * effectivePageSize, page * effectivePageSize);
+
+  function handlePageSizeChange(value: string) {
+    setPageSize(value === "all" ? "all" : Number(value));
+    setPage(1);
+    window.localStorage.setItem(PAGE_SIZE_STORAGE_KEY, value);
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -343,18 +463,34 @@ export default function BudgetsPage() {
     }
   }
 
-  const breakdownTransactions = useMemo(() => {
-    if (!breakdownBudget) {
-      return [] as Transaction[];
-    }
+  async function openBreakdown(budget: BudgetCard) {
+    const year = Number(selectedYear);
     const month = Number(selectedMonth);
-    return transactions
-      .filter((t) => t.category_id === breakdownBudget.category_id && Number(t.amount) < 0)
-      .filter(
-        (t) => breakdownBudget.period_type === "annual" || new Date(t.date).getMonth() + 1 === month,
-      )
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [breakdownBudget, transactions, selectedMonth]);
+    const paddedMonth = String(month).padStart(2, "0");
+    const dateFrom =
+      budget.period_type === "annual" ? `${year}-01-01` : `${year}-${paddedMonth}-01`;
+    const dateTo =
+      budget.period_type === "annual"
+        ? `${year}-12-31`
+        : `${year}-${paddedMonth}-${String(new Date(year, month, 0).getDate()).padStart(2, "0")}`;
+
+    setBreakdownBudget(budget);
+    setBreakdownTransactions([]);
+    setIsBreakdownLoading(true);
+
+    try {
+      const response = await apiRequest<PaginatedResponse<Transaction>>(
+        `/transactions?limit=100&category_id=${budget.category_id}&date_from=${dateFrom}&date_to=${dateTo}&sort_by=date&sort_order=desc`,
+      );
+      setBreakdownTransactions(response.items.filter((transaction) => Number(transaction.amount) < 0));
+    } catch (requestError) {
+      setError(
+        requestError instanceof Error ? requestError.message : "No se pudieron cargar las transacciones",
+      );
+    } finally {
+      setIsBreakdownLoading(false);
+    }
+  }
 
   const inputClasses = "w-full rounded-xl border border-[var(--app-border)] bg-[var(--app-panel-strong)] px-4 py-2.5 outline-none transition-all focus:border-[var(--app-accent)] focus:shadow-[0_0_0_3px_var(--app-accent-soft)]";
 
@@ -415,6 +551,31 @@ export default function BudgetsPage() {
               </button>
             ))}
           </div>
+
+          <select
+            id="budget-category-filter"
+            aria-label="Filtrar por categoría"
+            value={categoryFilter}
+            onChange={(event) => setCategoryFilter(event.target.value)}
+            className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3.5 py-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+          >
+            <option value="all">Todas las categorías</option>
+            {budgetCategories.map((category) => (
+              <option key={category.id} value={category.id}>{category.name}</option>
+            ))}
+          </select>
+
+          <select
+            id="budget-sort"
+            aria-label="Ordenar presupuestos"
+            value={sortMode}
+            onChange={(event) => setSortMode(event.target.value as SortMode)}
+            className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3.5 py-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+          >
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
         </div>
 
         <button
@@ -428,16 +589,20 @@ export default function BudgetsPage() {
       </div>
 
       {isLoading ? (
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+          <CardSkeleton />
+          <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
           <CardSkeleton />
         </div>
       ) : (
-        <section className="grid gap-3 lg:grid-cols-3">
-          <SummaryCard title="Total presupuestado" value={summary.totalBudgeted} currency={settings?.default_currency || "EUR"} tone="neutral" />
-          <SummaryCard title="Total gastado" value={summary.totalSpent} currency={settings?.default_currency || "EUR"} tone="danger" />
-          <SummaryCard title="Disponible" value={summary.totalAvailable} currency={settings?.default_currency || "EUR"} tone={summary.totalAvailable >= 0 ? "success" : "danger"} />
+        <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <SummaryCard title="Presupuestado / mes" value={summary.budgetedMonthly} currency={settings?.default_currency || "EUR"} tone="neutral" />
+          <SummaryCard title="Presupuestado / año" value={summary.budgetedAnnual} currency={settings?.default_currency || "EUR"} tone="neutral" />
+          <SummaryCard title="Gastado (periodo)" value={summary.spentPeriod} currency={settings?.default_currency || "EUR"} tone="danger" />
+          <SummaryCard title="Disponible del mes" value={summary.availableMonth} currency={settings?.default_currency || "EUR"} tone={summary.availableMonth >= 0 ? "success" : "danger"} />
+          <SummaryCard title="Disponible del año" value={summary.availableYear} currency={settings?.default_currency || "EUR"} tone={summary.availableYear >= 0 ? "success" : "danger"} />
         </section>
       )}
 
@@ -505,7 +670,9 @@ export default function BudgetsPage() {
         }
       >
         {breakdownBudget ? (
-          breakdownTransactions.length ? (
+          isBreakdownLoading ? (
+            <p className="py-6 text-center text-sm text-[var(--app-muted)]">Cargando transacciones…</p>
+          ) : breakdownTransactions.length ? (
             <div className="space-y-3">
               <div className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
                 {breakdownTransactions.map((transaction) => (
@@ -588,11 +755,12 @@ export default function BudgetsPage() {
                       index={index}
                       selected={selectedIds.has(budget.id)}
                       isDragging={draggingId === budget.id}
+                      dragEnabled={sortMode === "manual"}
                       onDragStartCard={() => setDraggingId(budget.id)}
                       onDropCard={() => void handleReorderDrop(budget.id)}
                       onToggleSelect={() => toggleSelect(budget.id)}
                       onEdit={() => openEditDialog(budget)}
-                      onBreakdown={() => setBreakdownBudget(budget)}
+                      onBreakdown={() => void openBreakdown(budget)}
                       onDelete={() =>
                         setConfirmDelete({
                           open: true,
@@ -603,7 +771,25 @@ export default function BudgetsPage() {
                     />
                   ))}
                 </div>
-                <PaginationControls page={page} pageSize={pageSize} total={budgetCards.length} onPageChange={setPage} className="mt-5" />
+                {pageSize !== "all" ? (
+                  <PaginationControls page={page} pageSize={effectivePageSize} total={budgetCards.length} onPageChange={setPage} className="mt-5" />
+                ) : null}
+                <div className="mt-3 flex justify-end">
+                  <label className="flex items-center gap-2 text-sm text-[var(--app-muted)]">
+                    <span>Por página</span>
+                    <select
+                      aria-label="Presupuestos por página"
+                      value={pageSize === "all" ? "all" : String(pageSize)}
+                      onChange={(event) => handlePageSizeChange(event.target.value)}
+                      className="rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-3 py-2 text-sm outline-none transition-all focus:border-[var(--app-accent)]"
+                    >
+                      {PAGE_SIZE_OPTIONS.map((option) => (
+                        <option key={option} value={String(option)}>{option}</option>
+                      ))}
+                      <option value="all">Todos</option>
+                    </select>
+                  </label>
+                </div>
               </>
             ) : (
               <EmptyState
@@ -661,6 +847,7 @@ function BudgetStatusCard({
   index,
   selected,
   isDragging,
+  dragEnabled,
   onDragStartCard,
   onDropCard,
   onToggleSelect,
@@ -672,6 +859,7 @@ function BudgetStatusCard({
   index: number;
   selected: boolean;
   isDragging: boolean;
+  dragEnabled: boolean;
   onDragStartCard: () => void;
   onDropCard: () => void;
   onToggleSelect: () => void;
@@ -712,11 +900,11 @@ function BudgetStatusCard({
 
   return (
     <div
-      draggable
-      onDragStart={onDragStartCard}
-      onDragOver={(event) => event.preventDefault()}
-      onDrop={onDropCard}
-      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative cursor-grab overflow-hidden rounded-2xl border bg-[var(--app-panel)] transition-shadow hover:shadow-[var(--app-shadow-elevated)] hover:z-10 active:cursor-grabbing ${selected ? "border-[var(--app-accent)] ring-2 ring-[var(--app-accent)]" : "border-[var(--app-border)]"} ${isDragging ? "opacity-50" : ""}`}
+      draggable={dragEnabled}
+      onDragStart={dragEnabled ? onDragStartCard : undefined}
+      onDragOver={dragEnabled ? (event) => event.preventDefault() : undefined}
+      onDrop={dragEnabled ? onDropCard : undefined}
+      className={`animate-slideUp stagger-${Math.min(index + 1, 6)} relative overflow-hidden rounded-2xl border bg-[var(--app-panel)] transition-shadow hover:shadow-[var(--app-shadow-elevated)] hover:z-10 ${dragEnabled ? "cursor-grab active:cursor-grabbing" : ""} ${selected ? "border-[var(--app-accent)] ring-2 ring-[var(--app-accent)]" : "border-[var(--app-border)]"} ${isDragging ? "opacity-50" : ""}`}
     >
       {/* Colored gradient top band */}
       <div className={`absolute inset-x-0 top-0 h-24 bg-gradient-to-b ${gradientClass} pointer-events-none`} />
@@ -725,7 +913,9 @@ function BudgetStatusCard({
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-5 pt-5 pb-3">
           <div className="flex items-start gap-2.5">
-            <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-[var(--app-muted)]" aria-hidden="true" />
+            {dragEnabled ? (
+              <GripVertical className="mt-0.5 h-4 w-4 shrink-0 text-[var(--app-muted)]" aria-hidden="true" />
+            ) : null}
             <input
               type="checkbox"
               checked={selected}

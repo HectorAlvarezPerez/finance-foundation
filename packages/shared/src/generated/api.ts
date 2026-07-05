@@ -247,6 +247,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/budgets/spend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Budget Spend */
+        get: operations["get_budget_spend_api_v1_budgets_spend_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/budgets/{budget_id}": {
         parameters: {
             query?: never;
@@ -942,6 +959,25 @@ export interface components {
         BudgetReorderRequest: {
             /** Budget Ids */
             budget_ids: string[];
+        };
+        /** BudgetSpendItem */
+        BudgetSpendItem: {
+            /**
+             * Category Id
+             * Format: uuid
+             */
+            category_id: string;
+            /** Month */
+            month: number;
+            /** Spent */
+            spent: string;
+        };
+        /** BudgetSpendResponse */
+        BudgetSpendResponse: {
+            /** Items */
+            items: components["schemas"]["BudgetSpendItem"][];
+            /** Year */
+            year: number;
         };
         /** BudgetUpdate */
         BudgetUpdate: {
@@ -2457,6 +2493,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_budget_spend_api_v1_budgets_spend_get: {
+        parameters: {
+            query: {
+                year: number;
+            };
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path?: never;
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetSpendResponse"];
+                };
             };
             /** @description Validation Error */
             422: {

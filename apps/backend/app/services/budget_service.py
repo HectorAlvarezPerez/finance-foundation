@@ -1,16 +1,23 @@
 import uuid
+from datetime import date
+from decimal import Decimal
 
 from fastapi import HTTPException, status
+from sqlalchemy import extract, func, select
 from sqlalchemy.orm import Session
 
 from app.models.budget import Budget
-from app.models.enums import BudgetPeriodType
+from app.models.category import Category
+from app.models.enums import BudgetPeriodType, CategoryType
+from app.models.transaction import Transaction
 from app.repositories.budget_repository import BudgetRepository
 from app.repositories.category_repository import CategoryRepository
 from app.schemas.budgets import (
     BudgetCreate,
     BudgetListResponse,
     BudgetRead,
+    BudgetSpendItem,
+    BudgetSpendResponse,
     BudgetUpdate,
 )
 
@@ -52,6 +59,48 @@ class BudgetService:
             limit=limit,
             offset=offset,
         )
+
+    def get_spend(self, *, user_id: uuid.UUID, year: int) -> BudgetSpendResponse:
+        """Aggregate expense spend per category per month for one year.
+
+        Only transactions in expense-type categories count; transfer legs
+        (any transaction with a ``transfer_group_id``) are excluded. Positive
+        amounts in expense categories (refunds) net against spend:
+        ``spent = -(sum of signed amounts)``, floored at 0 per category-month
+        (category-months that net to zero or below are omitted).
+        """
+        month_expr = extract("month", Transaction.date)
+        statement = (
+            select(
+                Transaction.category_id,
+                month_expr.label("month"),
+                func.sum(Transaction.amount).label("total"),
+            )
+            .join(Category, Category.id == Transaction.category_id)
+            .where(
+                Transaction.user_id == user_id,
+                Category.type == CategoryType.EXPENSE,
+                Transaction.transfer_group_id.is_(None),
+                Transaction.date >= date(year, 1, 1),
+                Transaction.date <= date(year, 12, 31),
+            )
+            .group_by(Transaction.category_id, month_expr)
+        )
+
+        items: list[BudgetSpendItem] = []
+        for category_id, month, total in self.db.execute(statement):
+            if category_id is None or total is None:
+                continue
+            total_decimal = total if isinstance(total, Decimal) else Decimal(str(total))
+            spent = -total_decimal
+            if spent <= 0:
+                continue
+            items.append(
+                BudgetSpendItem(category_id=category_id, month=int(month), spent=spent)
+            )
+
+        items.sort(key=lambda item: (str(item.category_id), item.month))
+        return BudgetSpendResponse(year=year, items=items)
 
     def get_budget(self, *, user_id: uuid.UUID, budget_id: uuid.UUID) -> Budget:
         budget = self.repository.get_for_user(user_id=user_id, budget_id=budget_id)

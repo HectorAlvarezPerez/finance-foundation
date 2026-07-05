@@ -56,3 +56,14 @@ class BudgetReorderRequest(BaseModel):
 
 class BudgetBatchDeleteResponse(BaseModel):
     deleted_count: int
+
+
+class BudgetSpendItem(BaseModel):
+    category_id: uuid.UUID
+    month: int = Field(ge=1, le=12)
+    spent: Decimal
+
+
+class BudgetSpendResponse(BaseModel):
+    year: int
+    items: list[BudgetSpendItem]

@@ -30,6 +30,14 @@ export function formatDate(value: string, locale = "es-ES"): string {
   }).format(date);
 }
 
+export function formatMonthName(month: number, locale = "es-ES"): string {
+  const date = new Date(2000, month - 1, 1);
+
+  return new Intl.DateTimeFormat(locale, {
+    month: "long",
+  }).format(date);
+}
+
 export function formatMonthLabel(year: number, month: number, locale = "es-ES"): string {
   const date = new Date(year, month - 1, 1);
 
