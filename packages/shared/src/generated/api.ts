@@ -529,6 +529,23 @@ export interface paths {
         patch: operations["update_holding_api_v1_portfolio_holdings__holding_id__patch"];
         trace?: never;
     };
+    "/api/v1/portfolio/holdings/{holding_id}/contribution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add Holding Contribution */
+        post: operations["add_holding_contribution_api_v1_portfolio_holdings__holding_id__contribution_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/portfolio/holdings/{holding_id}/price": {
         parameters: {
             query?: never;
@@ -1160,6 +1177,18 @@ export interface components {
             };
             /** Status */
             status: string;
+        };
+        /** HoldingContributionCreate */
+        HoldingContributionCreate: {
+            /** Amount */
+            amount: number | string;
+            /**
+             * Date
+             * Format: date
+             */
+            date?: string;
+            /** Price */
+            price: number | string;
         };
         /** HoldingCreate */
         HoldingCreate: {
@@ -3397,6 +3426,45 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["HoldingUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HoldingRead"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_holding_contribution_api_v1_portfolio_holdings__holding_id__contribution_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "X-User-Id"?: string | null;
+            };
+            path: {
+                holding_id: string;
+            };
+            cookie?: {
+                finance_foundation_session?: string | null;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HoldingContributionCreate"];
             };
         };
         responses: {

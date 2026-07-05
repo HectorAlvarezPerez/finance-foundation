@@ -10,6 +10,7 @@ from app.repositories.holding_repository import HoldingRepository
 from app.repositories.price_repository import PriceRepository
 from app.repositories.settings_repository import SettingsRepository
 from app.schemas.portfolio import (
+    HoldingContributionCreate,
     HoldingCreate,
     HoldingListResponse,
     HoldingPriceUpdate,
@@ -140,6 +141,17 @@ def update_holding_price(
     service: PortfolioServiceDep,
 ) -> HoldingRead:
     holding = service.update_price(user_id=user_id, holding_id=holding_id, price=payload.price)
+    return HoldingRead.model_validate(holding)
+
+
+@router.post("/holdings/{holding_id}/contribution", response_model=HoldingRead)
+def add_holding_contribution(
+    holding_id: uuid.UUID,
+    payload: HoldingContributionCreate,
+    user_id: CurrentUserId,
+    service: PortfolioServiceDep,
+) -> HoldingRead:
+    holding = service.add_contribution(user_id=user_id, holding_id=holding_id, payload=payload)
     return HoldingRead.model_validate(holding)
 
 

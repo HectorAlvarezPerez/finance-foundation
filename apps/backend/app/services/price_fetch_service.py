@@ -53,6 +53,22 @@ class TwelveDataProvider:
         self.api_key = api_key
 
     def fetch_price(self, *, symbol: str, currency: str) -> Decimal | None:
+        # /price returns the US-listing price in USD; convert when the holding
+        # is denominated in another currency. Better no price than a wrong one.
+        price_usd = self._fetch_quote(symbol)
+        if price_usd is None:
+            return None
+
+        target = currency.upper()
+        if target == "USD":
+            return price_usd
+
+        rate = self._fetch_quote(f"USD/{target}")
+        if rate is None:
+            return None
+        return price_usd * rate
+
+    def _fetch_quote(self, symbol: str) -> Decimal | None:
         try:
             response = httpx.get(
                 f"{self.BASE_URL}/price",

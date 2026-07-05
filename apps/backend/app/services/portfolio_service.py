@@ -6,11 +6,13 @@ from decimal import Decimal
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.enums import PriceSource
+from app.models.enums import PriceSource, TradeSide
 from app.models.holding import Holding
+from app.models.trade import Trade
 from app.repositories.holding_repository import HoldingRepository
 from app.repositories.price_repository import PriceRepository
 from app.schemas.portfolio import (
+    HoldingContributionCreate,
     HoldingCreate,
     HoldingListResponse,
     HoldingRead,
@@ -123,6 +125,58 @@ class PortfolioService:
                 "asset_symbol": holding.asset_symbol,
                 "source": PriceSource.MANUAL,
                 "price": price,
+                "currency": holding.currency,
+                "as_of": datetime.now(UTC),
+            },
+        )
+        self.db.commit()
+        return holding
+
+    def add_contribution(
+        self,
+        *,
+        user_id: uuid.UUID,
+        holding_id: uuid.UUID,
+        payload: HoldingContributionCreate,
+    ) -> Holding:
+        holding = self.get_holding(user_id=user_id, holding_id=holding_id)
+        if not holding.asset_symbol:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="El activo necesita un símbolo para registrar una aportación",
+            )
+
+        shares = (payload.amount / payload.price).quantize(Decimal("0.00000001"))
+        old_quantity = holding.quantity
+        new_quantity = old_quantity + shares
+        new_average = (
+            (old_quantity * holding.average_buy_price + payload.amount) / new_quantity
+        ).quantize(Decimal("0.0001"))
+
+        holding = self.holding_repository.update(
+            holding,
+            payload={"quantity": new_quantity, "average_buy_price": new_average},
+        )
+
+        trade = Trade(
+            user_id=user_id,
+            asset_symbol=holding.asset_symbol,
+            date=payload.date,
+            side=TradeSide.BUY,
+            quantity=shares,
+            price=payload.price,
+            fees=ZERO,
+            currency=holding.currency,
+            holding_id=holding.id,
+        )
+        self.db.add(trade)
+
+        self.price_repository.create(
+            user_id=user_id,
+            payload={
+                "asset_symbol": holding.asset_symbol,
+                "source": PriceSource.MANUAL,
+                "price": payload.price,
                 "currency": holding.currency,
                 "as_of": datetime.now(UTC),
             },

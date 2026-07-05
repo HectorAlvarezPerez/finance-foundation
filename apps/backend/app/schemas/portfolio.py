@@ -1,4 +1,5 @@
 import uuid
+from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal
 
@@ -44,6 +45,12 @@ class HoldingRead(ORMBaseModel):
 
 class HoldingPriceUpdate(BaseModel):
     price: Decimal = Field(decimal_places=4, max_digits=15, gt=0)
+
+
+class HoldingContributionCreate(BaseModel):
+    amount: Decimal = Field(decimal_places=2, max_digits=15, gt=0)
+    price: Decimal = Field(decimal_places=4, max_digits=15, gt=0)
+    date: date_type = Field(default_factory=date_type.today)
 
 
 class PortfolioHoldingRead(BaseModel):

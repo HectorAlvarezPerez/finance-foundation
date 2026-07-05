@@ -76,6 +76,14 @@ export default function PortfolioPage() {
   const [form, setForm] = useState<HoldingFormState>(emptyForm(defaultCurrency));
 
   const [priceModal, setPriceModal] = useState<{ id: string; name: string; value: string } | null>(null);
+  const [contributionModal, setContributionModal] = useState<{
+    id: string;
+    name: string;
+    currency: string;
+    amount: string;
+    price: string;
+    date: string;
+  } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -219,6 +227,29 @@ export default function PortfolioPage() {
       await load();
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "No se pudo actualizar el precio");
+    }
+  }
+
+  async function handleContributionSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!contributionModal) {
+      return;
+    }
+    setError(null);
+    try {
+      await apiRequest(`/portfolio/holdings/${contributionModal.id}/contribution`, {
+        method: "POST",
+        body: JSON.stringify({
+          amount: contributionModal.amount,
+          price: contributionModal.price,
+          date: contributionModal.date,
+        }),
+      });
+      toast("Aportación añadida", "success");
+      setContributionModal(null);
+      await load();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "No se pudo añadir la aportación");
     }
   }
 
@@ -456,6 +487,66 @@ export default function PortfolioPage() {
         </form>
       </Modal>
 
+      <Modal
+        open={contributionModal !== null}
+        onClose={() => setContributionModal(null)}
+        title="Añadir aportación"
+        description={
+          contributionModal
+            ? `Suma una compra a ${contributionModal.name}: se recalculan las participaciones y el coste medio.`
+            : ""
+        }
+      >
+        <form className="space-y-4" onSubmit={handleContributionSubmit}>
+          <input
+            required
+            autoFocus
+            aria-label="Importe aportado"
+            inputMode="decimal"
+            value={contributionModal?.amount ?? ""}
+            onChange={(event) =>
+              setContributionModal((current) =>
+                current ? { ...current, amount: event.target.value } : current,
+              )
+            }
+            placeholder={`Importe aportado (${contributionModal?.currency ?? "EUR"})`}
+            className={inputClasses}
+          />
+          <input
+            required
+            aria-label="Precio por participación"
+            inputMode="decimal"
+            value={contributionModal?.price ?? ""}
+            onChange={(event) =>
+              setContributionModal((current) =>
+                current ? { ...current, price: event.target.value } : current,
+              )
+            }
+            placeholder="Precio por participación"
+            className={inputClasses}
+          />
+          <input
+            required
+            aria-label="Fecha de la aportación"
+            type="date"
+            value={contributionModal?.date ?? ""}
+            onChange={(event) =>
+              setContributionModal((current) =>
+                current ? { ...current, date: event.target.value } : current,
+              )
+            }
+            className={inputClasses}
+          />
+          {error ? <p className="text-sm text-[var(--app-danger)]">{error}</p> : null}
+          <button
+            type="submit"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:brightness-110"
+          >
+            Añadir aportación
+          </button>
+        </form>
+      </Modal>
+
       <ConfirmDialog
         open={confirmDelete !== null}
         title="Eliminar inversión"
@@ -492,6 +583,16 @@ export default function PortfolioPage() {
                     id: holding.id,
                     name: holding.asset_name,
                     value: holding.current_price ? String(holding.current_price) : "",
+                  })
+                }
+                onAddContribution={() =>
+                  setContributionModal({
+                    id: holding.id,
+                    name: holding.asset_name,
+                    currency: holding.currency,
+                    amount: "",
+                    price: holding.current_price ? String(holding.current_price) : "",
+                    date: new Date().toISOString().slice(0, 10),
                   })
                 }
                 onDelete={() => setConfirmDelete({ id: holding.id, name: holding.asset_name })}
@@ -556,6 +657,7 @@ function HoldingRow({
   currency,
   onEdit,
   onUpdatePrice,
+  onAddContribution,
   onDelete,
 }: {
   holding: PortfolioHolding;
@@ -563,6 +665,7 @@ function HoldingRow({
   currency: string;
   onEdit: () => void;
   onUpdatePrice: () => void;
+  onAddContribution: () => void;
   onDelete: () => void;
 }) {
   const pnl = holding.unrealized_pnl !== null ? Number(holding.unrealized_pnl) : null;
@@ -617,6 +720,7 @@ function HoldingRow({
             label={holding.asset_name}
             onEdit={onEdit}
             onUpdatePrice={onUpdatePrice}
+            onAddContribution={onAddContribution}
             onDelete={onDelete}
           />
         </div>
@@ -641,11 +745,13 @@ function HoldingActionsMenu({
   label,
   onEdit,
   onUpdatePrice,
+  onAddContribution,
   onDelete,
 }: {
   label: string;
   onEdit: () => void;
   onUpdatePrice: () => void;
+  onAddContribution: () => void;
   onDelete: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -717,6 +823,9 @@ function HoldingActionsMenu({
           className="animate-slideDown fixed z-[200] min-w-48 rounded-xl border border-[var(--app-border)] bg-[var(--app-glass)] p-1 shadow-[var(--app-shadow-elevated)] backdrop-blur-xl"
           style={{ top: menuPos.top, right: menuPos.right }}
         >
+          <button type="button" onClick={() => runAndClose(onAddContribution)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-all hover:bg-[var(--app-muted-surface)]">
+            <Plus className="h-4 w-4" /> Añadir aportación
+          </button>
           <button type="button" onClick={() => runAndClose(onUpdatePrice)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-all hover:bg-[var(--app-muted-surface)]">
             <RefreshCw className="h-4 w-4" /> Actualizar precio
           </button>
