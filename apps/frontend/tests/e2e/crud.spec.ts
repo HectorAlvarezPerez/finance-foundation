@@ -44,7 +44,7 @@ async function deleteEntityByName(
 }
 
 test.describe("CRUD principal", () => {
-  test("permite crear, editar y limpiar cuentas, categorías, presupuestos y transacciones", async ({ page }) => {
+  test("should create, edit and clean up accounts, categories, budgets and transactions when using the main CRUD flow", async ({ page }) => {
     const suffix = Date.now().toString();
     const accountName = `Cuenta PW ${suffix}`;
     const accountNameUpdated = `Cuenta PW Edit ${suffix}`;
@@ -92,9 +92,9 @@ test.describe("CRUD principal", () => {
     await page.getByLabel("Divisa del presupuesto").fill("EUR");
     await page.getByLabel("Importe del presupuesto").fill("180");
     await page.getByRole("button", { name: "Crear presupuesto" }).click();
-    await expect(page.getByText(categoryNameUpdated, { exact: true }).first()).toBeVisible();
-
+    // The category filter also lists the name as a hidden <option>, so assert on the budget card itself.
     const budgetActionLabel = new RegExp(`Acciones de presupuesto ${categoryNameUpdated}`);
+    await expect(page.getByLabel(budgetActionLabel).first()).toBeVisible();
     await page.getByLabel(budgetActionLabel).first().click();
     await page.locator("div.animate-slideDown").last().getByRole("button", { name: "Editar" }).click();
     await page.getByLabel("Importe del presupuesto").fill("220");
