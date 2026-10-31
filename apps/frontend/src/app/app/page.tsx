@@ -287,7 +287,6 @@ export default function DashboardPage() {
                       href={action.href}
                       style={{
                         borderLeftColor: action.borderVar,
-                        // @ts-expect-error CSS custom property
                         "--action-accent": action.accentVar,
                         "--action-bg": action.bgVar,
                       }}
