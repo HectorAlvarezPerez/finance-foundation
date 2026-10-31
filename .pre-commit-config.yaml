@@ -1,0 +1,32 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      - id: check-json
+      - id: check-yaml
+
+  - repo: local
+    hooks:
+      - id: backend-ruff-check
+        name: backend ruff check
+        entry: bash -lc 'cd apps/backend && uv run ruff check .'
+        language: system
+        pass_filenames: false
+        files: ^apps/backend/.*\.py$
+
+      - id: backend-ruff-format
+        name: backend ruff format
+        entry: bash -lc 'cd apps/backend && uv run ruff format --check .'
+        language: system
+        pass_filenames: false
+        files: ^apps/backend/.*\.py$
+
+      - id: frontend-eslint
+        name: frontend eslint
+        entry: bash -lc 'npm run lint:frontend'
+        language: system
+        pass_filenames: false
+        files: ^apps/frontend/.*\.(js|jsx|ts|tsx)$
