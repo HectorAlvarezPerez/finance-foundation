@@ -81,6 +81,7 @@ def providers(
 ) -> AuthProvidersRead:
     availability = service.get_provider_availability()
     availability["google_enabled"] = settings.google_oauth_enabled
+    availability["registration_enabled"] = settings.allow_registration
     return AuthProvidersRead.model_validate(availability)
 
 

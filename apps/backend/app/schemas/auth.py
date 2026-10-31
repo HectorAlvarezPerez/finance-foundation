@@ -29,3 +29,4 @@ class AuthProvidersRead(BaseModel):
     local_password_enabled: bool
     entra_external_id_enabled: bool
     google_enabled: bool
+    registration_enabled: bool = True

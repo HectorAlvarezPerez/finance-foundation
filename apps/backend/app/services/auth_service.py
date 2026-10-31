@@ -22,7 +22,16 @@ class AuthService:
         self.credential_repository = credential_repository
         self.db = db
 
+    @staticmethod
+    def _ensure_registration_allowed() -> None:
+        if not settings.allow_registration:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Registration is disabled",
+            )
+
     def register(self, *, payload: AuthRegisterRequest, response: Response) -> User:
+        self._ensure_registration_allowed()
         existing_user = self.user_repository.get_by_email(email=payload.email)
         if existing_user is not None:
             raise HTTPException(
@@ -93,6 +102,7 @@ class AuthService:
             user = self.user_repository.get_by_email(email=email)
 
         if user is None:
+            self._ensure_registration_allowed()
             user = self.user_repository.create(
                 email=email,
                 name=name,

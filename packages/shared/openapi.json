@@ -322,6 +322,11 @@
           "local_password_enabled": {
             "title": "Local Password Enabled",
             "type": "boolean"
+          },
+          "registration_enabled": {
+            "default": true,
+            "title": "Registration Enabled",
+            "type": "boolean"
           }
         },
         "required": [

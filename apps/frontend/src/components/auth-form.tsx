@@ -27,9 +27,11 @@ export function AuthForm({ mode }: { mode: Mode }) {
     local_password_enabled: true,
     entra_external_id_enabled: false,
     google_enabled: false,
+    registration_enabled: true,
   });
 
   const isLogin = mode === "login";
+  const registrationClosed = !providers.registration_enabled;
 
   useEffect(() => {
     let isMounted = true;
@@ -46,6 +48,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
             local_password_enabled: true,
             entra_external_id_enabled: false,
             google_enabled: false,
+            registration_enabled: true,
           });
         }
       }
@@ -121,7 +124,7 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   <button
                     type="button"
                     onClick={() => handleExternalLogin("/auth/entra/start")}
-                    disabled={isSubmitting || status === "loading"}
+                    disabled={isSubmitting || status === "loading" || (!isLogin && registrationClosed)}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-panel)] px-4 py-2.5 text-sm font-medium transition-all hover:bg-[var(--app-muted-surface)] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <LockKeyhole className="h-4 w-4 text-[var(--app-accent)]" />
@@ -150,6 +153,12 @@ export function AuthForm({ mode }: { mode: Mode }) {
                   </div>
                 </div>
               </div>
+            ) : null}
+
+            {!isLogin && registrationClosed ? (
+              <p role="alert" className="text-sm text-[var(--app-muted)]">
+                El registro de nuevas cuentas está desactivado en esta instancia.
+              </p>
             ) : null}
 
             {mode === "register" ? (
@@ -225,7 +234,9 @@ export function AuthForm({ mode }: { mode: Mode }) {
               {isSubmitting ? "Enviando..." : isLogin ? "Entrar" : "Crear cuenta"}
             </button>
 
-            <p className="text-center text-sm text-[var(--app-muted)]">
+            <p
+              className={`text-center text-sm text-[var(--app-muted)] ${isLogin && registrationClosed ? "hidden" : ""}`}
+            >
               {isLogin ? "¿No tienes cuenta?" : "¿Ya tienes cuenta?"}{" "}
               <Link
                 href={isLogin ? "/register" : "/login"}

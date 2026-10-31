@@ -1,7 +1,15 @@
+import pytest
+from fastapi import HTTPException
+
 from app.core.config import settings
+from app.db.session import get_db
+from app.main import app
+from app.repositories.user_credential_repository import UserCredentialRepository
+from app.repositories.user_repository import UserRepository
+from app.services.auth_service import AuthService
 
 
-def test_auth_providers_default_to_local_password(client) -> None:
+def test_should_report_local_password_only_when_no_other_provider_is_configured(client) -> None:
     original_auth_mode = settings.auth_mode
     original_google_client_id = settings.google_oauth_client_id
     original_google_client_secret = settings.google_oauth_client_secret
@@ -37,6 +45,7 @@ def test_auth_providers_default_to_local_password(client) -> None:
         "local_password_enabled": True,
         "entra_external_id_enabled": False,
         "google_enabled": False,
+        "registration_enabled": True,
     }
 
 
@@ -187,3 +196,77 @@ def test_delete_current_account_removes_session_and_user(client) -> None:
         },
     )
     assert login.status_code == 401
+
+
+def test_should_reject_register_when_registration_is_disabled(client) -> None:
+    original = settings.allow_registration
+    settings.allow_registration = False
+    try:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "blocked@example.com",
+                "name": "Blocked User",
+                "password": "supersecret123",
+            },
+        )
+        providers = client.get("/api/v1/auth/providers")
+    finally:
+        settings.allow_registration = original
+
+    assert response.status_code == 403
+    assert "set-cookie" not in response.headers
+    assert providers.json()["registration_enabled"] is False
+
+
+def test_should_allow_existing_user_to_login_when_registration_is_disabled(client) -> None:
+    register = client.post(
+        "/api/v1/auth/register",
+        json={
+            "email": "existing@example.com",
+            "name": "Existing User",
+            "password": "supersecret123",
+        },
+    )
+    assert register.status_code == 201
+    client.post("/api/v1/auth/logout")
+
+    original = settings.allow_registration
+    settings.allow_registration = False
+    try:
+        login = client.post(
+            "/api/v1/auth/login",
+            json={"email": "existing@example.com", "password": "supersecret123"},
+        )
+    finally:
+        settings.allow_registration = original
+
+    assert login.status_code == 200
+
+
+def test_should_only_create_external_users_when_registration_is_allowed(client) -> None:
+    db = next(app.dependency_overrides[get_db]())
+    service = AuthService(UserRepository(db), UserCredentialRepository(db), db)
+    original = settings.allow_registration
+    try:
+        settings.allow_registration = False
+        with pytest.raises(HTTPException) as blocked:
+            service.upsert_external_user(
+                auth_provider_user_id="google-1", email="oauth@example.com", name="OAuth User"
+            )
+        assert blocked.value.status_code == 403
+
+        settings.allow_registration = True
+        created_id = service.upsert_external_user(
+            auth_provider_user_id="google-1", email="oauth@example.com", name="OAuth User"
+        ).id
+
+        settings.allow_registration = False
+        again_id = service.upsert_external_user(
+            auth_provider_user_id="google-1", email="oauth@example.com", name="OAuth User"
+        ).id
+    finally:
+        settings.allow_registration = original
+        db.close()
+
+    assert again_id == created_id

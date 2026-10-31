@@ -842,6 +842,11 @@ export interface components {
             google_enabled: boolean;
             /** Local Password Enabled */
             local_password_enabled: boolean;
+            /**
+             * Registration Enabled
+             * @default true
+             */
+            registration_enabled: boolean;
         };
         /** AuthRegisterRequest */
         AuthRegisterRequest: {
